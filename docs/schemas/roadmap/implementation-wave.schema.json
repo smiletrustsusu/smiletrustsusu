@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/roadmap/implementation-wave.schema.json",
+  "title": "EirImplementationWave",
+  "description": "Enterprise Implementation Roadmap delivery wave (WAVE-01..WAVE-10). Maps MIB backlog items; does not redefine Phases 1–20 or replace Modules 1–30 engines. additionalProperties false.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "waveNumber",
+    "name",
+    "code",
+    "objectives",
+    "deliverables",
+    "scope",
+    "dependencies",
+    "risks",
+    "requiredSkills",
+    "estimatedDurationWeeks",
+    "waveStatus",
+    "entryCriteria",
+    "exitCriteria",
+    "acceptanceCriteria",
+    "qualityGates",
+    "testRequirements",
+    "releaseMilestones",
+    "requiredDocumentation",
+    "buildSequence",
+    "mibWaves",
+    "moneyInvariantNote"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^WAVE-(0[1-9]|10)$"
+    },
+    "waveNumber": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "code": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]{2,63}$"
+    },
+    "objectives": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "deliverables": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "scope": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "outOfScope": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "dependencies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prerequisiteWaves"],
+      "properties": {
+        "prerequisiteWaves": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^WAVE-(0[1-9]|10)$" }
+        },
+        "blockingWaves": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^WAVE-(0[1-9]|10)$" }
+        },
+        "relatedPhases": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1, "maximum": 20 }
+        },
+        "relatedModules": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1, "maximum": 30 }
+        },
+        "relatedApis": { "type": "array", "items": { "type": "string" } },
+        "relatedDb": { "type": "array", "items": { "type": "string" } },
+        "relatedUi": { "type": "array", "items": { "type": "string" } },
+        "relatedTests": { "type": "array", "items": { "type": "string" } },
+        "relatedPipelines": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "level", "title", "mitigation"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^EIR-R-[0-9]{3}$" },
+          "level": { "type": "string", "enum": ["Critical", "High", "Medium", "Low"] },
+          "title": { "type": "string", "minLength": 1 },
+          "mitigation": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "requiredSkills": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "estimatedDurationWeeks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max"],
+      "properties": {
+        "min": { "type": "number", "minimum": 0 },
+        "max": { "type": "number", "minimum": 0 }
+      }
+    },
+    "estimatedEffortPersonWeeks": {
+      "type": "number",
+      "minimum": 0
+    },
+    "waveStatus": {
+      "type": "string",
+      "enum": ["Mostly Complete", "In Progress", "Planned"]
+    },
+    "entryCriteria": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "exitCriteria": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "acceptanceCriteria": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "qualityGates": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "testRequirements": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "releaseMilestones": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "requiredDocumentation": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "buildSequence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["buildBefore", "buildAfter", "blockingDependencies", "criticalPath"],
+      "properties": {
+        "buildBefore": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "buildAfter": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "blockingDependencies": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "parallelOpportunities": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "criticalPath": { "type": "boolean" }
+      }
+    },
+    "mibWaves": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 1, "maximum": 20 },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "mibWaveCodes": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "backlogItemIds": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "primaryModules": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 1, "maximum": 30 }
+    },
+    "primaryPhases": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 1, "maximum": 20 }
+    },
+    "resourceProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "developers": { "type": "integer", "minimum": 0 },
+        "qa": { "type": "integer", "minimum": 0 },
+        "dba": { "type": "integer", "minimum": 0 },
+        "devops": { "type": "integer", "minimum": 0 },
+        "uiux": { "type": "integer", "minimum": 0 },
+        "security": { "type": "integer", "minimum": 0 },
+        "productOwner": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "moneyInvariantNote": {
+      "type": "string",
+      "minLength": 1
+    },
+    "notes": {
+      "type": ["string", "null"]
+    }
+  }
+}

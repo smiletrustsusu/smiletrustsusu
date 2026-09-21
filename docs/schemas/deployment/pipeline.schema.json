@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/deployment/pipeline.schema.json",
+  "title": "EddiesPipelineEntry",
+  "description": "Phase 14 EDDIES pipeline catalog entry.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "id",
+    "code",
+    "name",
+    "kind",
+    "accountableAuthority",
+    "metadata"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^PIPE-[0-9]{3}$"
+    },
+    "code": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]{2,63}$"
+    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "kind": {
+      "type": "string",
+      "enum": ["test", "prepare_web", "build_apk", "build_exe", "migrate", "promote", "verify"]
+    },
+    "command": { "type": "string", "maxLength": 500 },
+    "produces": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^ART-[0-9]{3}$" },
+      "uniqueItems": true
+    },
+    "accountableAuthority": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "module30Governance": { "type": "boolean" },
+    "metadata": {
+      "$ref": "https://schemas.smiletrust.com/common/metadata.schema.json"
+    }
+  }
+}

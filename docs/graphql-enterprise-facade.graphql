@@ -1,0 +1,106 @@
+# SMILE TRUST SUSU — Enterprise GraphQL Facade (ECACIS)
+# ---------------------------------------------------------------------------
+# DISCLAIMER: This schema is a DOCUMENTATION FACADE only.
+# It is NOT a live GraphQL HTTP server.
+# Runtime queries execute in-process via invokeContract(contractId, ...).
+# Module 20 remains an in-process gateway. OpenAPI/GraphQL paths are aliases.
+# ---------------------------------------------------------------------------
+
+"""JSON scalar placeholder for facade documentation."""
+scalar JSON
+
+"""Root query facade over selected CONTRACT_CATALOG query contracts."""
+type Query {
+  """Facade field for User.GetProfile.v1 (action: System.View). NOT a live GraphQL HTTP server."""
+  User_GetProfile_v1: JSON
+  """Facade field for User.GetPermissions.v1 (action: System.View). NOT a live GraphQL HTTP server."""
+  User_GetPermissions_v1: JSON
+  """Facade field for Session.Validate.v1 (action: System.View). NOT a live GraphQL HTTP server."""
+  Session_Validate_v1: JSON
+  """Facade field for Dashboard.GetSummary.v1 (action: Reports.View). NOT a live GraphQL HTTP server."""
+  Dashboard_GetSummary_v1: JSON
+  """Facade field for Dashboard.GetKPIs.v1 (action: Reports.View). NOT a live GraphQL HTTP server."""
+  Dashboard_GetKPIs_v1: JSON
+  """Facade field for Dashboard.GetNotifications.v1 (action: Reports.View). NOT a live GraphQL HTTP server."""
+  Dashboard_GetNotifications_v1: JSON
+  """Facade field for Dashboard.GetWidgets.v1 (action: Reports.View). NOT a live GraphQL HTTP server."""
+  Dashboard_GetWidgets_v1: JSON
+  """Facade field for Customer.Get.v1 (action: Customer.View). NOT a live GraphQL HTTP server."""
+  Customer_Get_v1: JSON
+  """Facade field for Customer.Search.v1 (action: Customer.View). NOT a live GraphQL HTTP server."""
+  Customer_Search_v1: JSON
+  """Facade field for Customer.List.v1 (action: Customer.View). NOT a live GraphQL HTTP server."""
+  Customer_List_v1: JSON
+  """Facade field for Customer.History.v1 (action: Customer.View). NOT a live GraphQL HTTP server."""
+  Customer_History_v1: JSON
+  """Facade field for Agent.Get.v1 (action: Customer.View). NOT a live GraphQL HTTP server."""
+  Agent_Get_v1: JSON
+  """Facade field for Agent.List.v1 (action: Customer.View). NOT a live GraphQL HTTP server."""
+  Agent_List_v1: JSON
+  """Facade field for Agent.Performance.v1 (action: Customer.View). NOT a live GraphQL HTTP server."""
+  Agent_Performance_v1: JSON
+  """Facade field for Branch.Get.v1 (action: System.View). NOT a live GraphQL HTTP server."""
+  Branch_Get_v1: JSON
+  """Facade field for Branch.List.v1 (action: System.View). NOT a live GraphQL HTTP server."""
+  Branch_List_v1: JSON
+  """Facade field for Savings.Balance.v1 (action: Customer.View). NOT a live GraphQL HTTP server."""
+  Savings_Balance_v1: JSON
+  """Facade field for Savings.Statement.v1 (action: Customer.View). NOT a live GraphQL HTTP server."""
+  Savings_Statement_v1: JSON
+  """Facade field for Savings.TransactionHistory.v1 (action: Customer.View). NOT a live GraphQL HTTP server."""
+  Savings_TransactionHistory_v1: JSON
+  """Facade field for Group.Get.v1 (action: Group.View). NOT a live GraphQL HTTP server."""
+  Group_Get_v1: JSON
+  """Facade field for Group.Members.v1 (action: Group.View). NOT a live GraphQL HTTP server."""
+  Group_Members_v1: JSON
+  """Facade field for Group.Statement.v1 (action: Group.View). NOT a live GraphQL HTTP server."""
+  Group_Statement_v1: JSON
+  """Facade field for Loan.Get.v1 (action: Customer.View). NOT a live GraphQL HTTP server."""
+  Loan_Get_v1: JSON
+  """Facade field for Loan.Schedule.v1 (action: Customer.View). NOT a live GraphQL HTTP server."""
+  Loan_Schedule_v1: JSON
+  """Facade field for Loan.Statement.v1 (action: Customer.View). NOT a live GraphQL HTTP server."""
+  Loan_Statement_v1: JSON
+  """Facade field for Withdrawal.Get.v1 (action: Customer.View). NOT a live GraphQL HTTP server."""
+  Withdrawal_Get_v1: JSON
+  """Facade field for Withdrawal.History.v1 (action: Customer.View). NOT a live GraphQL HTTP server."""
+  Withdrawal_History_v1: JSON
+  """Facade field for Ledger.Balance.v1 (action: Accounting.View). NOT a live GraphQL HTTP server."""
+  Ledger_Balance_v1: JSON
+  """Facade field for TrialBalance.Generate.v1 (action: Accounting.View). NOT a live GraphQL HTTP server."""
+  TrialBalance_Generate_v1: JSON
+  """Facade field for FinancialStatements.Generate.v1 (action: Accounting.View). NOT a live GraphQL HTTP server."""
+  FinancialStatements_Generate_v1: JSON
+  """Facade field for Report.Get.v1 (action: Reports.View). NOT a live GraphQL HTTP server."""
+  Report_Get_v1: JSON
+  """Facade field for Analytics.Dashboard.v1 (action: Reports.View). NOT a live GraphQL HTTP server."""
+  Analytics_Dashboard_v1: JSON
+  """Facade field for Notification.Status.v1 (action: Notification.View). NOT a live GraphQL HTTP server."""
+  Notification_Status_v1: JSON
+  """Facade field for Notification.History.v1 (action: Notification.View). NOT a live GraphQL HTTP server."""
+  Notification_History_v1: JSON
+  """Facade field for Audit.Search.v1 (action: Audit.View). NOT a live GraphQL HTTP server."""
+  Audit_Search_v1: JSON
+  """Facade field for Audit.Export.v1 (action: Audit.View). NOT a live GraphQL HTTP server."""
+  Audit_Export_v1: JSON
+  """Facade field for Configuration.Get.v1 (action: System.View). NOT a live GraphQL HTTP server."""
+  Configuration_Get_v1: JSON
+  """Facade field for FeatureFlags.List.v1 (action: System.View). NOT a live GraphQL HTTP server."""
+  FeatureFlags_List_v1: JSON
+  """Facade field for Sync.Status.v1 (action: Sync.View). NOT a live GraphQL HTTP server."""
+  Sync_Status_v1: JSON
+  """Facade field for Sync.Pending.v1 (action: Sync.View). NOT a live GraphQL HTTP server."""
+  Sync_Pending_v1: JSON
+
+  """Facade: resolve arbitrary contract id via invokeContract (documentation only)."""
+  invokeContract(contractId: String!): JSON
+
+  """Facade: gateway whoami alias — NOT networked."""
+  gateway_whoami: JSON
+}
+
+"""Root mutation facade — commands remain invokeContract; NOT a live HTTP server."""
+type Mutation {
+  """Facade command invocation alias."""
+  invokeCommand(contractId: String!, input: JSON): JSON
+}

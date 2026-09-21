@@ -1,0 +1,486 @@
+{
+  "tableCount": 350,
+  "migrationCount": 43,
+  "indexCount": 132,
+  "fkCount": 138,
+  "entityMapped": 80,
+  "migrations": [
+    "001_financial_core.sql",
+    "002_susu_groups_pesewas.sql",
+    "003_rls_rpc_production.sql",
+    "004_savings_products.sql",
+    "005_production_auth_rls.sql",
+    "006_web_admin_compat.sql",
+    "007_agency_platform.sql",
+    "008_customer_crm.sql",
+    "009_agent_ops.sql",
+    "010_branch_ops.sql",
+    "011_collection_ops.sql",
+    "012_group_ops.sql",
+    "013_loan_status.sql",
+    "014_withdrawal_ops.sql",
+    "015_accounting_ops.sql",
+    "016_report_ops.sql",
+    "017_notification_ops.sql",
+    "018_notification_thresholds.sql",
+    "019_canonical_schema.sql",
+    "020_audit_ops.sql",
+    "021_idempotency.sql",
+    "022_system_config.sql",
+    "023_offline_sync.sql",
+    "024_identifier_standard.sql",
+    "025_payments.sql",
+    "026_payment_lifecycle.sql",
+    "027_documents.sql",
+    "028_jobs.sql",
+    "029_monitoring.sql",
+    "030_monitoring_policy.sql",
+    "031_api_gateway.sql",
+    "032_backup_recovery.sql",
+    "033_security_contracts.sql",
+    "034_api_schema.sql",
+    "035_workflow_engine.sql",
+    "036_workflow_contracts.sql",
+    "037_rule_engine.sql",
+    "038_data_exchange.sql",
+    "039_digital_records.sql",
+    "040_enterprise_bi.sql",
+    "041_enterprise_integration.sql",
+    "042_enterprise_ai.sql",
+    "043_platform_admin.sql"
+  ],
+  "sampleTables": [
+    "account_closures",
+    "accounting_periods",
+    "agent_attendance",
+    "agent_documents",
+    "agent_leave",
+    "agent_routes",
+    "agent_wallet_entries",
+    "aggregate_locks",
+    "aggregate_versions",
+    "ai_human_feedback",
+    "ai_models",
+    "ai_permission_grants",
+    "alert_escalation_profiles",
+    "alert_history",
+    "alert_rule_versions",
+    "alert_rules",
+    "alert_suppression_rules",
+    "alerts",
+    "analytics_snapshots",
+    "android_devices",
+    "announcements",
+    "anomaly_events",
+    "api_audit_logs",
+    "api_clients",
+    "api_keys",
+    "api_rate_limits",
+    "api_requests",
+    "api_responses",
+    "api_schema_versions",
+    "api_tokens"
+  ],
+  "entityMappedTables": [
+    {
+      "name": "accounting_periods",
+      "entityId": "ENT-FIN-004",
+      "module": 10
+    },
+    {
+      "name": "agent_attendance",
+      "entityId": "ENT-ORG-003",
+      "module": 4
+    },
+    {
+      "name": "agent_leave",
+      "entityId": "ENT-ORG-003",
+      "module": 4
+    },
+    {
+      "name": "agent_routes",
+      "entityId": "ENT-ORG-003",
+      "module": 4
+    },
+    {
+      "name": "ai_models",
+      "entityId": "ENT-AI-001",
+      "module": 29
+    },
+    {
+      "name": "alerts",
+      "entityId": "ENT-MON-001",
+      "module": 19
+    },
+    {
+      "name": "api_clients",
+      "entityId": "ENT-GWY-001",
+      "module": 20
+    },
+    {
+      "name": "api_keys",
+      "entityId": "ENT-GWY-002",
+      "module": 20
+    },
+    {
+      "name": "app_users",
+      "entityId": "ENT-IDN-001",
+      "module": 1
+    },
+    {
+      "name": "audit_activity_logs",
+      "entityId": "ENT-AUD-001",
+      "module": 13
+    },
+    {
+      "name": "audit_log",
+      "entityId": "ENT-AUD-001",
+      "module": 1
+    },
+    {
+      "name": "backup_sets",
+      "entityId": "ENT-BKP-001",
+      "module": 21
+    },
+    {
+      "name": "beneficiaries",
+      "entityId": "ENT-CUS-002",
+      "module": 1
+    },
+    {
+      "name": "branches",
+      "entityId": "ENT-ORG-002",
+      "module": 1
+    },
+    {
+      "name": "business_cases",
+      "entityId": "ENT-WFK-004",
+      "module": 23
+    },
+    {
+      "name": "businesses",
+      "entityId": "ENT-ORG-001",
+      "module": 1
+    },
+    {
+      "name": "chart_of_accounts",
+      "entityId": "ENT-FIN-001",
+      "module": 1
+    },
+    {
+      "name": "collection_adjustments",
+      "entityId": "ENT-SAV-004",
+      "module": 6
+    },
+    {
+      "name": "collections",
+      "entityId": "ENT-SAV-003",
+      "module": 1
+    },
+    {
+      "name": "customers",
+      "entityId": "ENT-CUS-001",
+      "module": 1
+    },
+    {
+      "name": "dataset_registry",
+      "entityId": "ENT-AI-002",
+      "module": 29
+    },
+    {
+      "name": "decision_tables",
+      "entityId": "ENT-RUL-001",
+      "module": 24
+    },
+    {
+      "name": "deployment_history",
+      "entityId": "ENT-PLT-006",
+      "module": 30
+    },
+    {
+      "name": "devices",
+      "entityId": "ENT-IDN-003",
+      "module": 1
+    },
+    {
+      "name": "document_metadata",
+      "entityId": "ENT-DOC-001",
+      "module": 17
+    },
+    {
+      "name": "documents",
+      "entityId": "ENT-DOC-001",
+      "module": 17
+    },
+    {
+      "name": "ecm_document_metadata",
+      "entityId": "ENT-DOC-002",
+      "module": 26
+    },
+    {
+      "name": "ecm_documents",
+      "entityId": "ENT-DOC-002",
+      "module": 26
+    },
+    {
+      "name": "environment_registry",
+      "entityId": "ENT-PLT-003",
+      "module": 30
+    },
+    {
+      "name": "export_jobs",
+      "entityId": "ENT-XCH-001",
+      "module": 25
+    },
+    {
+      "name": "feature_flag_rules",
+      "entityId": "ENT-PLT-004",
+      "module": 30
+    },
+    {
+      "name": "fraud_alerts",
+      "entityId": "ENT-AI-004",
+      "module": 29
+    },
+    {
+      "name": "fraud_cases",
+      "entityId": "ENT-SEC-002",
+      "module": 22
+    },
+    {
+      "name": "group_meetings",
+      "entityId": "ENT-GRP-003",
+      "module": 1
+    },
+    {
+      "name": "idempotency_keys",
+      "entityId": "ENT-SYN-002",
+      "module": 1
+    },
+    {
+      "name": "import_jobs",
+      "entityId": "ENT-XCH-001",
+      "module": 25
+    },
+    {
+      "name": "incidents",
+      "entityId": "ENT-MON-002",
+      "module": 19
+    },
+    {
+      "name": "job_definitions",
+      "entityId": "ENT-JOB-001",
+      "module": 18
+    },
+    {
+      "name": "job_queue",
+      "entityId": "ENT-JOB-002",
+      "module": 18
+    },
+    {
+      "name": "journal_entries",
+      "entityId": "ENT-FIN-002",
+      "module": 1
+    },
+    {
+      "name": "journal_lines",
+      "entityId": "ENT-FIN-002",
+      "module": 1
+    },
+    {
+      "name": "kpi_definitions",
+      "entityId": "ENT-BI-002",
+      "module": 11
+    },
+    {
+      "name": "ledger_entries",
+      "entityId": "ENT-FIN-003",
+      "module": 1
+    },
+    {
+      "name": "licenses",
+      "entityId": "ENT-PLT-002",
+      "module": 30
+    },
+    {
+      "name": "loan_disbursements",
+      "entityId": "ENT-LON-001",
+      "module": 1
+    },
+    {
+      "name": "loan_repayments",
+      "entityId": "ENT-LON-002",
+      "module": 1
+    },
+    {
+      "name": "loans",
+      "entityId": "ENT-LON-001",
+      "module": 1
+    },
+    {
+      "name": "maintenance_windows",
+      "entityId": "ENT-PLT-005",
+      "module": 30
+    },
+    {
+      "name": "message_queues",
+      "entityId": "ENT-INT-003",
+      "module": 28
+    },
+    {
+      "name": "metric_definitions",
+      "entityId": "ENT-BI-001",
+      "module": 27
+    },
+    {
+      "name": "migration_jobs",
+      "entityId": "ENT-XCH-001",
+      "module": 25
+    },
+    {
+      "name": "model_registry",
+      "entityId": "ENT-AI-001",
+      "module": 29
+    },
+    {
+      "name": "notifications",
+      "entityId": "ENT-NTF-001",
+      "module": 1
+    },
+    {
+      "name": "payment_status_history",
+      "entityId": "ENT-PAY-001",
+      "module": 16
+    },
+    {
+      "name": "payment_transactions",
+      "entityId": "ENT-PAY-001",
+      "module": 16
+    },
+    {
+      "name": "permissions",
+      "entityId": "ENT-ORG-005",
+      "module": 1
+    },
+    {
+      "name": "personal_savings_accounts",
+      "entityId": "ENT-SAV-002",
+      "module": 6
+    },
+    {
+      "name": "prediction_requests",
+      "entityId": "ENT-AI-003",
+      "module": 29
+    },
+    {
+      "name": "prediction_results",
+      "entityId": "ENT-AI-003",
+      "module": 29
+    },
+    {
+      "name": "providers",
+      "entityId": "ENT-INT-001",
+      "module": 28
+    },
+    {
+      "name": "recommendation_history",
+      "entityId": "ENT-AI-005",
+      "module": 29
+    },
+    {
+      "name": "restore_operations",
+      "entityId": "ENT-BKP-001",
+      "module": 21
+    },
+    {
+      "name": "role_permissions",
+      "entityId": "ENT-ORG-005",
+      "module": 1
+    },
+    {
+      "name": "roles",
+      "entityId": "ENT-ORG-004",
+      "module": 1
+    },
+    {
+      "name": "rule_definitions",
+      "entityId": "ENT-RUL-001",
+      "module": 24
+    },
+    {
+      "name": "savings_accounts",
+      "entityId": "ENT-SAV-002",
+      "module": 1
+    },
+    {
+      "name": "savings_products",
+      "entityId": "ENT-SAV-001",
+      "module": 6
+    },
+    {
+      "name": "security_incidents",
+      "entityId": "ENT-SEC-001",
+      "module": 22
+    },
+    {
+      "name": "sessions",
+      "entityId": "ENT-IDN-002",
+      "module": 1
+    },
+    {
+      "name": "susu_group_members",
+      "entityId": "ENT-GRP-002",
+      "module": 7
+    },
+    {
+      "name": "susu_groups",
+      "entityId": "ENT-GRP-001",
+      "module": 7
+    },
+    {
+      "name": "sync_queue",
+      "entityId": "ENT-SYN-001",
+      "module": 1
+    },
+    {
+      "name": "system_settings",
+      "entityId": "ENT-CFG-001",
+      "module": 1
+    },
+    {
+      "name": "tenants",
+      "entityId": "ENT-PLT-001",
+      "module": 30
+    },
+    {
+      "name": "user_roles",
+      "entityId": "ENT-ORG-004",
+      "module": 1
+    },
+    {
+      "name": "webhooks",
+      "entityId": "ENT-INT-002",
+      "module": 28
+    },
+    {
+      "name": "withdrawal_requests",
+      "entityId": "ENT-WDL-001",
+      "module": 1
+    },
+    {
+      "name": "workflow_definitions",
+      "entityId": "ENT-WFK-001",
+      "module": 23
+    },
+    {
+      "name": "workflow_instances",
+      "entityId": "ENT-WFK-002",
+      "module": 23
+    },
+    {
+      "name": "workflow_tasks",
+      "entityId": "ENT-WFK-003",
+      "module": 23
+    }
+  ]
+}

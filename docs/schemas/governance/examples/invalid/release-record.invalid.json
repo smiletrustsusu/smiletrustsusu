@@ -1,0 +1,27 @@
+{
+  "_failureReasons": [
+    "releaseRecordId does not match REL-YYYYMMDD-N",
+    "releaseType not in enum",
+    "version not semver",
+    "certificationId invalid",
+    "governance missing auditAuthority",
+    "metadata.phase not 19",
+    "additional property pipelineRedefinition notAllowed"
+  ],
+  "schemaVersion": "1.0",
+  "releaseRecordId": "RELEASE-A",
+  "title": "",
+  "releaseType": "mega",
+  "lifecycleStage": "shipped",
+  "version": "2.5",
+  "certificationId": "CERT-999",
+  "governance": {
+    "accountableAuthority": "Release Manager"
+  },
+  "metadata": {
+    "createdAt": "soon",
+    "createdBy": "x",
+    "phase": 16
+  },
+  "pipelineRedefinition": true
+}

@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/governance/change-request.schema.json",
+  "title": "EgccrmsChangeRequest",
+  "description": "Phase 19 EGCCRMS change request document. Catalog/governance only; does not redefine Phase 8/14/16 or replace Module 30. additionalProperties false.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "changeRequestId",
+    "title",
+    "changeClass",
+    "domain",
+    "lifecycleStage",
+    "governance",
+    "metadata"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "changeRequestId": {
+      "$ref": "#/$defs/changeRequestId"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 4000
+    },
+    "changeTypeId": {
+      "type": "string",
+      "pattern": "^CHG-[0-9]{3}$"
+    },
+    "changeClass": {
+      "$ref": "#/$defs/changeClass"
+    },
+    "domain": {
+      "$ref": "#/$defs/changeDomain"
+    },
+    "lifecycleStage": {
+      "$ref": "#/$defs/changeLifecycleStage"
+    },
+    "affectedCiIds": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^CI-[0-9]{3}$" },
+      "uniqueItems": true
+    },
+    "relatedModules": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 1, "maximum": 30 },
+      "uniqueItems": true
+    },
+    "cabRequired": { "type": "boolean" },
+    "ecabRequired": { "type": "boolean" },
+    "pirRequired": { "type": "boolean" },
+    "exceptionId": {
+      "type": "string",
+      "pattern": "^EXC-[0-9]{3}$"
+    },
+    "approvals": {
+      "$ref": "#/$defs/approvals"
+    },
+    "rollbackPlan": {
+      "type": "string",
+      "maxLength": 4000
+    },
+    "moneyInvariantGuard": {
+      "type": "boolean"
+    },
+    "governance": {
+      "$ref": "#/$defs/governance"
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    }
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "changeRequestId": {
+      "type": "string",
+      "pattern": "^CR-[0-9]{4,}$"
+    },
+    "changeClass": {
+      "type": "string",
+      "enum": ["standard", "normal", "emergency"]
+    },
+    "changeDomain": {
+      "type": "string",
+      "enum": [
+        "infrastructure",
+        "application",
+        "database",
+        "configuration",
+        "security",
+        "ai_model",
+        "reporting"
+      ]
+    },
+    "changeLifecycleStage": {
+      "type": "string",
+      "enum": [
+        "initiation",
+        "assessment",
+        "authorization",
+        "planning",
+        "implementation",
+        "validation",
+        "closure",
+        "pir"
+      ]
+    },
+    "approvals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requiredRoleIds"],
+      "properties": {
+        "requiredRoleIds": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "obtainedRoleIds": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "decision": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected", "deferred"]
+        }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accountableAuthority", "responsibleParty", "auditAuthority"],
+      "properties": {
+        "accountableAuthority": { "type": "string", "minLength": 1 },
+        "responsibleParty": { "type": "string", "minLength": 1 },
+        "auditAuthority": { "type": "string", "minLength": 1 },
+        "roleId": { "type": "string", "pattern": "^ROLE-[A-Z0-9-]+$" },
+        "committeeId": { "type": "string", "pattern": "^COMM-[0-9]{3}$" }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["createdAt", "createdBy", "phase"],
+      "properties": {
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "minLength": 1 },
+        "phase": { "type": "integer", "const": 19 },
+        "correlationId": { "$ref": "#/$defs/uuid" },
+        "moneyInvariantsNote": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "phase14EmergencyAlign": { "type": "boolean" },
+        "phase16Bypass": {
+          "type": "string",
+          "enum": ["emergency_exception_approved"]
+        }
+      }
+    }
+  }
+}

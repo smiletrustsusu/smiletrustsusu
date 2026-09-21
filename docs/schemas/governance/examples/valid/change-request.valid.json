@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "1.0.0",
+  "changeRequestId": "CR-10019",
+  "title": "Emergency hotfix for collector sync stall",
+  "description": "ECAB-authorized application change; money path remains pesewas posting.",
+  "changeTypeId": "CHG-008",
+  "changeClass": "emergency",
+  "domain": "application",
+  "lifecycleStage": "authorization",
+  "affectedCiIds": ["CI-001", "CI-010"],
+  "relatedModules": [15, 30],
+  "cabRequired": false,
+  "ecabRequired": true,
+  "pirRequired": true,
+  "exceptionId": "EXC-001",
+  "approvals": {
+    "requiredRoleIds": ["ROLE-ECAB", "ROLE-CIO", "ROLE-RELEASE-MGR"],
+    "obtainedRoleIds": ["ROLE-ECAB", "ROLE-CIO"],
+    "decision": "pending"
+  },
+  "rollbackPlan": "Redeploy prior APK build from BL-APK-2026-09 via Phase 14 pipeline.",
+  "moneyInvariantGuard": true,
+  "governance": {
+    "accountableAuthority": "Emergency CAB Chair",
+    "responsibleParty": "Release Manager",
+    "auditAuthority": "Internal Auditor",
+    "roleId": "ROLE-ECAB",
+    "committeeId": "COMM-003"
+  },
+  "metadata": {
+    "createdAt": "2026-09-15T10:00:00.000Z",
+    "createdBy": "Change Manager",
+    "phase": 19,
+    "correlationId": "a1b2c3d4-e5f6-4789-a012-3456789abcde",
+    "moneyInvariantsNote": "pesewas; interest 15; collection days 31; cashier 1000",
+    "phase14EmergencyAlign": true,
+    "phase16Bypass": "emergency_exception_approved"
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "schemaVersion": "1.0.0",
+  "reportId": "a1b2c3d4-e5f6-4789-a012-3456789abcde",
+  "incidentId": "INC-20260914-001",
+  "recoveryTargetId": "REC-TARGET-RRT-001",
+  "kind": "Combined",
+  "environment": "production",
+  "service": {
+    "serviceId": "SVC-001",
+    "serviceCode": "SVC_DATABASE",
+    "serviceKey": "database",
+    "tier": "tier0_mission_critical",
+    "phase14TargetId": "RRT-001",
+    "recoveryPriority": 1
+  },
+  "measurement": {
+    "rpo": {
+      "measuredMinutes": 12,
+      "targetMinutes": 5,
+      "percentOverTarget": 140,
+      "passFail": "fail",
+      "withinTarget": false
+    },
+    "rto": {
+      "measuredMinutes": 200,
+      "targetMinutes": 240,
+      "percentOverTarget": 0,
+      "passFail": "pass",
+      "withinTarget": true
+    },
+    "clock": {
+      "timezone": "UTC",
+      "format": "ISO-8601"
+    }
+  },
+  "classification": {
+    "breached": true,
+    "severity": "Level4",
+    "overallCompliance": "breached",
+    "capaRequired": true,
+    "rootCauseCode": "BACKUP_STALE",
+    "rootCauseDetail": "Last verified backup age exceeded measurement RPO budget of 5 minutes (Phase 14 RRT-001 measurement target)."
+  },
+  "timeline": {
+    "detectedAt": "2026-09-14T10:00:00.000Z",
+    "declaredAt": "2026-09-14T10:05:00.000Z",
+    "restoredAt": "2026-09-14T12:30:00.000Z",
+    "stabilizedAt": "2026-09-14T13:00:00.000Z",
+    "reportedAt": "2026-09-14T13:15:00.000Z"
+  },
+  "governance": {
+    "accountableAuthority": "Data Platform Lead",
+    "auditAuthority": "Internal Auditor",
+    "communicationChannelIds": ["COM-001", "COM-002", "COM-004"],
+    "module21Engine": "backup-recovery-ops",
+    "module30Governance": "platform-ops",
+    "phase14PolicyRef": "RRT-001"
+  },
+  "correctiveActions": [
+    {
+      "id": "CAPA-20260914-001",
+      "title": "Tighten backup schedule and verify incremental lag",
+      "owner": "Backup Steward",
+      "status": "open",
+      "dueAt": "2026-09-21T17:00:00.000Z",
+      "severity": "Level4",
+      "description": "Increase incremental frequency; Module 21 verify job must pass before declaring RPO compliance restored."
+    }
+  ],
+  "evidence": [
+    {
+      "type": "backup_set",
+      "reference": "backup-set-20260914-0950",
+      "capturedAt": "2026-09-14T09:50:00.000Z",
+      "notes": "Oldest recoverable consistent point used for measured RPO."
+    },
+    {
+      "type": "restore_job",
+      "reference": "restore-job-20260914-1230",
+      "capturedAt": "2026-09-14T12:30:00.000Z"
+    },
+    {
+      "type": "health_check",
+      "reference": "HC soak window 30m production",
+      "capturedAt": "2026-09-14T13:00:00.000Z"
+    }
+  ],
+  "metadata": {
+    "schemaVersion": "1.0.0",
+    "createdAt": "2026-09-14T13:15:00.000Z",
+    "createdBy": "Data Platform Lead",
+    "lastModifiedAt": "2026-09-14T13:15:00.000Z",
+    "lastModifiedBy": "Data Platform Lead",
+    "correlationId": "CORR-BC-20260914-001",
+    "labels": {
+      "phase": "15",
+      "document": "EBCBDRS"
+    },
+    "tags": ["rpo", "breach", "database"],
+    "documentationUri": "https://schemas.smiletrust.com/business-continuity/rpo-rto-breach-report.schema.json"
+  }
+}

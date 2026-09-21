@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0.0",
+  "ciId": "CI-001",
+  "code": "CI_ANDROID_APK_COLLECTOR",
+  "name": "Collector Android APK",
+  "description": "Field collector APK baselined for production.",
+  "category": "android_apk",
+  "status": "baselined",
+  "version": "2.4.1",
+  "baselineId": "BL-APK-2026-09",
+  "relationships": ["CI-003", "CI-007", "CI-011"],
+  "relatedModules": [6, 15, 17],
+  "relatedPhases": [14, 16, 18],
+  "moneyInvariantGuard": true,
+  "governance": {
+    "accountableAuthority": "Release Manager",
+    "responsibleParty": "Configuration Manager",
+    "auditAuthority": "Internal Auditor",
+    "ownerRoleId": "ROLE-RELEASE-MGR"
+  },
+  "metadata": {
+    "createdAt": "2026-09-15T09:00:00.000Z",
+    "createdBy": "Configuration Manager",
+    "phase": 19,
+    "correlationId": "b2c3d4e5-f6a7-4890-b123-456789abcdef",
+    "moneyInvariantsNote": "pesewas; interest 15; collection days 31; cashier 1000"
+  }
+}

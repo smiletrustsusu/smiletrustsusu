@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-validate:
+    name: npm test + validate:rc
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prepare web (src → www)
+        run: npm run prepare:web
+
+      - name: Channel config smoke (Android + Electron signing)
+        run: npm run check:channels
+
+      - name: Unit / integration tests
+        run: npm test
+
+      - name: Wave 8 release validation (prepare:web + RC evidence)
+        run: npm run validate:rc
+
+      - name: Wave 9 pilot assess (cheap; does not fake human Approvals)
+        run: npm run validate:pilot
+
+      - name: Artifact hash checklist (partial OK — no invented binaries)
+        run: npm run hash:artifacts
+
+      # GAP-018 / TASK-000193 — forbid hand-edits to www/ without matching src/
+      - name: Check www/ SoT mirror
+        run: npm run check:www-sot

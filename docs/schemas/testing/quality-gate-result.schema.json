@@ -1,0 +1,259 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/testing/quality-gate-result.schema.json",
+  "title": "EtqavsQualityGateResult",
+  "description": "Phase 16 ETQAVS quality gate evaluation result. Consumes Phase 14 env promotion; does not redefine pipelines. additionalProperties false.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "resultId",
+    "gateId",
+    "fromEnv",
+    "toEnv",
+    "decision",
+    "thresholdResults",
+    "defects",
+    "approvals",
+    "governance",
+    "evidence",
+    "metadata"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "resultId": {
+      "$ref": "#/$defs/uuid"
+    },
+    "gateId": {
+      "$ref": "#/$defs/gateId"
+    },
+    "fromEnv": {
+      "$ref": "#/$defs/envCode"
+    },
+    "toEnv": {
+      "$ref": "#/$defs/envCode"
+    },
+    "decision": {
+      "type": "string",
+      "enum": ["pass", "fail", "exception_approved"]
+    },
+    "mandatoryTestsPassed": {
+      "type": "boolean"
+    },
+    "thresholdResults": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/thresholdResult"
+      }
+    },
+    "defects": {
+      "$ref": "#/$defs/defects"
+    },
+    "approvals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/roleId"
+      },
+      "uniqueItems": true
+    },
+    "emergencyExceptionApproved": {
+      "type": "boolean"
+    },
+    "reasons": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "governance": {
+      "$ref": "#/$defs/governance"
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/evidence"
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "decision": { "const": "exception_approved" }
+        },
+        "required": ["decision"]
+      },
+      "then": {
+        "properties": {
+          "emergencyExceptionApproved": { "const": true }
+        },
+        "required": ["emergencyExceptionApproved"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "decision": { "const": "pass" }
+        },
+        "required": ["decision"]
+      },
+      "then": {
+        "properties": {
+          "defects": {
+            "type": "object",
+            "properties": {
+              "openCritical": { "const": 0 }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "description": "UUID v1–v5"
+    },
+    "gateId": {
+      "type": "string",
+      "pattern": "^QG-[0-9]{3}$"
+    },
+    "envCode": {
+      "type": "string",
+      "enum": ["DEV", "QA", "UAT", "STAGING", "PRODUCTION", "DR"]
+    },
+    "roleId": {
+      "type": "string",
+      "pattern": "^ROLE-[A-Z0-9-]{2,40}$"
+    },
+    "thresholdResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["thresholdId", "metric", "measured", "passFail"],
+      "properties": {
+        "thresholdId": {
+          "type": "string",
+          "pattern": "^THR-[0-9]{3}$"
+        },
+        "metric": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 128
+        },
+        "measured": {
+          "type": "number"
+        },
+        "passValue": {
+          "type": ["number", "null"]
+        },
+        "passFail": {
+          "type": "string",
+          "enum": ["pass", "fail"]
+        },
+        "exceptionApplied": {
+          "type": "boolean"
+        }
+      }
+    },
+    "defects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["openCritical", "openHigh"],
+      "properties": {
+        "openCritical": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "openHigh": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "highExceptionApproved": {
+          "type": "boolean"
+        }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accountableAuthority", "auditAuthority"],
+      "properties": {
+        "accountableAuthority": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 128
+        },
+        "auditAuthority": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 128
+        },
+        "correlationId": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 128
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "reference"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "test_report",
+            "coverage_report",
+            "scan_report",
+            "approval_record",
+            "exception_record",
+            "pipeline_run",
+            "other"
+          ]
+        },
+        "reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "capturedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["createdAt", "createdBy", "phase"],
+      "properties": {
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "phase": {
+          "type": "integer",
+          "const": 16
+        },
+        "pipelineRef": {
+          "type": "string",
+          "description": "Phase 14 pipeline intent reference (consume only)"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "1.0.0",
+  "evaluationId": "c30d1e2f-3a4b-5c6d-9e0f-1a2b3c4d5e6f",
+  "ready": false,
+  "failClosed": true,
+  "asOf": "2026-09-15T12:00:00.000Z",
+  "checkResults": [
+    {
+      "checkId": "RDY-001",
+      "status": "pass",
+      "category": "functional",
+      "evidenceRef": "tests/eibprfbs-consistency.test.js"
+    },
+    {
+      "checkId": "RDY-003",
+      "status": "missing",
+      "category": "security"
+    }
+  ],
+  "failures": [
+    {
+      "id": "RDY-003",
+      "reason": "mandatory_gate_missing",
+      "failClosed": true
+    }
+  ],
+  "consumesPhase16ExceptionRule": "emergency_exception_approved",
+  "liveProductionGoLiveClaimed": false,
+  "governance": {
+    "accountableAuthority": "Release Manager",
+    "responsibleParty": "Security Governance Lead",
+    "auditAuthority": "Internal Auditor"
+  },
+  "metadata": {
+    "createdAt": "2026-09-15T12:00:00.000Z",
+    "createdBy": "Phase 20 readiness evaluator",
+    "phase": 20,
+    "correlationId": "d40e2f3a-4b5c-6d7e-0f1a-2b3c4d5e6f70",
+    "moneyInvariantsNote": "pesewas; interest 15; collection days 31; cashier 1000"
+  }
+}

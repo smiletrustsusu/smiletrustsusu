@@ -1,0 +1,262 @@
+{
+  "schemaVersion": "wave9-recon-run-sheet/1.0",
+  "wave": "WAVE-09",
+  "humanGate": "HG-03",
+  "pilotName": "NORTHRISE MICRO SAVINGS",
+  "product": "SMILE TRUST SUSU MANAGEMENT SYSTEM",
+  "status": "ReadyToExecute",
+  "createdAt": "2026-09-20T11:15:00.000Z",
+  "updatedAt": "2026-09-20T11:15:00.000Z",
+  "claim": {
+    "livePilotExecuted": false,
+    "productionReconciled": false,
+    "reconAutoApproved": false,
+    "gatesAutoApproved": false,
+    "note": "Run sheet ready for human financial recon - no fabricated totals or production reconciled claim"
+  },
+  "moneyInvariants": {
+    "interest": 15,
+    "collectionDays": 31,
+    "cashierLimitGhs": 1000,
+    "pesewas": true
+  },
+  "loginGuidance": {
+    "primaryOperator": "JOHN",
+    "role": "System Owner / recon facilitator oversight",
+    "financeSigner": "Finance / Branch Manager (HA-RECON / HA-FIN)",
+    "developerSupportOnly": "KBA",
+    "isolation": "JOHN must not see or manage the KBA developer account"
+  },
+  "guidePath": "docs/reconciliation/wave9-financial-recon-execution-guide.md",
+  "evidencePath": "docs/release-evidence/wave9-recon-run-sheet.json",
+  "humanGates": {
+    "HA-RECON": {
+      "id": "HA-RECON",
+      "role": "Finance / Branch Manager (Reconciliation)",
+      "status": "PendingHumanSignOff",
+      "signerName": null,
+      "signedAt": null,
+      "notes": null
+    },
+    "HA-FIN": {
+      "id": "HA-FIN",
+      "role": "Finance acceptance (Wave 9/10)",
+      "status": "PendingHumanSignOff",
+      "signerName": null,
+      "signedAt": null,
+      "notes": null
+    }
+  },
+  "scores": {
+    "checklistTotal": 8,
+    "executableCount": 8,
+    "recordedPassFailCount": 0,
+    "varianceNotedCount": 0,
+    "passedCount": 0,
+    "failedOrBlockedCount": 0,
+    "reconSignOffPending": true,
+    "productionReconciled": false
+  },
+  "checklist": [
+    {
+      "itemId": "RC-CASHBOOK-01",
+      "category": "cashbook",
+      "title": "Cashbook vs system cash postings",
+      "steps": [
+        "Export day's cash receipts/payments from system (pesewas)",
+        "Compare to physical cashbook / till worksheet totals",
+        "Record variance in pesewas and GHS display"
+      ],
+      "expected": [
+        "Cashbook and system cash agree or variance is documented"
+      ],
+      "passFail": null,
+      "variancePesewas": null,
+      "varianceNotes": null,
+      "systemTotalPesewas": null,
+      "physicalTotalPesewas": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "signerName": null,
+      "notes": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "itemId": "RC-COLL-01",
+      "category": "collections",
+      "title": "Collections sheets vs posted collections",
+      "steps": [
+        "Sum collector route sheets for the day",
+        "Compare to posted collection totals in system",
+        "Confirm collection-day cycle awareness (31 days)"
+      ],
+      "expected": [
+        "Sheet totals match posted collections or variance documented"
+      ],
+      "passFail": null,
+      "variancePesewas": null,
+      "varianceNotes": null,
+      "systemTotalPesewas": null,
+      "physicalTotalPesewas": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "signerName": null,
+      "notes": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "itemId": "RC-BAL-01",
+      "category": "balances",
+      "title": "Customer balances vs ledger sum",
+      "steps": [
+        "Export customer savings balances (pesewas SoT)",
+        "Compare sample and control-total sum to trial/ledger",
+        "Spot-check dual GHS display equals pesewas/100"
+      ],
+      "expected": [
+        "Control totals agree; dual money columns consistent"
+      ],
+      "passFail": null,
+      "variancePesewas": null,
+      "varianceNotes": null,
+      "systemTotalPesewas": null,
+      "physicalTotalPesewas": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "signerName": null,
+      "notes": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "itemId": "RC-VAULT-01",
+      "category": "vault",
+      "title": "Vault float physical vs system",
+      "steps": [
+        "Count vault cash physically",
+        "Compare to vault float balance in system",
+        "Document any difference before EOD close"
+      ],
+      "expected": [
+        "Vault physical equals system or variance escalated"
+      ],
+      "passFail": null,
+      "variancePesewas": null,
+      "varianceNotes": null,
+      "systemTotalPesewas": null,
+      "physicalTotalPesewas": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "signerName": null,
+      "notes": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "itemId": "RC-TELLER-01",
+      "category": "teller",
+      "title": "Teller / cashier floats (limit 1000 GHS)",
+      "steps": [
+        "List each teller/cashier float balance",
+        "Confirm no open float above 1000 GHS (100000 pesewas) without escalation",
+        "Reconcile till cash to system float"
+      ],
+      "expected": [
+        "Floats within policy; limit 1000 enforced or escalated"
+      ],
+      "passFail": null,
+      "variancePesewas": null,
+      "varianceNotes": null,
+      "systemTotalPesewas": null,
+      "physicalTotalPesewas": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "signerName": null,
+      "notes": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "itemId": "RC-EOD-01",
+      "category": "eod",
+      "title": "EOD close and day totals",
+      "steps": [
+        "Run EOD checklist after cashbook/collections/floats agree",
+        "Capture day totals and close status",
+        "Attach EOD evidence path or screenshot id"
+      ],
+      "expected": [
+        "EOD closed with recon worksheet attached"
+      ],
+      "passFail": null,
+      "variancePesewas": null,
+      "varianceNotes": null,
+      "systemTotalPesewas": null,
+      "physicalTotalPesewas": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "signerName": null,
+      "notes": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "itemId": "RC-POLICY-01",
+      "category": "policy",
+      "title": "Money policy invariants (15 / 31 / pesewas)",
+      "steps": [
+        "Confirm default interest policy remains 15",
+        "Confirm collection days remain 31",
+        "Confirm amounts stored/compared in integer pesewas"
+      ],
+      "expected": [
+        "interest=15, collectionDays=31, pesewas authoritative"
+      ],
+      "passFail": null,
+      "variancePesewas": null,
+      "varianceNotes": null,
+      "systemTotalPesewas": null,
+      "physicalTotalPesewas": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "signerName": null,
+      "notes": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "itemId": "RC-VAR-01",
+      "category": "variances",
+      "title": "Variances documented and escalated",
+      "steps": [
+        "List every non-zero variance with pesewas + GHS",
+        "Assign owner and next action",
+        "Do not claim productionReconciled while variances are open"
+      ],
+      "expected": [
+        "Variance register complete; no silent write-offs"
+      ],
+      "passFail": null,
+      "variancePesewas": null,
+      "varianceNotes": null,
+      "systemTotalPesewas": null,
+      "physicalTotalPesewas": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "signerName": null,
+      "notes": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    }
+  ]
+}

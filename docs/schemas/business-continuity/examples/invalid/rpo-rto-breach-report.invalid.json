@@ -1,0 +1,73 @@
+{
+  "_failureReasons": [
+    "incidentId missing INC- prefix (uses BAD-001)",
+    "recoveryTargetId missing REC-TARGET- prefix",
+    "reportId is not a UUID",
+    "classification.severity is Level3 (Level2+) but correctiveActions is empty — violates if/then CAPA rule",
+    "timeline.declaredAt is before detectedAt — ordering violation",
+    "kind is Combined but measurement.rto is null",
+    "governance.accountableAuthority equals auditAuthority — SoD violation (structural note; schema may not encode SoD)",
+    "additional property 'unexpectedField' not allowed when additionalProperties is false"
+  ],
+  "schemaVersion": "1.0.0",
+  "reportId": "not-a-uuid",
+  "incidentId": "BAD-001",
+  "recoveryTargetId": "RRT-001",
+  "kind": "Combined",
+  "environment": "production",
+  "unexpectedField": true,
+  "service": {
+    "serviceId": "SVC-001",
+    "serviceCode": "SVC_DATABASE",
+    "serviceKey": "database",
+    "tier": "tier0_mission_critical",
+    "phase14TargetId": "RRT-001",
+    "recoveryPriority": 1
+  },
+  "measurement": {
+    "rpo": {
+      "measuredMinutes": 20,
+      "targetMinutes": 5,
+      "percentOverTarget": 300,
+      "passFail": "fail",
+      "withinTarget": false
+    },
+    "rto": null,
+    "clock": {
+      "timezone": "UTC",
+      "format": "ISO-8601"
+    }
+  },
+  "classification": {
+    "breached": true,
+    "severity": "Level3",
+    "overallCompliance": "breached",
+    "capaRequired": true,
+    "rootCauseCode": "RESTORE_SLOW",
+    "rootCauseDetail": "Invalid example intentionally omits CAPA actions."
+  },
+  "timeline": {
+    "detectedAt": "2026-09-14T12:00:00.000Z",
+    "declaredAt": "2026-09-14T11:00:00.000Z",
+    "restoredAt": null,
+    "stabilizedAt": null,
+    "reportedAt": "2026-09-14T12:30:00.000Z"
+  },
+  "governance": {
+    "accountableAuthority": "Same Person",
+    "auditAuthority": "Same Person",
+    "communicationChannelIds": ["COM-001"],
+    "module21Engine": "backup-recovery-ops",
+    "module30Governance": "platform-ops",
+    "phase14PolicyRef": "RRT-001"
+  },
+  "correctiveActions": [],
+  "evidence": [],
+  "metadata": {
+    "schemaVersion": "1.0.0",
+    "createdAt": "2026-09-14T12:30:00.000Z",
+    "createdBy": "tester",
+    "lastModifiedAt": "2026-09-14T12:30:00.000Z",
+    "lastModifiedBy": "tester"
+  }
+}

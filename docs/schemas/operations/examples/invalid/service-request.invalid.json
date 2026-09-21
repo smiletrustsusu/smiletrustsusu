@@ -1,0 +1,28 @@
+{
+  "_failureReasons": [
+    "requestId pattern fail",
+    "category not in enum",
+    "status invalid",
+    "fulfillment missing targetHours",
+    "governance missing auditAuthority",
+    "metadata.phase not 18",
+    "additional property notAllowed"
+  ],
+  "schemaVersion": "1.0",
+  "requestId": "REQ1",
+  "requestTypeId": "SRT-XX",
+  "category": "misc",
+  "title": "",
+  "status": "done",
+  "approvalRequired": "yes",
+  "fulfillment": {},
+  "governance": {
+    "accountableAuthority": "Service Desk Manager"
+  },
+  "metadata": {
+    "createdAt": "bad",
+    "createdBy": "x",
+    "phase": 16
+  },
+  "notAllowed": true
+}

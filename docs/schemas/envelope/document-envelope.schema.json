@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/envelope/document-envelope.schema.json",
+  "title": "EAIADISDocumentEnvelope",
+  "description": "Phase 12 document envelope for enterprise AI automation decision artifacts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "envelopeId",
+    "documentType",
+    "title",
+    "version",
+    "status",
+    "accountableAuthority",
+    "sections",
+    "metadata"
+  ],
+  "properties": {
+    "envelopeId": {
+      "$ref": "https://schemas.smiletrust.com/common/identifiers.schema.json#/$defs/envelopeId"
+    },
+    "documentType": {
+      "type": "string",
+      "enum": [
+        "EAIADIS",
+        "AI_Capability_Registry",
+        "AI_Governance_Pack",
+        "AI_Audit_Pack"
+      ]
+    },
+    "title": { "type": "string", "minLength": 1, "maxLength": 300 },
+    "version": {
+      "$ref": "https://schemas.smiletrust.com/common/identifiers.schema.json#/$defs/semver"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["Draft", "InReview", "Approved", "Published", "Superseded", "Retired"]
+    },
+    "accountableAuthority": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "Exactly one accountable authority for the envelope."
+    },
+    "primaryOwner": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "approver": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "auditor": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "sections": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "https://schemas.smiletrust.com/envelope/section-envelope.schema.json"
+      }
+    },
+    "crossReferences": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "ref"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["Capability", "Schema", "Module", "Document", "ADR"]
+          },
+          "ref": { "type": "string", "minLength": 1, "maxLength": 200 }
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "https://schemas.smiletrust.com/common/metadata.schema.json"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "id": "CHK-004",
+  "code": "CHK_MONEY_INVARIANTS",
+  "status": "pass",
+  "critical": true,
+  "evidence": [
+    "registry MONEY_INVARIANTS.unit=pesewas",
+    "interestDefault=15",
+    "collectionDays=31",
+    "cashierLimitGhs=1000"
+  ],
+  "reviewer": "QA Lead",
+  "evaluatedAt": "2026-09-17T12:00:00.000Z",
+  "moneyInvariantNote": "Money invariants: integer pesewas; interest 15; collection days 31; cashier float 1000.",
+  "stackNote": "Android=Capacitor+shared SPA; Web=vanilla JS SPA; Next.js/Compose not primary",
+  "mapsTo": ["COD-003", "COD-004", "COD-005", "COD-006"]
+}

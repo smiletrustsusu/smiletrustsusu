@@ -1,0 +1,29 @@
+{
+  "savedAt": "2026-07-28T00:00:00.000Z",
+  "data": {
+    "settings": {
+      "collectionDays": 31,
+      "loanInterest": 15,
+      "businessName": "SMILE TRUST SUSU MANAGEMENT SYSTEM",
+      "currency": "GHS",
+      "theme": "emerald",
+      "cloudUrl": "",
+      "cloudKey": "",
+      "localBackupUrl": "",
+      "syncToken": "",
+      "businessId": "",
+      "cloudMode": "auto"
+    },
+    "groups": [],
+    "users": [],
+    "customers": [],
+    "collections": [],
+    "loans": [],
+    "transactions": [],
+    "messages": [],
+    "closings": [],
+    "deletedUsers": [],
+    "deletedRecords": [],
+    "audit": []
+  }
+}

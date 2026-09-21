@@ -1,0 +1,37 @@
+{
+  "_failureReasons": [
+    "forecastId pattern invalid",
+    "horizonMonths not in 12/24/36",
+    "scaling.triggered true but missing upgradeStrategy",
+    "phase16Alignment.p95ResponseMs not const 750",
+    "evidence empty",
+    "metadata.phase not 17"
+  ],
+  "schemaVersion": "1.0.0",
+  "forecastResultId": "bad-id",
+  "forecastId": "FORECAST-1",
+  "horizonMonths": 18,
+  "projection": {
+    "baseline": 100,
+    "projectedValue": 200,
+    "method": "guess"
+  },
+  "scaling": {
+    "triggered": true,
+    "scalingTriggerPct": 70
+  },
+  "phase16Alignment": {
+    "medianApiMs": 300,
+    "p95ResponseMs": 900,
+    "doesNotRedefine": true
+  },
+  "governance": {
+    "accountableAuthority": "Capacity Planner"
+  },
+  "evidence": [],
+  "metadata": {
+    "createdAt": "2026-09-15T10:30:00.000Z",
+    "createdBy": "Capacity Planner",
+    "phase": 13
+  }
+}

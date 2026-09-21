@@ -1,0 +1,25 @@
+{
+  "_failureReasons": [
+    "changeRequestId does not match CR-####",
+    "changeClass not in enum",
+    "lifecycleStage invalid",
+    "governance missing auditAuthority",
+    "metadata.phase not 19",
+    "additional property notAllowed"
+  ],
+  "schemaVersion": "1.0",
+  "changeRequestId": "CHANGE-1",
+  "title": "",
+  "changeClass": "urgent",
+  "domain": "mobile",
+  "lifecycleStage": "done",
+  "governance": {
+    "accountableAuthority": "Change Manager"
+  },
+  "metadata": {
+    "createdAt": "not-a-date",
+    "createdBy": "x",
+    "phase": 18
+  },
+  "notAllowed": true
+}

@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "1.0.0",
+  "syncEventId": "c3d4e5f6-a7b8-4901-c234-567890abcdef",
+  "deviceId": "dev-apk-accra-014",
+  "collectorId": "col-user-8821",
+  "branchId": "BR-ACC-01",
+  "tenantId": "tenant-smile-trust",
+  "queueSize": 128,
+  "status": "Synchronizing",
+  "offlineMode": "Synchronizing",
+  "collectorStatus": "Synchronizing",
+  "currentStage": "upload_batch",
+  "stageIndex": 5,
+  "counts": {
+    "pending": 40,
+    "uploaded": 70,
+    "applied": 55,
+    "failed": 3,
+    "conflicts": 0
+  },
+  "timestamps": {
+    "startedAt": "2026-09-15T09:00:00.000Z",
+    "lastSuccessfulSyncAt": "2026-09-14T18:00:00.000Z"
+  },
+  "retryCount": 1,
+  "retryPolicyId": "RETRY-001",
+  "correlationId": "d4e5f6a7-b8c9-4012-d345-678901abcdef",
+  "successPct": 97.5,
+  "openConflicts": 0,
+  "notes": "References Module 15 processSyncQueue; financial items never LWW; amounts in pesewas.",
+  "governance": {
+    "accountableAuthority": "Operations Lead",
+    "responsibleParty": "On-Call Engineer",
+    "auditAuthority": "Internal Auditor",
+    "roleId": "ROLE-OPS-LEAD",
+    "module15EngineNotReplaced": true
+  },
+  "metadata": {
+    "createdAt": "2026-09-15T09:00:00.000Z",
+    "createdBy": "sync-support-catalog",
+    "phase": 18,
+    "correlationId": "d4e5f6a7-b8c9-4012-d345-678901abcdef",
+    "moneyInvariantsNote": "Financial sync never LWW; pesewas; interest 15; collection 31; cashier 1000."
+  }
+}

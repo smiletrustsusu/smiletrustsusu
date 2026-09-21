@@ -1,0 +1,20 @@
+{
+  "auditId": "AI-AUD-001",
+  "auditStatus": "Passed",
+  "auditor": "Internal Auditor",
+  "auditTrailRequired": true,
+  "retentionDays": 2555,
+  "lastAuditAt": "2026-09-10T12:00:00.000Z",
+  "nextAuditDue": "2027-03-10T12:00:00.000Z",
+  "findingsOpen": 0,
+  "evidenceUris": ["urn:smiletrust:audit:ai-cap-001:2026-09-10"],
+  "controlsChecked": [
+    {
+      "controlId": "CTRL-AI-ADV-01",
+      "result": "Pass",
+      "notes": "Advisory-only"
+    }
+  ],
+  "immutableLogReference": "module-29/ai-audit/AI-CAP-001",
+  "notes": "Standalone audit example for AI-CAP-001."
+}

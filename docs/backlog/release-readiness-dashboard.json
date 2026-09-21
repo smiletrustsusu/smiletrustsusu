@@ -1,0 +1,172 @@
+{
+  "asOf": "2026-09-17",
+  "frameworkCompliance": 72,
+  "productionGoLive": 48,
+  "verdict": "FrameworkReady / Conditional Go / PendingHumanSignOff",
+  "statusSummary": {
+    "completed": 428,
+    "released": 428,
+    "open": 305,
+    "cancelled": 1,
+    "total": 734,
+    "byStatus": {
+      "In Progress": 14,
+      "Completed": 428,
+      "Ready": 7,
+      "Planned": 271,
+      "Deferred": 8,
+      "Blocked": 5,
+      "Cancelled": 1
+    },
+    "byCanonical": {
+      "In Progress": 14,
+      "Completed": 428,
+      "Ready": 7,
+      "Planned": 271,
+      "Deferred": 8,
+      "Blocked": 5,
+      "Cancelled": 1
+    }
+  },
+  "criticalPath": [
+    {
+      "gapId": "GAP-003",
+      "backlog": [
+        {
+          "identifier": "TASK-000181",
+          "title": "[GAP-003] Wave 9 human gates — HA-* PendingHumanSignOff → Approved",
+          "status": "Ready",
+          "priority": "Critical",
+          "owner": "Release Manager",
+          "deliveryWave": 9,
+          "workCategory": "Governance"
+        }
+      ]
+    },
+    {
+      "gapId": "GAP-006",
+      "backlog": [
+        {
+          "identifier": "TASK-000183",
+          "title": "[GAP-006] Update PRODUCTION.md migrations list to 001–044 (+ rls.sql)",
+          "status": "Ready",
+          "priority": "High",
+          "owner": "Release Manager",
+          "deliveryWave": 10,
+          "workCategory": "Documentation"
+        }
+      ]
+    },
+    {
+      "gapId": "GAP-005",
+      "backlog": [
+        {
+          "identifier": "BUG-000002",
+          "title": "[GAP-005] Defect: dual money model — numeric GHS vs integer-pesewas SoT",
+          "status": "Planned",
+          "priority": "High",
+          "owner": "CIO",
+          "deliveryWave": 2,
+          "workCategory": "TechDebt"
+        }
+      ]
+    },
+    {
+      "gapId": "GAP-004",
+      "backlog": [
+        {
+          "identifier": "TASK-000185",
+          "title": "[GAP-004] Android Capacitor Gradle project — reproducible APK path",
+          "status": "Planned",
+          "priority": "High",
+          "owner": "Platform Administrator",
+          "deliveryWave": 4,
+          "workCategory": "Ops"
+        }
+      ]
+    },
+    {
+      "gapId": "GAP-001",
+      "backlog": [
+        {
+          "identifier": "TASK-000188",
+          "title": "[GAP-001] Execute live production cutover CO-01…CO-13",
+          "status": "Blocked",
+          "priority": "Critical",
+          "owner": "Release Manager",
+          "deliveryWave": 10,
+          "workCategory": "Ops"
+        }
+      ]
+    }
+  ],
+  "humanGatesOpen": [
+    "GAP-003",
+    "GAP-002",
+    "GAP-009",
+    "GAP-001",
+    "GAP-011"
+  ],
+  "waveFramework": [
+    {
+      "wave": 1,
+      "title": "Foundation",
+      "eirId": "WAVE-01",
+      "openItems": 4
+    },
+    {
+      "wave": 2,
+      "title": "Database",
+      "eirId": "WAVE-02",
+      "openItems": 3
+    },
+    {
+      "wave": 3,
+      "title": "Backend",
+      "eirId": "WAVE-03",
+      "openItems": 2
+    },
+    {
+      "wave": 4,
+      "title": "Android",
+      "eirId": "WAVE-04",
+      "openItems": 2
+    },
+    {
+      "wave": 5,
+      "title": "Web",
+      "eirId": "WAVE-05",
+      "openItems": 1
+    },
+    {
+      "wave": 6,
+      "title": "Windows",
+      "eirId": "WAVE-06",
+      "openItems": 3
+    },
+    {
+      "wave": 7,
+      "title": "AI & Analytics",
+      "eirId": "WAVE-07",
+      "openItems": 13
+    },
+    {
+      "wave": 8,
+      "title": "Testing",
+      "eirId": "WAVE-08",
+      "openItems": 10
+    },
+    {
+      "wave": 9,
+      "title": "Pilot",
+      "eirId": "WAVE-09",
+      "openItems": 32
+    },
+    {
+      "wave": 10,
+      "title": "Production",
+      "eirId": "WAVE-10",
+      "openItems": 39
+    }
+  ]
+}

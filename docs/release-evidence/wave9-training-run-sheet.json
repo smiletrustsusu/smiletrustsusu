@@ -1,0 +1,254 @@
+{
+  "schemaVersion": "wave9-training-run-sheet/1.0",
+  "wave": "WAVE-09",
+  "humanGate": "HG-02",
+  "pilotName": "NORTHRISE MICRO SAVINGS",
+  "product": "SMILE TRUST SUSU MANAGEMENT SYSTEM",
+  "status": "ReadyToExecute",
+  "createdAt": "2026-09-20T11:00:00.000Z",
+  "updatedAt": "2026-09-20T11:00:00.000Z",
+  "claim": {
+    "livePilotExecuted": false,
+    "trainingAutoCompleted": false,
+    "trainingCompletionPending": true,
+    "gatesAutoApproved": false,
+    "note": "Run sheet ready for human training - no fabricated attendance or completions"
+  },
+  "moneyInvariants": {
+    "interest": 15,
+    "collectionDays": 31,
+    "cashierLimitGhs": 1000,
+    "pesewas": true
+  },
+  "loginGuidance": {
+    "primaryOperator": "JOHN",
+    "role": "System Owner / training facilitator oversight",
+    "developerSupportOnly": "KBA",
+    "isolation": "JOHN must not see or manage the KBA developer account"
+  },
+  "guidePath": "docs/training/wave9-training-execution-guide.md",
+  "evidencePath": "docs/release-evidence/wave9-training-run-sheet.json",
+  "curriculumPath": "docs/wave9-training-package.md",
+  "humanGates": {
+    "HG-02": {
+      "id": "HG-02",
+      "role": "Training Completion (Wave 9)",
+      "status": "PendingHumanSignOff",
+      "completerName": null,
+      "completedAt": null,
+      "notes": null
+    }
+  },
+  "scores": {
+    "trackTotal": 6,
+    "executableCount": 6,
+    "attendanceRecordedCount": 0,
+    "competencyRecordedCount": 0,
+    "completedCount": 0,
+    "trainingCompletionPending": true,
+    "trainingCompletionComplete": false
+  },
+  "tracks": [
+    {
+      "trackId": "TR-CASHIER",
+      "role": "Cashier",
+      "durationHours": 4,
+      "modules": [
+        "Login & till open/close",
+        "Deposits/withdrawals (pesewas)",
+        "Float limit 1000",
+        "Receipts & exceptions"
+      ],
+      "exercises": [
+        "Post 5 deposits and 2 withdrawals",
+        "Attempt float breach and document outcome",
+        "Complete EOD till worksheet"
+      ],
+      "competencyChecklist": [
+        "Can post without balance errors",
+        "Understands float limit",
+        "Can escalate variance"
+      ],
+      "attendance": [],
+      "competencyPassed": null,
+      "competencyNotes": null,
+      "competencyRecordedBy": null,
+      "competencyRecordedAt": null,
+      "completionStatus": "PendingHumanSignOff",
+      "completedAt": null,
+      "completedBy": null,
+      "notes": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "trackId": "TR-COLLECTOR",
+      "role": "Collector",
+      "durationHours": 4,
+      "modules": [
+        "Route sheet",
+        "Offline capture",
+        "Sync & retry",
+        "Collection day (31) awareness"
+      ],
+      "exercises": [
+        "Capture offline collections then sync",
+        "Handle one sync retry",
+        "Submit day total"
+      ],
+      "competencyChecklist": [
+        "Can work offline safely",
+        "Recognizes sync escalation",
+        "Day totals reconcile"
+      ],
+      "attendance": [],
+      "competencyPassed": null,
+      "competencyNotes": null,
+      "competencyRecordedBy": null,
+      "competencyRecordedAt": null,
+      "completionStatus": "PendingHumanSignOff",
+      "completedAt": null,
+      "completedBy": null,
+      "notes": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "trackId": "TR-MANAGER",
+      "role": "Branch Manager",
+      "durationHours": 3,
+      "modules": [
+        "Approvals",
+        "EOD oversight",
+        "Reports & dashboards",
+        "Exception handling"
+      ],
+      "exercises": [
+        "Approve a loan path with human decision",
+        "Review EOD variances",
+        "Export daily report"
+      ],
+      "competencyChecklist": [
+        "Does not rely on AI auto-approve",
+        "Can interpret daily reports",
+        "Knows escalation contacts"
+      ],
+      "attendance": [],
+      "competencyPassed": null,
+      "competencyNotes": null,
+      "competencyRecordedBy": null,
+      "competencyRecordedAt": null,
+      "completionStatus": "PendingHumanSignOff",
+      "completedAt": null,
+      "completedBy": null,
+      "notes": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "trackId": "TR-AUDITOR",
+      "role": "Auditor / Compliance",
+      "durationHours": 3,
+      "modules": [
+        "Audit search",
+        "RBAC verification",
+        "Wave 8/9 evidence panels",
+        "Reconciliation procedures"
+      ],
+      "exercises": [
+        "Trace one money event in audit",
+        "Confirm SUPER_ADMIN_FORBIDDEN sample",
+        "Complete recon worksheet template"
+      ],
+      "competencyChecklist": [
+        "Can locate audit evidence",
+        "Understands PendingHumanSignOff",
+        "Does not claim false prod recon"
+      ],
+      "attendance": [],
+      "competencyPassed": null,
+      "competencyNotes": null,
+      "competencyRecordedBy": null,
+      "competencyRecordedAt": null,
+      "completionStatus": "PendingHumanSignOff",
+      "completedAt": null,
+      "completedBy": null,
+      "notes": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "trackId": "TR-ADMIN",
+      "role": "Platform Admin / Ops",
+      "durationHours": 5,
+      "modules": [
+        "Pilot env isolation",
+        "Monitoring & alerts",
+        "Backup/restore drill slot",
+        "validate:rc / validate:pilot",
+        "Service desk + runbooks"
+      ],
+      "exercises": [
+        "Run validate:pilot and interpret Go/No-Go",
+        "Page pilot on-call with test alert",
+        "Walk one offline runbook"
+      ],
+      "competencyChecklist": [
+        "Can provision pilot isolation checks",
+        "Can interpret evidence JSON",
+        "Knows Wave 10 human gates"
+      ],
+      "attendance": [],
+      "competencyPassed": null,
+      "competencyNotes": null,
+      "competencyRecordedBy": null,
+      "competencyRecordedAt": null,
+      "completionStatus": "PendingHumanSignOff",
+      "completedAt": null,
+      "completedBy": null,
+      "notes": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "trackId": "TR-EXEC",
+      "role": "Executive Sponsor (briefing)",
+      "durationHours": 1.5,
+      "modules": [
+        "Pilot vs production distinction",
+        "Go/No-Go dimensions",
+        "Human approval gates for Wave 10",
+        "Success criteria overview"
+      ],
+      "exercises": [
+        "Review Go/No-Go draft report",
+        "List open conditions",
+        "Confirm PendingHumanSignOff understanding"
+      ],
+      "competencyChecklist": [
+        "Will not treat Conditional as full Go",
+        "Understands RC1 ≠ CERT-001",
+        "Owns executive sign-off gate"
+      ],
+      "attendance": [],
+      "competencyPassed": null,
+      "competencyNotes": null,
+      "competencyRecordedBy": null,
+      "competencyRecordedAt": null,
+      "completionStatus": "PendingHumanSignOff",
+      "completedAt": null,
+      "completedBy": null,
+      "notes": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    }
+  ],
+  "exportedAt": "2026-09-20T11:02:24.511Z",
+  "exportPurpose": "human_training_signoff_packet",
+  "instructions": [
+    "Attach attendance sheets / competency checklists as evidence paths or notes",
+    "Use Record track completion only after typed completer name + confirmation phrase",
+    "Do not clear training_completion_pending or mark CERT-001 from this export alone",
+    "Update docs/release-evidence/wave9-pilot-evidence.json trainingResults with the same names/dates after humans sign"
+  ]
+}

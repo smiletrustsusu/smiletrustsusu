@@ -1,0 +1,17 @@
+{
+  "id": "BAD",
+  "code": "not-valid",
+  "category": "frontend-framework",
+  "severity": "optional",
+  "ownerId": "OWN-999",
+  "title": "",
+  "rule": "",
+  "_failureReasons": [
+    "id must match COD|NAM|API|DB|UI-###",
+    "code must match SCREAMING_SNAKE pattern",
+    "category not in enum",
+    "severity not in enum",
+    "title/rule minLength",
+    "additionalProperties false would reject _failureReasons in real validation of production payloads"
+  ]
+}

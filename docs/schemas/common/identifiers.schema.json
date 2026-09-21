@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/common/identifiers.schema.json",
+  "title": "SmileTrustIdentifierFormats",
+  "description": "Canonical identifier format definitions for Phase 12 EAIADIS.",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "capabilityId": {
+      "type": "string",
+      "pattern": "^AI-CAP-[0-9]{3}$",
+      "description": "AI Capability Registry primary identifier."
+    },
+    "capabilityCode": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]{2,63}$",
+      "description": "Stable human-readable capability code (UPPER_SNAKE)."
+    },
+    "governanceId": {
+      "type": "string",
+      "pattern": "^AI-GOV-[0-9]{3}$"
+    },
+    "auditId": {
+      "type": "string",
+      "pattern": "^AI-AUD-[0-9]{3}$"
+    },
+    "envelopeId": {
+      "type": "string",
+      "pattern": "^ENV-[0-9]{3}$"
+    },
+    "authorityId": {
+      "type": "string",
+      "pattern": "^AUTH-[A-Z]{2,8}-[0-9]{3}$",
+      "description": "Accountable / approving authority role-slot identifier."
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "moduleNumber": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 30
+    }
+  }
+}

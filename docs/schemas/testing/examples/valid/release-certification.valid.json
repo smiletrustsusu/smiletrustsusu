@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "1.0.0",
+  "certificationRecordId": "c3d4e5f6-a7b8-4901-c234-56789abcdef0",
+  "certificationId": "CERT-001",
+  "releaseId": "REL-2026.09.15.1",
+  "environment": "PRODUCTION",
+  "decision": "certified",
+  "gatesSatisfied": true,
+  "gateIds": ["QG-001", "QG-002", "QG-003", "QG-004"],
+  "performancePassed": true,
+  "securityPassed": true,
+  "disasterRecoveryPassed": true,
+  "monitoringPassed": true,
+  "businessAcceptanceApproved": true,
+  "emergencyExceptionApproved": false,
+  "reasons": [],
+  "recoveryEvidence": {
+    "recoveryLimitId": "RLIM-012",
+    "measuredMinutes": 180,
+    "targetMinutes": 240,
+    "usesPhase15Rto": true,
+    "stabilizationMinutes": 30,
+    "passFail": "pass"
+  },
+  "governance": {
+    "accountableAuthority": "CIO",
+    "auditAuthority": "Internal Auditor",
+    "approvedAt": "2026-09-15T18:00:00.000Z",
+    "correlationId": "CORR-CERT-001-20260915"
+  },
+  "evidence": [
+    {
+      "type": "quality_gate_result",
+      "reference": "schemas/testing/examples/valid/quality-gate-result.valid.json",
+      "capturedAt": "2026-09-15T16:00:00.000Z"
+    },
+    {
+      "type": "dr_exercise",
+      "reference": "TST-002/drill-20260914",
+      "capturedAt": "2026-09-14T14:00:00.000Z"
+    },
+    {
+      "type": "business_signoff",
+      "reference": "UAT/signoff-REL-2026.09.15.1",
+      "capturedAt": "2026-09-15T12:00:00.000Z"
+    }
+  ],
+  "metadata": {
+    "createdAt": "2026-09-15T18:05:00.000Z",
+    "createdBy": "CIO",
+    "phase": 16,
+    "module30Ref": "platform-ops.releaseCertification"
+  }
+}

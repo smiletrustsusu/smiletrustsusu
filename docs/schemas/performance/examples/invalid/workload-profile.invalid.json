@@ -1,0 +1,28 @@
+{
+  "_failureReasons": [
+    "profileId does not match WLP-###",
+    "profileClass not in enum",
+    "demand missing tps",
+    "governance missing auditAuthority",
+    "metadata.phase not 17",
+    "additional property notAllowed"
+  ],
+  "schemaVersion": "1.0",
+  "profileId": "WORKLOAD-1",
+  "code": "bad-code",
+  "name": "",
+  "profileClass": "mega",
+  "demand": {
+    "concurrentUsers": -1,
+    "apiRequestsPerMin": 100
+  },
+  "governance": {
+    "accountableAuthority": "Capacity Planner"
+  },
+  "metadata": {
+    "createdAt": "not-a-date",
+    "createdBy": "x",
+    "phase": 16
+  },
+  "notAllowed": true
+}

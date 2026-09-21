@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/performance/capacity-forecast.schema.json",
+  "title": "EpscmsCapacityForecast",
+  "description": "Phase 17 EPSCMS capacity forecast evaluation result. Consumes Phase 13 SLOs and Phase 16 thresholds; does not redefine them. additionalProperties false.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "forecastResultId",
+    "forecastId",
+    "horizonMonths",
+    "projection",
+    "scaling",
+    "governance",
+    "evidence",
+    "metadata"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "forecastResultId": {
+      "$ref": "#/$defs/uuid"
+    },
+    "forecastId": {
+      "$ref": "#/$defs/forecastId"
+    },
+    "capacityId": {
+      "$ref": "#/$defs/capacityId"
+    },
+    "horizonMonths": {
+      "type": "integer",
+      "enum": [12, 24, 36]
+    },
+    "projection": {
+      "$ref": "#/$defs/projection"
+    },
+    "scaling": {
+      "$ref": "#/$defs/scaling"
+    },
+    "phase16Alignment": {
+      "$ref": "#/$defs/phase16Alignment"
+    },
+    "phase13SloRefs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/sloId"
+      },
+      "uniqueItems": true
+    },
+    "governance": {
+      "$ref": "#/$defs/governance"
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/evidence"
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "scaling": {
+            "properties": {
+              "triggered": { "const": true }
+            },
+            "required": ["triggered"]
+          }
+        },
+        "required": ["scaling"]
+      },
+      "then": {
+        "properties": {
+          "scaling": {
+            "required": ["triggered", "upgradeStrategy", "recommendation"]
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "forecastId": {
+      "type": "string",
+      "pattern": "^FRC-[0-9]{3}$"
+    },
+    "capacityId": {
+      "type": "string",
+      "pattern": "^CAP-[0-9]{3}$"
+    },
+    "sloId": {
+      "type": "string",
+      "pattern": "^SLO-[0-9]{3}$"
+    },
+    "projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseline", "projectedValue", "method"],
+      "properties": {
+        "baseline": { "type": "number" },
+        "projectedValue": { "type": "number" },
+        "growthFactor": { "type": "number", "exclusiveMinimum": 0 },
+        "method": {
+          "type": "string",
+          "enum": ["linear", "clamp_low", "clamp_high"]
+        },
+        "unit": { "type": "string", "minLength": 1 }
+      }
+    },
+    "scaling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["triggered", "scalingTriggerPct"],
+      "properties": {
+        "triggered": { "type": "boolean" },
+        "scalingTriggerPct": { "type": "number", "minimum": 0, "maximum": 100 },
+        "measuredUtilizationPct": { "type": "number", "minimum": 0 },
+        "upgradeStrategy": {
+          "type": "string",
+          "enum": [
+            "horizontal",
+            "vertical",
+            "vertical_then_horizontal",
+            "stateless_replicas",
+            "read_replicas",
+            "partitioning",
+            "sharding",
+            "queue_workers",
+            "cache_expansion",
+            "object_storage_tiering",
+            "ai_batch_offload"
+          ]
+        },
+        "recommendation": { "type": "string", "minLength": 1 }
+      }
+    },
+    "phase16Alignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "medianApiMs": { "type": "integer", "const": 300 },
+        "p95ResponseMs": { "type": "integer", "const": 750 },
+        "p99ResponseMs": { "type": "integer", "const": 1500 },
+        "cpuSteadyPct": { "type": "integer", "const": 70 },
+        "memorySteadyPct": { "type": "integer", "const": 75 },
+        "doesNotRedefine": { "type": "boolean", "const": true }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accountableAuthority", "auditAuthority"],
+      "properties": {
+        "accountableAuthority": { "type": "string", "minLength": 1 },
+        "approvalAuthority": { "type": "string", "minLength": 1 },
+        "auditAuthority": { "type": "string", "minLength": 1 },
+        "exceptionApproved": { "type": "boolean" }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "reference"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "forecast_worksheet",
+            "capacity_plan",
+            "monitoring_export",
+            "load_test_report",
+            "change_ticket"
+          ]
+        },
+        "reference": { "type": "string", "minLength": 1 },
+        "capturedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["createdAt", "createdBy", "phase"],
+      "properties": {
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "minLength": 1 },
+        "phase": { "type": "integer", "const": 17 },
+        "correlationId": { "$ref": "#/$defs/uuid" }
+      }
+    }
+  }
+}

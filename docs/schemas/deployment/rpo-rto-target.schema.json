@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/deployment/rpo-rto-target.schema.json",
+  "title": "EddiesRpoRtoTarget",
+  "description": "Phase 14 EDDIES RPO/RTO recovery target. Exactly one accountableAuthority. Module 21 executes; Module 30 governs.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "id",
+    "code",
+    "name",
+    "service",
+    "rpoMinutes",
+    "rtoMinutes",
+    "accountableAuthority",
+    "metadata"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^RRT-[0-9]{3}$"
+    },
+    "code": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]{2,63}$"
+    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "service": {
+      "type": "string",
+      "enum": ["database", "application", "auth", "synchronization", "payments", "monitoring"]
+    },
+    "dataDomain": { "type": "string", "minLength": 1 },
+    "criticality": {
+      "type": "string",
+      "enum": ["critical", "high", "standard", "low"]
+    },
+    "rpoMinutes": { "type": "number", "exclusiveMinimum": 0 },
+    "rtoMinutes": { "type": "number", "exclusiveMinimum": 0 },
+    "measurementRpoTargetMinutes": { "type": "number", "exclusiveMinimum": 0 },
+    "measurementRtoTargetMinutes": { "type": "number", "exclusiveMinimum": 0 },
+    "stabilizationMinutesProduction": {
+      "type": "number",
+      "const": 30,
+      "description": "Production stabilization period is 30 minutes."
+    },
+    "accountableAuthority": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "Exactly one accountable authority; must differ from auditAuthority."
+    },
+    "responsibleParty": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "auditAuthority": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "owningModule": { "type": "integer", "minimum": 1, "maximum": 30 },
+    "relatedModules": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 1, "maximum": 30 },
+      "uniqueItems": true
+    },
+    "testingFrequency": { "type": "string", "minLength": 1 },
+    "metadata": {
+      "$ref": "https://schemas.smiletrust.com/common/metadata.schema.json"
+    }
+  }
+}

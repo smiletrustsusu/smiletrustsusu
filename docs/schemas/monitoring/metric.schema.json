@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/monitoring/metric.schema.json",
+  "title": "EmooisMetricEntry",
+  "description": "Phase 13 EMOOIS metric catalog entry. Observe-only; Module 19 is the operational engine.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "id",
+    "code",
+    "name",
+    "unit",
+    "metricClass",
+    "domain",
+    "owner",
+    "owningModule",
+    "metadata"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^MET-[0-9]{3}$"
+    },
+    "code": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]{2,63}$"
+    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "description": { "type": "string", "maxLength": 4000 },
+    "unit": {
+      "type": "string",
+      "enum": ["ratio", "count", "ms", "bool", "score", "bytes", "percent"]
+    },
+    "metricClass": {
+      "type": "string",
+      "enum": ["critical", "high", "standard", "business", "capacity", "historical"]
+    },
+    "domain": { "type": "string", "minLength": 1 },
+    "owner": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "Exactly one accountable owner."
+    },
+    "owningModule": {
+      "type": "integer",
+      "const": 19,
+      "description": "Catalog ownership for operational metrics is Module 19."
+    },
+    "relatedModules": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 1, "maximum": 30 },
+      "uniqueItems": true
+    },
+    "observeOnly": { "type": "boolean" },
+    "advisoryOnly": { "type": "boolean" },
+    "engineMetricKey": { "type": "string" },
+    "metadata": {
+      "$ref": "https://schemas.smiletrust.com/common/metadata.schema.json"
+    }
+  }
+}

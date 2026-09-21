@@ -1,0 +1,27 @@
+{
+  "_failureReasons": [
+    "ciId does not match CI-###",
+    "category not in enum",
+    "status invalid",
+    "baselineId pattern fail",
+    "governance missing auditAuthority",
+    "metadata.phase not 19",
+    "additional property secretValue forbidden"
+  ],
+  "schemaVersion": "1",
+  "ciId": "CONFIG-1",
+  "name": "",
+  "category": "container",
+  "status": "live",
+  "version": "",
+  "baselineId": "baseline1",
+  "governance": {
+    "accountableAuthority": "Someone"
+  },
+  "metadata": {
+    "createdAt": "yesterday",
+    "createdBy": "x",
+    "phase": 14
+  },
+  "secretValue": "should-not-appear"
+}

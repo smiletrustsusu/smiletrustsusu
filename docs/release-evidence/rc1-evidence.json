@@ -1,0 +1,522 @@
+{
+  "schemaVersion": "wave8-rc-evidence/1.0",
+  "wave": "WAVE-08",
+  "version": "8.0.0-release-cert",
+  "catalogAlias": {
+    "deliveryName": "Release Certification Platform",
+    "deliveryCode": "RELEASE_CERTIFICATION",
+    "historicalEirName": "Reporting Platform",
+    "historicalEirCode": "REPORTING_PLATFORM",
+    "reportingDeepWork": "Mostly Complete — Reports/BI delivered via Wave 7 analytics facade; Wave 8 certifies Waves 1–7",
+    "productionCertNote": "Full CERT-001 production certification remains WAVE-10 / Phase 19 go-live"
+  },
+  "etqavsVersion": "1.0.0",
+  "p16Version": "1.0.0",
+  "startedAt": "2026-09-16T20:13:47.856Z",
+  "finishedAt": "2026-09-16T20:14:28.856Z",
+  "decision": "PASS",
+  "passFail": "pass",
+  "readyForWave9": true,
+  "blockers": [],
+  "certificationScope": "RC1_PILOT_UAT",
+  "notProductionCert001": true,
+  "cert001Preview": {
+    "certified": false,
+    "decision": "rejected",
+    "reasons": [
+      "monitoring_validation_not_passed",
+      "business_acceptance_missing",
+      "governance_approvals_incomplete"
+    ],
+    "note": "CERT-001 requires Wave 10 governance / business acceptance / monitoring — expected incomplete at RC1"
+  },
+  "testSummary": {
+    "passed": 647,
+    "failed": 0,
+    "total": 647,
+    "passRate": 100,
+    "computed": {
+      "ok": false,
+      "code": "P16-KPI-001",
+      "message": "passed/total required"
+    }
+  },
+  "preparedWeb": true,
+  "crossWave": {
+    "ok": true,
+    "checks": [
+      {
+        "id": "W1",
+        "title": "Wave 1 foundation docs/tests",
+        "pass": true
+      },
+      {
+        "id": "W2",
+        "title": "Wave 2 database docs/tests",
+        "pass": true
+      },
+      {
+        "id": "W3",
+        "title": "Wave 3 API docs/tests + invokeApi",
+        "pass": true
+      },
+      {
+        "id": "W4",
+        "title": "Wave 4 offline docs/tests + sync engine",
+        "pass": true
+      },
+      {
+        "id": "W5",
+        "title": "Wave 5 portal docs/tests",
+        "pass": true
+      },
+      {
+        "id": "W6",
+        "title": "Wave 6 EXE docs/tests + electron",
+        "pass": true
+      },
+      {
+        "id": "W7",
+        "title": "Wave 7 analytics facade/docs/tests",
+        "pass": true
+      },
+      {
+        "id": "W8",
+        "title": "Wave 8 certification module",
+        "pass": true
+      },
+      {
+        "id": "P16",
+        "title": "Phase 16 quality gates present",
+        "pass": true
+      },
+      {
+        "id": "MONEY",
+        "title": "Money module present",
+        "pass": true
+      },
+      {
+        "id": "PREPARE",
+        "title": "prepare:web script",
+        "pass": true
+      },
+      {
+        "id": "VALIDATE",
+        "title": "validate:rc script file",
+        "pass": true
+      },
+      {
+        "id": "NO_NEXT",
+        "title": "No Next.js app router rewrite",
+        "pass": true
+      },
+      {
+        "id": "SCRIPTS",
+        "title": "npm test + prepare:web scripts",
+        "pass": true
+      },
+      {
+        "id": "VALIDATE_RC",
+        "title": "validate:rc script registered",
+        "pass": true
+      }
+    ],
+    "failed": [],
+    "wave7": {
+      "version": "7.0.0-analytics-bi",
+      "wave": "WAVE-07",
+      "fraudRules": 7,
+      "kpis": 10
+    },
+    "moneyDefaults": {
+      "interest": 15,
+      "collectionDays": 31,
+      "cashierLimitGhs": 1000,
+      "pesewas": true
+    },
+    "forbiddenSample": [
+      "Owner.Transfer",
+      "System.Reset",
+      "Export.All"
+    ]
+  },
+  "security": {
+    "ok": true,
+    "checks": [
+      {
+        "id": "SEC-RBAC",
+        "title": "rbac.js present",
+        "pass": true
+      },
+      {
+        "id": "SEC-PERM",
+        "title": "permissions tests",
+        "pass": true
+      },
+      {
+        "id": "SEC-PROD",
+        "title": "production guards tests",
+        "pass": true
+      },
+      {
+        "id": "SEC-IPC",
+        "title": "Electron IPC allowlist",
+        "pass": true
+      },
+      {
+        "id": "SEC-FORBIDDEN",
+        "title": "SUPER_ADMIN_FORBIDDEN includes System.Reset",
+        "pass": true
+      },
+      {
+        "id": "SEC-P16",
+        "title": "Phase 16 security gate QG-002 available",
+        "pass": true
+      }
+    ],
+    "failed": [],
+    "securityPassed": true
+  },
+  "perf": {
+    "ok": true,
+    "mode": "in-process-harness",
+    "liveLoad": false,
+    "samples": {
+      "kpiCalcMs": 5,
+      "reportMs": 8,
+      "syncMs": 12
+    },
+    "thresholdResults": [
+      {
+        "thresholdId": "THR-041",
+        "measured": 5,
+        "label": "kpi_calc_p95_proxy_ms"
+      },
+      {
+        "thresholdId": "THR-002",
+        "measured": 100,
+        "label": "unit_pass_rate_proxy"
+      }
+    ],
+    "note": "Live load generators deferred; harness records evidence schema only"
+  },
+  "dr": {
+    "ok": true,
+    "checks": [
+      {
+        "id": "DR-W4",
+        "title": "Wave 4 sync engine",
+        "pass": true
+      },
+      {
+        "id": "DR-W4T",
+        "title": "Wave 4 offline tests",
+        "pass": true
+      },
+      {
+        "id": "DR-P15",
+        "title": "Phase 15 breach reporting tests",
+        "pass": true
+      },
+      {
+        "id": "DR-BACKUP",
+        "title": "Backup/recovery ops tests",
+        "pass": true
+      }
+    ],
+    "failed": [],
+    "disasterRecoveryPassed": true,
+    "liveDrill": false
+  },
+  "a11y": {
+    "ok": true,
+    "checks": [
+      {
+        "id": "A11Y-PRIM",
+        "title": "src/ui/shared-primitives.js",
+        "pass": true
+      },
+      {
+        "id": "A11Y-W5",
+        "title": "src/ui/admin-portal-views.js",
+        "pass": true
+      },
+      {
+        "id": "A11Y-W7",
+        "title": "src/ui/wave7-analytics-views.js",
+        "pass": true
+      },
+      {
+        "id": "A11Y-W8",
+        "title": "src/ui/wave8-certification-views.js",
+        "pass": true
+      }
+    ],
+    "failed": []
+  },
+  "defects": {
+    "defects": [],
+    "openCritical": 0,
+    "openHigh": 0,
+    "releaseAllowed": true,
+    "releaseReasons": []
+  },
+  "qualityGates": {
+    "ok": true,
+    "etqavsVersion": "1.0.0",
+    "p16Version": "1.0.0",
+    "gateResults": [
+      {
+        "gateId": "QG-001",
+        "code": "GATE_DEV_TO_QA",
+        "name": "Development → QA",
+        "ok": true,
+        "passed": true,
+        "decision": "pass",
+        "reasons": []
+      },
+      {
+        "gateId": "QG-002",
+        "code": "GATE_QA_TO_UAT",
+        "name": "QA → UAT",
+        "ok": true,
+        "passed": true,
+        "decision": "pass",
+        "reasons": []
+      },
+      {
+        "gateId": "QG-003",
+        "code": "GATE_UAT_TO_STAGING",
+        "name": "UAT → Staging",
+        "ok": true,
+        "passed": true,
+        "decision": "pass",
+        "reasons": []
+      },
+      {
+        "gateId": "QG-004",
+        "code": "GATE_STAGING_TO_PROD",
+        "name": "Staging → Production",
+        "ok": true,
+        "passed": true,
+        "decision": "pass",
+        "reasons": []
+      }
+    ],
+    "mandatoryPassed": true,
+    "allPassed": true,
+    "securityPassed": true,
+    "perfPassed": true,
+    "drPassed": true,
+    "testPassRate": 100
+  },
+  "releaseQualityIndex": {
+    "ok": true,
+    "kpiId": "KPI-008",
+    "value": 75,
+    "unit": "index",
+    "components": {
+      "passRate": 100,
+      "escapeScore": 100,
+      "severityScore": 100,
+      "gateScore": 0
+    }
+  },
+  "moneyDefaults": {
+    "interest": 15,
+    "collectionDays": 31,
+    "cashierLimitGhs": 1000,
+    "pesewas": true
+  },
+  "gaps": {
+    "wave": "WAVE-08",
+    "version": "8.0.0-release-cert",
+    "architecture": "shared-spa-release-certification",
+    "notNextJsRewrite": true,
+    "catalogAlias": {
+      "deliveryName": "Release Certification Platform",
+      "deliveryCode": "RELEASE_CERTIFICATION",
+      "historicalEirName": "Reporting Platform",
+      "historicalEirCode": "REPORTING_PLATFORM",
+      "reportingDeepWork": "Mostly Complete — Reports/BI delivered via Wave 7 analytics facade; Wave 8 certifies Waves 1–7",
+      "productionCertNote": "Full CERT-001 production certification remains WAVE-10 / Phase 19 go-live"
+    },
+    "items": [
+      {
+        "id": "W8-G01",
+        "title": "Cross-wave smoke (Waves 1–7 artifacts + invariants)",
+        "status": "closed",
+        "severity": "critical"
+      },
+      {
+        "id": "W8-G02",
+        "title": "Phase 16 quality gate evaluation harness",
+        "status": "closed",
+        "severity": "critical"
+      },
+      {
+        "id": "W8-G03",
+        "title": "Security / RBAC / tenant isolation smoke",
+        "status": "closed",
+        "severity": "critical"
+      },
+      {
+        "id": "W8-G04",
+        "title": "Perf smoke harness (Phase 17 thresholds, in-process)",
+        "status": "closed",
+        "severity": "high"
+      },
+      {
+        "id": "W8-G05",
+        "title": "DR / offline recovery smoke (Wave 4 + Phase 15 limits)",
+        "status": "closed",
+        "severity": "high"
+      },
+      {
+        "id": "W8-G06",
+        "title": "Accessibility smoke helpers for critical UI markers",
+        "status": "closed",
+        "severity": "medium"
+      },
+      {
+        "id": "W8-G07",
+        "title": "Defect registry (machine-readable) + release blockers",
+        "status": "closed",
+        "severity": "critical"
+      },
+      {
+        "id": "W8-G08",
+        "title": "RC evidence JSON under docs/release-evidence or artifacts/wave8",
+        "status": "closed",
+        "severity": "critical"
+      },
+      {
+        "id": "W8-G09",
+        "title": "validate:rc script (prepare:web + npm test + gates)",
+        "status": "closed",
+        "severity": "critical"
+      },
+      {
+        "id": "W8-G10",
+        "title": "Audit/Reports Release Certification panel (optional UI)",
+        "status": "closed",
+        "severity": "medium"
+      },
+      {
+        "id": "W8-G11",
+        "title": "docs/wave8-release-certification.md + roadmap notes",
+        "status": "closed",
+        "severity": "medium"
+      },
+      {
+        "id": "W8-G12",
+        "title": "Live load generators / real DR infra drills",
+        "status": "partial",
+        "severity": "low",
+        "note": "Harness + evidence schema only; live load/DR deferred to Wave 9/10"
+      },
+      {
+        "id": "W8-G13",
+        "title": "CERT-001 full production release certification",
+        "status": "deferred",
+        "severity": "low",
+        "note": "Wave 10 production readiness; RC1 is pilot/UAT gate"
+      }
+    ],
+    "closedCount": 11,
+    "partialCount": 1,
+    "deferredCount": 1,
+    "openCritical": 0,
+    "pilotReady": true,
+    "moneyDefaults": {
+      "interest": 15,
+      "collectionDays": 31,
+      "cashierLimitGhs": 1000,
+      "pesewas": true
+    },
+    "parity": [
+      {
+        "id": "W8-P01",
+        "title": "Same SPA entry (www/ after prepare:web)",
+        "channel": "Web↔EXE↔APK"
+      },
+      {
+        "id": "W8-P02",
+        "title": "npm test is SoT suite — Wave 8 extends, does not replace",
+        "channel": "CI"
+      },
+      {
+        "id": "W8-P03",
+        "title": "Phase 16 registries are gate SoT",
+        "channel": "CI"
+      },
+      {
+        "id": "W8-P04",
+        "title": "Money: pesewas / 15 / 31 / 1000 preserved",
+        "channel": "Web↔EXE↔APK"
+      },
+      {
+        "id": "W8-P05",
+        "title": "AI advisory-only (no auto-approve)",
+        "channel": "Web↔EXE↔APK"
+      },
+      {
+        "id": "W8-P06",
+        "title": "No new top-level nav — Audit/Reports panel only",
+        "channel": "Web↔EXE↔APK"
+      },
+      {
+        "id": "W8-P07",
+        "title": "SUPER_ADMIN_FORBIDDEN retained",
+        "channel": "Web↔EXE↔APK"
+      },
+      {
+        "id": "W8-P08",
+        "title": "RC1 ≠ CERT-001 production promote",
+        "channel": "Governance"
+      }
+    ]
+  },
+  "parity": [
+    {
+      "id": "W8-P01",
+      "title": "Same SPA entry (www/ after prepare:web)",
+      "channel": "Web↔EXE↔APK"
+    },
+    {
+      "id": "W8-P02",
+      "title": "npm test is SoT suite — Wave 8 extends, does not replace",
+      "channel": "CI"
+    },
+    {
+      "id": "W8-P03",
+      "title": "Phase 16 registries are gate SoT",
+      "channel": "CI"
+    },
+    {
+      "id": "W8-P04",
+      "title": "Money: pesewas / 15 / 31 / 1000 preserved",
+      "channel": "Web↔EXE↔APK"
+    },
+    {
+      "id": "W8-P05",
+      "title": "AI advisory-only (no auto-approve)",
+      "channel": "Web↔EXE↔APK"
+    },
+    {
+      "id": "W8-P06",
+      "title": "No new top-level nav — Audit/Reports panel only",
+      "channel": "Web↔EXE↔APK"
+    },
+    {
+      "id": "W8-P07",
+      "title": "SUPER_ADMIN_FORBIDDEN retained",
+      "channel": "Web↔EXE↔APK"
+    },
+    {
+      "id": "W8-P08",
+      "title": "RC1 ≠ CERT-001 production promote",
+      "channel": "Governance"
+    }
+  ]
+}

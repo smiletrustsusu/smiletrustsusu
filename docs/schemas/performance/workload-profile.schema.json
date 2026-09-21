@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/performance/workload-profile.schema.json",
+  "title": "EpscmsWorkloadProfile",
+  "description": "Phase 17 EPSCMS workload profile document. Catalog only; does not redefine Phase 13 monitoring or Phase 16 testing standards. additionalProperties false.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "profileId",
+    "code",
+    "name",
+    "profileClass",
+    "demand",
+    "governance",
+    "metadata"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "profileId": {
+      "$ref": "#/$defs/workloadId"
+    },
+    "code": {
+      "$ref": "#/$defs/code"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "profileClass": {
+      "$ref": "#/$defs/profileClass"
+    },
+    "branches": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "demand": {
+      "$ref": "#/$defs/demand"
+    },
+    "peakMultiplier": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 10
+    },
+    "batchDurationTargetMin": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "relatedModules": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 30
+      },
+      "uniqueItems": true
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "governance": {
+      "$ref": "#/$defs/governance"
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    }
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "workloadId": {
+      "type": "string",
+      "pattern": "^WLP-[0-9]{3}$"
+    },
+    "code": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]{2,63}$"
+    },
+    "profileClass": {
+      "type": "string",
+      "enum": ["baseline", "growth", "regional", "nationwide", "peak", "batch"]
+    },
+    "demand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "concurrentUsers",
+        "tps",
+        "apiRequestsPerMin",
+        "queueEventsPerMin",
+        "dbOpsPerSec",
+        "aiInferencesPerHour",
+        "storageGrowthGbPerMonth"
+      ],
+      "properties": {
+        "concurrentUsers": { "type": "integer", "minimum": 0 },
+        "tps": { "type": "number", "minimum": 0 },
+        "apiRequestsPerMin": { "type": "number", "minimum": 0 },
+        "queueEventsPerMin": { "type": "number", "minimum": 0 },
+        "dbOpsPerSec": { "type": "number", "minimum": 0 },
+        "aiInferencesPerHour": { "type": "number", "minimum": 0 },
+        "storageGrowthGbPerMonth": { "type": "number", "minimum": 0 }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accountableAuthority", "auditAuthority"],
+      "properties": {
+        "accountableAuthority": { "type": "string", "minLength": 1 },
+        "responsibleParty": { "type": "string", "minLength": 1 },
+        "auditAuthority": { "type": "string", "minLength": 1 },
+        "roleId": {
+          "type": "string",
+          "pattern": "^ROLE-[A-Z0-9-]+$"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["createdAt", "createdBy", "phase"],
+      "properties": {
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "minLength": 1 },
+        "phase": { "type": "integer", "const": 17 },
+        "correlationId": { "$ref": "#/$defs/uuid" },
+        "moneyInvariantsNote": {
+          "type": "string",
+          "description": "Pesewas, interest 15, collection days 31, cashier 1000 preserved."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "id": "COD-003",
+  "code": "COD_MONEY_PESEWAS",
+  "category": "coding",
+  "severity": "critical",
+  "ownerId": "OWN-003",
+  "title": "Integer pesewas",
+  "rule": "Money in cores is integer pesewas; never float GHS storage",
+  "enforcement": "money-tests",
+  "moneyInvariant": true
+}

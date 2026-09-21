@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/performance/performance-benchmark-result.schema.json",
+  "title": "EpscmsPerformanceBenchmarkResult",
+  "description": "Phase 17 EPSCMS performance benchmark evaluation result. Aligns with Phase 16 THR-040..046 ceilings; consumes Phase 13 SLOs where referenced. additionalProperties false.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "resultId",
+    "benchmarkId",
+    "category",
+    "decision",
+    "measurements",
+    "checks",
+    "governance",
+    "evidence",
+    "metadata"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "resultId": {
+      "$ref": "#/$defs/uuid"
+    },
+    "benchmarkId": {
+      "$ref": "#/$defs/benchmarkId"
+    },
+    "category": {
+      "$ref": "#/$defs/category"
+    },
+    "decision": {
+      "type": "string",
+      "enum": ["pass", "fail", "exception_approved"]
+    },
+    "phase16Aligned": {
+      "type": "boolean"
+    },
+    "measurements": {
+      "$ref": "#/$defs/measurements"
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/check"
+      }
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "phase13SloId": {
+      "type": "string",
+      "pattern": "^SLO-[0-9]{3}$"
+    },
+    "workloadId": {
+      "type": "string",
+      "pattern": "^WLP-[0-9]{3}$"
+    },
+    "governance": {
+      "$ref": "#/$defs/governance"
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/evidence"
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "decision": { "const": "exception_approved" }
+        },
+        "required": ["decision"]
+      },
+      "then": {
+        "properties": {
+          "governance": {
+            "properties": {
+              "exceptionApproved": { "const": true }
+            },
+            "required": ["exceptionApproved"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "phase16Aligned": { "const": true }
+        },
+        "required": ["phase16Aligned"]
+      },
+      "then": {
+        "properties": {
+          "measurements": {
+            "description": "Interactive API paths must respect Phase 16 ceilings when phase16Aligned."
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "benchmarkId": {
+      "type": "string",
+      "pattern": "^BEN-[0-9]{3}$"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "auth",
+        "savings",
+        "loans",
+        "collections",
+        "reports",
+        "dashboard",
+        "search",
+        "sync",
+        "ai",
+        "batch"
+      ]
+    },
+    "measurements": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "medianMs": { "type": "number", "minimum": 0 },
+        "p95Ms": { "type": "number", "minimum": 0 },
+        "p99Ms": { "type": "number", "minimum": 0 },
+        "durationMin": { "type": "number", "minimum": 0 },
+        "errorRatePct": { "type": "number", "minimum": 0, "maximum": 100 },
+        "sampleSize": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric", "measured", "target", "passed"],
+      "properties": {
+        "metric": { "type": "string", "minLength": 1 },
+        "measured": { "type": "number" },
+        "target": { "type": "number" },
+        "passed": { "type": "boolean" },
+        "phase16Ceiling": { "type": "boolean" }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accountableAuthority", "auditAuthority"],
+      "properties": {
+        "accountableAuthority": { "type": "string", "minLength": 1 },
+        "auditAuthority": { "type": "string", "minLength": 1 },
+        "exceptionApproved": { "type": "boolean" },
+        "exceptionReason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "reference"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "load_test_report",
+            "monitoring_export",
+            "trace_sample",
+            "change_ticket",
+            "screenshot"
+          ]
+        },
+        "reference": { "type": "string", "minLength": 1 },
+        "capturedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["createdAt", "createdBy", "phase"],
+      "properties": {
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "minLength": 1 },
+        "phase": { "type": "integer", "const": 17 },
+        "correlationId": { "$ref": "#/$defs/uuid" },
+        "environment": {
+          "type": "string",
+          "enum": ["DEV", "QA", "UAT", "STAGING", "PRODUCTION"]
+        }
+      }
+    }
+  }
+}

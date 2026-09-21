@@ -1,0 +1,179 @@
+{
+  "id": "AI-CAP-001",
+  "code": "LOAN_DEFAULT_PREDICTION",
+  "name": "Loan Default Prediction",
+  "description": "Advisory heuristic that estimates the probability a loan will enter default based on repayment history, delinquency signals, and branch/collector risk features. Output requires human review before any Workflow or Rule Engine decision. Does not disburse, restructure, write off, or post money.",
+  "category": "Prediction",
+  "subcategory": "CreditRisk",
+  "version": "1.0.0",
+  "lifecycleState": "Active",
+  "decisionMode": "advisory",
+  "humanReviewRequired": true,
+  "autoExecuteAllowed": false,
+  "canPostMoney": false,
+  "canApproveLoans": false,
+  "replacesRuleEngine": false,
+  "owningModule": 29,
+  "relatedModules": [8, 29],
+  "accountableAuthority": "Risk Manager",
+  "businessOwner": "Loan Operations",
+  "technicalOwner": "ML Engineer",
+  "riskLevel": "High",
+  "dataClassification": "Confidential",
+  "inputs": [
+    {
+      "name": "loanId",
+      "type": "string",
+      "sourceEntity": "ENT-LON-001",
+      "required": true
+    },
+    {
+      "name": "amountPaidPesewas",
+      "type": "integer",
+      "sourceEntity": "ENT-LON-001",
+      "required": true
+    },
+    {
+      "name": "totalDuePesewas",
+      "type": "integer",
+      "sourceEntity": "ENT-LON-001",
+      "required": true
+    },
+    {
+      "name": "daysPastDue",
+      "type": "integer",
+      "sourceEntity": "loan_status",
+      "required": false
+    }
+  ],
+  "outputs": [
+    {
+      "name": "defaultProbability",
+      "type": "number",
+      "unit": "ratio_0_1"
+    },
+    {
+      "name": "riskBand",
+      "type": "string",
+      "unit": "enum"
+    },
+    {
+      "name": "confidence",
+      "type": "number",
+      "unit": "ratio_0_1"
+    },
+    {
+      "name": "explanation",
+      "type": "string",
+      "unit": "text"
+    }
+  ],
+  "modelRefs": ["MDL-LOAN-DEFAULT-001"],
+  "featureRefs": ["FEAT-LON-REPAY-RATIO", "FEAT-LON-DPD", "FEAT-BRH-RISK"],
+  "crossReferences": {
+    "contracts": ["Ai.Predict.v1", "Ai.Risk.Score.v1"],
+    "events": ["PredictionGenerated"],
+    "permissions": ["AI.Prediction.Run", "AI.Prediction.Explain"],
+    "documents": [
+      "docs/enterprise-ai.md",
+      "docs/enterprise-ai-automation-decision.md"
+    ],
+    "ruleEngineModule": 24
+  },
+  "validationRules": [
+    {
+      "ruleId": "CAP-VAL-001",
+      "description": "humanReviewRequired must be true",
+      "severity": "Error"
+    },
+    {
+      "ruleId": "CAP-VAL-002",
+      "description": "canPostMoney and canApproveLoans must be false",
+      "severity": "Error"
+    },
+    {
+      "ruleId": "CAP-VAL-003",
+      "description": "relatedModules must include Loan module 8 and AI module 29",
+      "severity": "Error"
+    },
+    {
+      "ruleId": "CAP-VAL-004",
+      "description": "accountableAuthority must equal governance.accountableAuthority and be singular",
+      "severity": "Error"
+    }
+  ],
+  "effectiveFrom": "2026-09-14T00:00:00.000Z",
+  "effectiveTo": null,
+  "governance": {
+    "governanceId": "AI-GOV-001",
+    "riskClass": "High",
+    "approvalStatus": "Approved",
+    "approvingAuthority": "Model Validator",
+    "accountableAuthority": "Risk Manager",
+    "responsibleParty": "ML Engineer",
+    "consultedParties": ["Compliance", "Business Owner", "Chief Data Steward"],
+    "informedParties": ["Branch Manager", "Internal Auditor"],
+    "humanOversightRequired": true,
+    "exceptionRequired": false,
+    "policyReferences": [
+      "EMAS Module 29 boundary",
+      "Module 24 Rule Engine precedence",
+      "AI SoD: approver ≠ auditor"
+    ],
+    "sodProfile": {
+      "approverMustDifferFromAuditor": true,
+      "developerMustDifferFromValidator": true,
+      "deployerMustDifferFromSoleApprover": true
+    },
+    "effectiveFrom": "2026-09-14T00:00:00.000Z",
+    "effectiveTo": null,
+    "notes": "Advisory default-risk signal only; loan decisions remain with Module 8 workflows + Module 24 rules."
+  },
+  "audit": {
+    "auditId": "AI-AUD-001",
+    "auditStatus": "Passed",
+    "auditor": "Internal Auditor",
+    "auditTrailRequired": true,
+    "retentionDays": 2555,
+    "lastAuditAt": "2026-09-10T12:00:00.000Z",
+    "nextAuditDue": "2027-03-10T12:00:00.000Z",
+    "findingsOpen": 0,
+    "evidenceUris": [
+      "urn:smiletrust:audit:ai-cap-001:2026-09-10"
+    ],
+    "controlsChecked": [
+      {
+        "controlId": "CTRL-AI-ADV-01",
+        "result": "Pass",
+        "notes": "Advisory-only boundary verified"
+      },
+      {
+        "controlId": "CTRL-AI-SOD-01",
+        "result": "Pass",
+        "notes": "Approver Model Validator ≠ auditor Internal Auditor"
+      },
+      {
+        "controlId": "CTRL-AI-HR-01",
+        "result": "Pass",
+        "notes": "humanReviewRequired enforced"
+      }
+    ],
+    "immutableLogReference": "module-29/ai-audit/AI-CAP-001",
+    "notes": "No ledger mutation paths observed."
+  },
+  "metadata": {
+    "schemaVersion": "1.0.0",
+    "createdAt": "2026-09-01T08:00:00.000Z",
+    "createdBy": "ml-platform",
+    "lastModifiedAt": "2026-09-14T18:00:00.000Z",
+    "lastModifiedBy": "risk-governance",
+    "checksum": "a3f1c8e2b4d5069781a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708",
+    "correlationId": "CORR-EAIADIS-P12-001",
+    "labels": {
+      "domain": "Loan",
+      "phase": "12"
+    },
+    "tags": ["loan", "default", "prediction", "advisory"],
+    "documentationUri": "https://docs.smiletrust.com/enterprise-ai-automation-decision"
+  }
+}

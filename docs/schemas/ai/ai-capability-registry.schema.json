@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/ai/ai-capability-registry.schema.json",
+  "title": "AICapabilityRegistryEntry",
+  "description": "Canonical AI Capability Registry entry (Phase 12 EAIADIS). AI is advisory; Module 24 remains deterministic authority. No auto loan or money posts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "code",
+    "name",
+    "description",
+    "category",
+    "version",
+    "lifecycleState",
+    "decisionMode",
+    "humanReviewRequired",
+    "autoExecuteAllowed",
+    "canPostMoney",
+    "canApproveLoans",
+    "replacesRuleEngine",
+    "owningModule",
+    "relatedModules",
+    "accountableAuthority",
+    "businessOwner",
+    "technicalOwner",
+    "riskLevel",
+    "dataClassification",
+    "governance",
+    "audit",
+    "metadata"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^AI-CAP-[0-9]{3}$",
+      "description": "Primary capability identifier."
+    },
+    "code": {
+      "$ref": "https://schemas.smiletrust.com/common/identifiers.schema.json#/$defs/capabilityCode"
+    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "description": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "category": {
+      "type": "string",
+      "enum": [
+        "Prediction",
+        "FraudDetection",
+        "RiskScoring",
+        "Recommendation",
+        "Forecasting",
+        "AnomalyDetection",
+        "Explainability",
+        "MLOps",
+        "GovernanceSupport"
+      ]
+    },
+    "subcategory": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "version": {
+      "$ref": "https://schemas.smiletrust.com/common/identifiers.schema.json#/$defs/semver"
+    },
+    "lifecycleState": {
+      "type": "string",
+      "enum": [
+        "Proposed",
+        "Registered",
+        "Validated",
+        "Approved",
+        "Active",
+        "Suspended",
+        "Retired"
+      ]
+    },
+    "decisionMode": {
+      "type": "string",
+      "const": "advisory",
+      "description": "Smile Trust AI capabilities are advisory only."
+    },
+    "humanReviewRequired": { "type": "boolean", "const": true },
+    "autoExecuteAllowed": { "type": "boolean", "const": false },
+    "canPostMoney": { "type": "boolean", "const": false },
+    "canApproveLoans": { "type": "boolean", "const": false },
+    "replacesRuleEngine": {
+      "type": "boolean",
+      "const": false,
+      "description": "Module 24 Rule Engine remains deterministic authority."
+    },
+    "owningModule": {
+      "type": "integer",
+      "const": 29,
+      "description": "Module 29 owns AI capabilities (not Module 30)."
+    },
+    "relatedModules": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "https://schemas.smiletrust.com/common/identifiers.schema.json#/$defs/moduleNumber"
+      },
+      "description": "Related EMAS modules. Loan capabilities include 8; AI owner is 29."
+    },
+    "accountableAuthority": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "Exactly one accountable authority for the capability (must match governance.accountableAuthority)."
+    },
+    "businessOwner": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "technicalOwner": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "riskLevel": {
+      "type": "string",
+      "enum": ["Low", "Medium", "High", "Critical"]
+    },
+    "dataClassification": {
+      "$ref": "https://schemas.smiletrust.com/common/classification.schema.json"
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "type"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "type": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "sourceEntity": { "type": "string", "maxLength": 100 },
+          "required": { "type": "boolean" }
+        }
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "type"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "type": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "unit": { "type": "string", "maxLength": 40 }
+        }
+      }
+    },
+    "modelRefs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 120 }
+    },
+    "featureRefs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 120 }
+    },
+    "crossReferences": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "contracts": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 120 }
+        },
+        "events": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 120 }
+        },
+        "permissions": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 120 }
+        },
+        "documents": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+        },
+        "ruleEngineModule": { "type": "integer", "const": 24 }
+      }
+    },
+    "validationRules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ruleId", "description"],
+        "properties": {
+          "ruleId": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "description": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "severity": {
+            "type": "string",
+            "enum": ["Error", "Warning", "Info"],
+            "default": "Error"
+          }
+        }
+      }
+    },
+    "effectiveFrom": { "type": "string", "format": "date-time" },
+    "effectiveTo": { "type": ["string", "null"], "format": "date-time" },
+    "governance": {
+      "$ref": "https://schemas.smiletrust.com/ai/governance.schema.json"
+    },
+    "audit": {
+      "$ref": "https://schemas.smiletrust.com/ai/audit.schema.json"
+    },
+    "metadata": {
+      "$ref": "https://schemas.smiletrust.com/common/metadata.schema.json"
+    }
+  }
+}

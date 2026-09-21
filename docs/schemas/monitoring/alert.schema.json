@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/monitoring/alert.schema.json",
+  "title": "EmooisAlertEntry",
+  "description": "Phase 13 EMOOIS alert catalog entry. Runtime evaluation remains Module 19.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "id",
+    "code",
+    "name",
+    "severity",
+    "metricIds",
+    "owner",
+    "owningModule",
+    "metadata"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^ALT-[0-9]{3}$"
+    },
+    "code": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]{2,63}$"
+    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "description": { "type": "string", "maxLength": 4000 },
+    "severity": {
+      "type": "string",
+      "enum": ["information", "warning", "minor", "major", "critical"]
+    },
+    "metricIds": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^MET-[0-9]{3}$" }
+    },
+    "sloIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^SLO-[0-9]{3}$" }
+    },
+    "owner": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "owningModule": { "type": "integer", "const": 19 },
+    "module19RuleAffinity": { "type": "string" },
+    "observeOnly": { "type": "boolean" },
+    "advisoryOnly": { "type": "boolean" },
+    "metadata": {
+      "$ref": "https://schemas.smiletrust.com/common/metadata.schema.json"
+    }
+  }
+}

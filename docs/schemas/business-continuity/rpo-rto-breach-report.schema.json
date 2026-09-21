@@ -1,0 +1,442 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/business-continuity/rpo-rto-breach-report.schema.json",
+  "title": "EbcbdrsRpoRtoBreachReport",
+  "description": "Phase 15 EBCBDRS canonical RPO/RTO breach report. Operationalizes Phase 14 recovery targets; Module 21 executes backup/restore; Module 30 governs DR. additionalProperties false.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "reportId",
+    "incidentId",
+    "recoveryTargetId",
+    "kind",
+    "environment",
+    "service",
+    "measurement",
+    "classification",
+    "timeline",
+    "governance",
+    "correctiveActions",
+    "evidence",
+    "metadata"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version of this breach report document shape."
+    },
+    "reportId": {
+      "$ref": "#/$defs/uuid"
+    },
+    "incidentId": {
+      "$ref": "#/$defs/incidentId"
+    },
+    "recoveryTargetId": {
+      "$ref": "#/$defs/recoveryTargetId"
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["RPO", "RTO", "Combined"]
+    },
+    "environment": {
+      "type": "string",
+      "enum": ["development", "qa", "uat", "staging", "production", "dr"]
+    },
+    "service": {
+      "$ref": "#/$defs/service"
+    },
+    "measurement": {
+      "$ref": "#/$defs/measurement"
+    },
+    "classification": {
+      "$ref": "#/$defs/classification"
+    },
+    "timeline": {
+      "$ref": "#/$defs/timeline"
+    },
+    "governance": {
+      "$ref": "#/$defs/governance"
+    },
+    "correctiveActions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/correctiveAction"
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidence"
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": { "const": "RPO" }
+        },
+        "required": ["kind"]
+      },
+      "then": {
+        "properties": {
+          "measurement": {
+            "type": "object",
+            "required": ["rpo", "clock"],
+            "properties": {
+              "rpo": { "$ref": "#/$defs/metricMeasurement" },
+              "rto": true,
+              "clock": { "$ref": "#/$defs/clock" }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": { "const": "RTO" }
+        },
+        "required": ["kind"]
+      },
+      "then": {
+        "properties": {
+          "measurement": {
+            "type": "object",
+            "required": ["rto", "clock"],
+            "properties": {
+              "rpo": true,
+              "rto": { "$ref": "#/$defs/metricMeasurement" },
+              "clock": { "$ref": "#/$defs/clock" }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": { "const": "Combined" }
+        },
+        "required": ["kind"]
+      },
+      "then": {
+        "properties": {
+          "measurement": {
+            "type": "object",
+            "required": ["rpo", "rto", "clock"],
+            "properties": {
+              "rpo": { "$ref": "#/$defs/metricMeasurement" },
+              "rto": { "$ref": "#/$defs/metricMeasurement" },
+              "clock": { "$ref": "#/$defs/clock" }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "classification": {
+            "type": "object",
+            "properties": {
+              "severity": {
+                "enum": ["Level2", "Level3", "Level4"]
+              }
+            },
+            "required": ["severity"]
+          }
+        },
+        "required": ["classification"]
+      },
+      "then": {
+        "properties": {
+          "correctiveActions": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/correctiveAction"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "description": "Lowercase UUID (RFC 4122 variant 1–5)."
+    },
+    "incidentId": {
+      "type": "string",
+      "pattern": "^INC-[A-Z0-9-]{4,}$",
+      "description": "Incident identifier with INC- prefix."
+    },
+    "recoveryTargetId": {
+      "type": "string",
+      "pattern": "^REC-TARGET-[A-Z0-9_-]+$",
+      "description": "Recovery target reference, typically REC-TARGET-RRT-NNN aligning to Phase 14."
+    },
+    "serviceId": {
+      "type": "string",
+      "pattern": "^SVC-[0-9]{3}$"
+    },
+    "isoDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC ISO-8601 timestamp."
+    },
+    "clock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timezone", "format"],
+      "properties": {
+        "timezone": { "type": "string", "const": "UTC" },
+        "format": { "type": "string", "const": "ISO-8601" }
+      }
+    },
+    "metricMeasurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "measuredMinutes",
+        "targetMinutes",
+        "percentOverTarget",
+        "passFail",
+        "withinTarget"
+      ],
+      "properties": {
+        "measuredMinutes": { "type": "number", "minimum": 0 },
+        "targetMinutes": { "type": "number", "exclusiveMinimum": 0 },
+        "percentOverTarget": { "type": "number", "minimum": 0 },
+        "passFail": { "type": "string", "enum": ["pass", "fail"] },
+        "withinTarget": { "type": "boolean" }
+      }
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["serviceId", "serviceCode", "serviceKey", "tier"],
+      "properties": {
+        "serviceId": { "$ref": "#/$defs/serviceId" },
+        "serviceCode": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{2,63}$"
+        },
+        "serviceKey": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "tier": {
+          "type": "string",
+          "enum": [
+            "tier0_mission_critical",
+            "tier1_business_critical",
+            "tier2_important",
+            "tier3_standard"
+          ]
+        },
+        "phase14TargetId": {
+          "type": ["string", "null"],
+          "pattern": "^RRT-[0-9]{3}$"
+        },
+        "recoveryPriority": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "maximum": 10
+        }
+      }
+    },
+    "measurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clock"],
+      "properties": {
+        "rpo": {
+          "oneOf": [
+            { "$ref": "#/$defs/metricMeasurement" },
+            { "type": "null" }
+          ]
+        },
+        "rto": {
+          "oneOf": [
+            { "$ref": "#/$defs/metricMeasurement" },
+            { "type": "null" }
+          ]
+        },
+        "clock": { "$ref": "#/$defs/clock" }
+      }
+    },
+    "classification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "breached",
+        "severity",
+        "overallCompliance",
+        "capaRequired",
+        "rootCauseCode"
+      ],
+      "properties": {
+        "breached": { "type": "boolean" },
+        "severity": {
+          "type": "string",
+          "enum": ["Level0", "Level1", "Level2", "Level3", "Level4"]
+        },
+        "overallCompliance": {
+          "type": "string",
+          "enum": ["compliant", "at_risk", "breached", "exception_approved", "not_measured"]
+        },
+        "capaRequired": { "type": "boolean" },
+        "rootCauseCode": {
+          "type": "string",
+          "enum": [
+            "BACKUP_STALE",
+            "RESTORE_SLOW",
+            "STABILIZATION_FAILED",
+            "DEPENDENCY_OUTAGE",
+            "HUMAN_PROCESS",
+            "CAPACITY",
+            "CORRUPTION",
+            "UNKNOWN"
+          ]
+        },
+        "rootCauseDetail": { "type": "string", "maxLength": 2000 }
+      }
+    },
+    "timeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["detectedAt", "declaredAt", "reportedAt"],
+      "properties": {
+        "detectedAt": { "$ref": "#/$defs/isoDateTime" },
+        "declaredAt": { "$ref": "#/$defs/isoDateTime" },
+        "restoredAt": {
+          "oneOf": [{ "$ref": "#/$defs/isoDateTime" }, { "type": "null" }]
+        },
+        "stabilizedAt": {
+          "oneOf": [{ "$ref": "#/$defs/isoDateTime" }, { "type": "null" }]
+        },
+        "reportedAt": { "$ref": "#/$defs/isoDateTime" }
+      },
+      "description": "Ordering constraints (declaredAt >= detectedAt; restoredAt >= declaredAt; stabilizedAt >= restoredAt; reportedAt >= detectedAt) are enforced by Phase 15 validators; JSON Schema expresses presence and formats."
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "accountableAuthority",
+        "auditAuthority",
+        "module21Engine",
+        "module30Governance"
+      ],
+      "properties": {
+        "accountableAuthority": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "auditAuthority": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "communicationChannelIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^COM-[0-9]{3}$" }
+        },
+        "module21Engine": { "type": "string", "minLength": 1 },
+        "module30Governance": { "type": "string", "minLength": 1 },
+        "phase14PolicyRef": {
+          "type": ["string", "null"],
+          "pattern": "^RRT-[0-9]{3}$"
+        }
+      }
+    },
+    "correctiveAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "owner", "status", "severity"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "owner": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "status": {
+          "type": "string",
+          "enum": ["open", "in_progress", "completed", "cancelled"]
+        },
+        "dueAt": { "$ref": "#/$defs/isoDateTime" },
+        "severity": {
+          "type": "string",
+          "enum": ["Level0", "Level1", "Level2", "Level3", "Level4"]
+        },
+        "description": { "type": "string", "maxLength": 4000 }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "reference"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "backup_set",
+            "restore_job",
+            "health_check",
+            "incident_record",
+            "audit_log",
+            "drill_result",
+            "other"
+          ]
+        },
+        "reference": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "capturedAt": { "$ref": "#/$defs/isoDateTime" },
+        "notes": { "type": "string", "maxLength": 1000 }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "createdAt",
+        "createdBy",
+        "lastModifiedAt",
+        "lastModifiedBy"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "createdAt": { "$ref": "#/$defs/isoDateTime" },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "lastModifiedAt": { "$ref": "#/$defs/isoDateTime" },
+        "lastModifiedBy": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "correlationId": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "checksum": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "maxLength": 100 }
+        },
+        "tags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 50 }
+        },
+        "documentationUri": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 500
+        }
+      }
+    }
+  }
+}

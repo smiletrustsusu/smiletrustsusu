@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SMILE TRUST SUSU MANAGEMENT SYSTEM Flyer</title>
+  <style>
+    :root {
+      --ink: #102a27;
+      --green: #16715f;
+      --mint: #e9f8f3;
+      --gold: #f4c04d;
+      --paper: #fbf7ef;
+      --white: #ffffff;
+      --shadow: rgba(16, 42, 39, 0.2);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #d9e4e0;
+      color: var(--ink);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .flyer {
+      position: relative;
+      width: min(100vw, 794px);
+      min-height: 1123px;
+      overflow: hidden;
+      background:
+        linear-gradient(160deg, rgba(16, 42, 39, 0.94), rgba(22, 113, 95, 0.86) 44%, rgba(251, 247, 239, 0.96) 44.2%),
+        url("../www/assets/susu-background.png") center / cover;
+      box-shadow: 0 24px 80px var(--shadow);
+    }
+
+    .flyer::before {
+      content: "";
+      position: absolute;
+      inset: 34px;
+      border: 2px solid rgba(255, 255, 255, 0.34);
+      pointer-events: none;
+    }
+
+    .header {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 56px 58px 20px;
+      color: var(--white);
+    }
+
+    .logo {
+      width: 92px;
+      height: 92px;
+      border-radius: 22px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
+    }
+
+    .brand {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.1;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .tag {
+      margin: 7px 0 0;
+      color: rgba(255, 255, 255, 0.82);
+      font-size: 14px;
+      letter-spacing: 1.8px;
+      text-transform: uppercase;
+    }
+
+    .hero {
+      position: relative;
+      z-index: 1;
+      padding: 36px 58px 70px;
+      color: var(--white);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 0 18px;
+      border: 1px solid rgba(255, 255, 255, 0.48);
+      border-radius: 999px;
+      color: var(--gold);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 650px;
+      margin: 22px 0 18px;
+      font-size: 66px;
+      line-height: 0.96;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .subtitle {
+      max-width: 560px;
+      margin: 0;
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 24px;
+      line-height: 1.32;
+      font-weight: 700;
+    }
+
+    .content {
+      position: relative;
+      z-index: 1;
+      padding: 48px 58px 56px;
+    }
+
+    .feature-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 30px;
+    }
+
+    .feature {
+      min-height: 132px;
+      padding: 20px 18px;
+      border-radius: 8px;
+      background: var(--white);
+      box-shadow: 0 12px 34px rgba(16, 42, 39, 0.08);
+    }
+
+    .feature strong {
+      display: block;
+      margin-bottom: 10px;
+      color: var(--green);
+      font-size: 18px;
+      line-height: 1.1;
+    }
+
+    .feature span {
+      display: block;
+      color: #375651;
+      font-size: 14px;
+      line-height: 1.42;
+    }
+
+    .main-panel {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 22px;
+      align-items: stretch;
+    }
+
+    .benefits,
+    .contact {
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.88);
+      box-shadow: 0 12px 34px rgba(16, 42, 39, 0.08);
+    }
+
+    .benefits {
+      padding: 28px 28px 26px;
+    }
+
+    h2 {
+      margin: 0 0 18px;
+      font-size: 29px;
+      line-height: 1.06;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    ul {
+      display: grid;
+      gap: 13px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    li {
+      position: relative;
+      min-height: 28px;
+      padding-left: 34px;
+      color: #24423e;
+      font-size: 17px;
+      line-height: 1.35;
+      font-weight: 700;
+    }
+
+    li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 2px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--gold);
+      box-shadow: inset 0 0 0 6px var(--paper);
+    }
+
+    .contact {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 28px;
+      background: var(--ink);
+      color: var(--white);
+    }
+
+    .contact h2 {
+      color: var(--gold);
+    }
+
+    .contact p {
+      margin: 0 0 18px;
+      color: rgba(255, 255, 255, 0.84);
+      font-size: 17px;
+      line-height: 1.45;
+      font-weight: 700;
+    }
+
+    .cta {
+      display: grid;
+      gap: 12px;
+    }
+
+    .cta-line {
+      display: block;
+      padding: 14px 16px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--white);
+      font-size: 17px;
+      line-height: 1.25;
+      font-weight: 800;
+    }
+
+    .cta-line small {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--gold);
+      font-size: 11px;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+    }
+
+    .footer {
+      position: absolute;
+      left: 58px;
+      right: 58px;
+      bottom: 36px;
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      color: #45615d;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.1px;
+    }
+
+    @media print {
+      body {
+        background: transparent;
+      }
+
+      .flyer {
+        width: 210mm;
+        min-height: 297mm;
+        box-shadow: none;
+      }
+    }
+
+    @page {
+      size: A4;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <main class="flyer" aria-label="SMILE TRUST SUSU MANAGEMENT SYSTEM flyer">
+    <header class="header">
+      <img class="logo" src="../www/assets/smile-trust-logo.svg" alt="Smile Trust logo">
+      <div>
+        <p class="brand">SMILE TRUST SUSU<br>MANAGEMENT SYSTEM</p>
+        <p class="tag">Local-first collection software</p>
+      </div>
+    </header>
+
+    <section class="hero">
+      <span class="eyebrow">For susu locations, collectors, and admins</span>
+      <h1>Manage every contribution with confidence</h1>
+      <p class="subtitle">Daily collections, customer savings, loans, repayments, receipts, reports, and backups in one simple system.</p>
+    </section>
+
+    <section class="content">
+      <div class="feature-row" aria-label="Top features">
+        <div class="feature">
+          <strong>Track Payments</strong>
+          <span>Record paid, partial, and missed contributions with quick member search.</span>
+        </div>
+        <div class="feature">
+          <strong>Control Loans</strong>
+          <span>Approve loans, calculate interest, and monitor repayment balances.</span>
+        </div>
+        <div class="feature">
+          <strong>Print Reports</strong>
+          <span>Prepare receipts, transaction ledgers, CSV exports, and group summaries.</span>
+        </div>
+      </div>
+
+      <div class="main-panel">
+        <div class="benefits">
+          <h2>Built for daily susu work</h2>
+          <ul>
+            <li>Register members with phone number, NHIS, group, and contribution amount.</li>
+            <li>See dashboard totals for collections, repayments, loans, and customers.</li>
+            <li>Send SMS-ready payment messages from the device.</li>
+            <li>Export backups so important records stay protected.</li>
+          </ul>
+        </div>
+
+        <aside class="contact">
+          <div>
+            <h2>Start using Smile Trust today</h2>
+            <p>Organize group records, reduce manual errors, and keep every transaction easy to trace.</p>
+          </div>
+          <div class="cta">
+            <span class="cta-line"><small>Call or WhatsApp</small> 0549133334</span>
+            <span class="cta-line"><small>Service</small> Setup, training, and support available</span>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span>SMILE TRUST SUSU MANAGEMENT SYSTEM</span>
+      <span>Desktop and Android ready</span>
+    </footer>
+  </main>
+</body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/envelope/section-envelope.schema.json",
+  "title": "EAIADISSectionEnvelope",
+  "description": "Section unit inside an EAIADIS document envelope.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["sectionCode", "sectionTitle", "ordinal", "complete"],
+  "properties": {
+    "sectionCode": {
+      "type": "string",
+      "pattern": "^P12-[A-Z0-9_]{2,40}$"
+    },
+    "sectionTitle": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "ordinal": { "type": "integer", "minimum": 1, "maximum": 99 },
+    "complete": { "type": "boolean" },
+    "summary": { "type": "string", "maxLength": 4000 },
+    "artifactUris": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+    }
+  }
+}

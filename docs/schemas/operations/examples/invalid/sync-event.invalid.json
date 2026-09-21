@@ -1,0 +1,37 @@
+{
+  "_failureReasons": [
+    "syncEventId not uuid",
+    "status not in enum",
+    "counts missing conflicts",
+    "timestamps missing startedAt",
+    "retryCount negative",
+    "metadata.phase not 18",
+    "additional property notAllowed"
+  ],
+  "schemaVersion": "1",
+  "syncEventId": "not-a-uuid",
+  "deviceId": "",
+  "collectorId": "c1",
+  "branchId": "b1",
+  "tenantId": "t1",
+  "queueSize": -1,
+  "status": "syncing_hard",
+  "counts": {
+    "pending": 1,
+    "uploaded": 0,
+    "applied": 0,
+    "failed": 0
+  },
+  "timestamps": {},
+  "retryCount": -2,
+  "correlationId": "bad",
+  "governance": {
+    "accountableAuthority": "Operations Lead"
+  },
+  "metadata": {
+    "createdAt": "yesterday",
+    "createdBy": "x",
+    "phase": 15
+  },
+  "notAllowed": true
+}

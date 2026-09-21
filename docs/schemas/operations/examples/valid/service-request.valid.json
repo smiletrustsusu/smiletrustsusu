@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0.0",
+  "requestId": "SR-2044",
+  "requestTypeId": "SRT-008",
+  "category": "device",
+  "title": "Replace lost collector Android device",
+  "description": "Revoke old device; authorize new APK device; transfer pending offline queue if recoverable.",
+  "status": "pending_approval",
+  "approvalRequired": true,
+  "approver": "Branch Supervisor",
+  "fulfillment": {
+    "targetHours": 8,
+    "withinTarget": true
+  },
+  "relatedModules": [15, 1],
+  "governance": {
+    "accountableAuthority": "Branch Supervisor",
+    "responsibleParty": "Service Desk",
+    "auditAuthority": "Internal Auditor",
+    "roleId": "ROLE-BRANCH-SUP"
+  },
+  "metadata": {
+    "createdAt": "2026-09-15T10:00:00.000Z",
+    "createdBy": "Service Desk",
+    "phase": 18,
+    "correlationId": "e5f6a7b8-c9d0-4123-e456-789012abcdef"
+  }
+}

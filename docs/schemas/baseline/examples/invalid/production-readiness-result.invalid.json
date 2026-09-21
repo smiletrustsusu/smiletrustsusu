@@ -1,0 +1,32 @@
+{
+  "_failureReasons": [
+    "evaluationId not uuid",
+    "checkId pattern fail",
+    "status not in enum",
+    "consumesPhase16ExceptionRule wrong const",
+    "liveProductionGoLiveClaimed must be false",
+    "metadata.phase not 20",
+    "additional property notAllowed"
+  ],
+  "schemaVersion": "1",
+  "evaluationId": "not-uuid",
+  "ready": "yes",
+  "failClosed": "no",
+  "checkResults": [
+    {
+      "checkId": "GATE-1",
+      "status": "ok"
+    }
+  ],
+  "consumesPhase16ExceptionRule": "bypass_anything",
+  "liveProductionGoLiveClaimed": true,
+  "governance": {
+    "accountableAuthority": "x"
+  },
+  "metadata": {
+    "createdAt": "bad",
+    "createdBy": "x",
+    "phase": 16
+  },
+  "notAllowed": true
+}

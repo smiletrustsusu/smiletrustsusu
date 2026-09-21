@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/deployment/artifact.schema.json",
+  "title": "EddiesArtifactEntry",
+  "description": "Phase 14 EDDIES artifact catalog entry mapped to real build outputs.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "id",
+    "code",
+    "name",
+    "kind",
+    "accountableAuthority",
+    "metadata"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^ART-[0-9]{3}$"
+    },
+    "code": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]{2,63}$"
+    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "kind": {
+      "type": "string",
+      "enum": ["web_bundle", "android_apk", "electron_exe", "sql_migration", "docs_catalog", "config_template"]
+    },
+    "pathHint": { "type": "string", "maxLength": 500 },
+    "producedBy": {
+      "type": "string",
+      "pattern": "^PIPE-[0-9]{3}$"
+    },
+    "accountableAuthority": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "metadata": {
+      "$ref": "https://schemas.smiletrust.com/common/metadata.schema.json"
+    }
+  }
+}

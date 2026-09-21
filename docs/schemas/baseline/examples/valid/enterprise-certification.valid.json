@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.0.0",
+  "recordId": "e50f3a4b-5c6d-7e8f-1a2b-3c4d5e6f7081",
+  "certificationId": "CERT-BL-001",
+  "recordKind": "certification",
+  "certificationType": "application",
+  "decision": "pending",
+  "issuedAt": "2026-09-15T12:00:00.000Z",
+  "expiresAt": "2027-03-14T12:00:00.000Z",
+  "renewalRequired": true,
+  "entryCriteriaMet": false,
+  "approvalRolesSatisfied": [],
+  "relatedReadinessIds": ["RDY-001", "RDY-003", "RDY-016"],
+  "phase16Align": "CERT-001",
+  "governance": {
+    "accountableAuthority": "Release Manager",
+    "responsibleParty": "CIO",
+    "auditAuthority": "Internal Auditor",
+    "approver": "CIO"
+  },
+  "evidence": [
+    {
+      "evidenceId": "EV-BL-001",
+      "kind": "schema_manifest",
+      "uri": "docs/schemas/manifest.json",
+      "checksum": "SHA-256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "metadata": {
+    "createdAt": "2026-09-15T12:00:00.000Z",
+    "createdBy": "Phase 20 certification catalog",
+    "phase": 20,
+    "correlationId": "f60a4b5c-6d7e-8f9a-2b3c-4d5e6f708192",
+    "moneyInvariantsNote": "pesewas; interest 15; collection days 31; cashier 1000",
+    "specificationBaselineOnly": true
+  }
+}

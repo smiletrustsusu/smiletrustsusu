@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/operations/service-request.schema.json",
+  "title": "EossmsServiceRequest",
+  "description": "Phase 18 EOSSMS service request ticket. Catalog/support only; does not rewrite RBAC or Module engines. additionalProperties false.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "requestId",
+    "requestTypeId",
+    "category",
+    "title",
+    "status",
+    "approvalRequired",
+    "fulfillment",
+    "governance",
+    "metadata"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "requestId": {
+      "type": "string",
+      "pattern": "^SR-[0-9]{4,}$"
+    },
+    "requestTypeId": {
+      "type": "string",
+      "pattern": "^SRT-[0-9]{3}$"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "account",
+        "password_reset",
+        "permission",
+        "branch_config",
+        "report",
+        "integration",
+        "training",
+        "device"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 4000
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "new",
+        "pending_approval",
+        "approved",
+        "rejected",
+        "in_fulfillment",
+        "fulfilled",
+        "closed",
+        "cancelled"
+      ]
+    },
+    "approvalRequired": {
+      "type": "boolean"
+    },
+    "approver": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fulfillment": {
+      "$ref": "#/$defs/fulfillment"
+    },
+    "relatedModules": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 1, "maximum": 30 },
+      "uniqueItems": true
+    },
+    "governance": {
+      "$ref": "#/$defs/governance"
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    }
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "fulfillment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["targetHours"],
+      "properties": {
+        "targetHours": { "type": "number", "exclusiveMinimum": 0 },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "withinTarget": { "type": "boolean" }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accountableAuthority", "auditAuthority"],
+      "properties": {
+        "accountableAuthority": { "type": "string", "minLength": 1 },
+        "responsibleParty": { "type": "string", "minLength": 1 },
+        "auditAuthority": { "type": "string", "minLength": 1 },
+        "roleId": {
+          "type": "string",
+          "pattern": "^ROLE-[A-Z0-9-]+$"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["createdAt", "createdBy", "phase"],
+      "properties": {
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "minLength": 1 },
+        "phase": { "type": "integer", "const": 18 },
+        "correlationId": { "$ref": "#/$defs/uuid" }
+      }
+    }
+  }
+}

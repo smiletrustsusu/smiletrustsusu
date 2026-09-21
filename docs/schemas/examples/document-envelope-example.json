@@ -1,0 +1,52 @@
+{
+  "envelopeId": "ENV-012",
+  "documentType": "EAIADIS",
+  "title": "Enterprise AI Automation Decision & Identifier Specification — Phase 12",
+  "version": "1.0.0",
+  "status": "Approved",
+  "accountableAuthority": "Risk Manager",
+  "primaryOwner": "AI Platform Admin",
+  "approver": "Model Validator",
+  "auditor": "Internal Auditor",
+  "sections": [
+    {
+      "sectionCode": "P12-CAPABILITY_REGISTRY",
+      "sectionTitle": "AI Capability Registry Specification",
+      "ordinal": 1,
+      "complete": true,
+      "artifactUris": [
+        "docs/schemas/ai/ai-capability-registry.schema.json"
+      ]
+    },
+    {
+      "sectionCode": "P12-GOVERNANCE_AUDIT",
+      "sectionTitle": "Governance & Audit Field Definitions",
+      "ordinal": 2,
+      "complete": true,
+      "artifactUris": [
+        "docs/schemas/ai/governance.schema.json",
+        "docs/schemas/ai/audit.schema.json"
+      ]
+    },
+    {
+      "sectionCode": "P12-IDENTIFIERS",
+      "sectionTitle": "Identifier & Format Handling",
+      "ordinal": 3,
+      "complete": true
+    }
+  ],
+  "crossReferences": [
+    { "kind": "Capability", "ref": "AI-CAP-001" },
+    { "kind": "Module", "ref": "29" },
+    { "kind": "Document", "ref": "docs/enterprise-ai.md" }
+  ],
+  "metadata": {
+    "schemaVersion": "1.0.0",
+    "createdAt": "2026-09-14T00:00:00.000Z",
+    "createdBy": "architecture",
+    "lastModifiedAt": "2026-09-14T20:00:00.000Z",
+    "lastModifiedBy": "architecture",
+    "checksum": "b1c2d3e4f5061728394a5b6c7d8e9f00112233445566778899aabbccddeeff00",
+    "tags": ["phase12", "eaiadis"]
+  }
+}

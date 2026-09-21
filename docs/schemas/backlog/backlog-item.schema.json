@@ -1,0 +1,319 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/backlog/backlog-item.schema.json",
+  "title": "MibBacklogItem",
+  "description": "Master Implementation Backlog item. Execution SoT under Phase 20 baseline; does not redefine Phases 1–20 or replace Modules 1–30 engines. additionalProperties false.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "identifier",
+    "parentIdentifier",
+    "module",
+    "enterprisePhase",
+    "title",
+    "description",
+    "businessObjective",
+    "businessValue",
+    "priority",
+    "riskLevel",
+    "complexity",
+    "storyPoints",
+    "estimatedHours",
+    "owner",
+    "team",
+    "status",
+    "dependencies",
+    "blockers",
+    "acceptanceCriteria",
+    "validationRequirements",
+    "testCases",
+    "uiScreens",
+    "apis",
+    "databaseTables",
+    "databaseViews",
+    "databaseFunctions",
+    "storedProcedures",
+    "reports",
+    "dashboards",
+    "securityControls",
+    "auditRequirements",
+    "offlineSupport",
+    "synchronizationRequirements",
+    "performanceRequirements",
+    "monitoringRequirements",
+    "documentationReferences",
+    "relatedEnterprisePhaseReferences",
+    "relatedModuleReferences",
+    "version",
+    "createdDate",
+    "modifiedDate"
+  ],
+  "properties": {
+    "identifier": { "$ref": "#/$defs/backlogIdentifier" },
+    "parentIdentifier": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/backlogIdentifier" }
+      ]
+    },
+    "module": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "pattern": "^MOD-[0-9]{3}$" }
+      ]
+    },
+    "enterprisePhase": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "pattern": "^PH-[0-9]{3}$" }
+      ]
+    },
+    "title": { "type": "string", "minLength": 1, "maxLength": 300 },
+    "description": { "type": "string", "maxLength": 4000 },
+    "businessObjective": { "type": "string", "maxLength": 2000 },
+    "businessValue": { "type": "string", "maxLength": 2000 },
+    "priority": { "$ref": "#/$defs/priority" },
+    "riskLevel": { "$ref": "#/$defs/riskLevel" },
+    "complexity": { "$ref": "#/$defs/complexity" },
+    "storyPoints": { "$ref": "#/$defs/storyPoints" },
+    "estimatedHours": { "type": "number", "minimum": 0 },
+    "owner": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "team": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "status": { "$ref": "#/$defs/status" },
+    "wave": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "integer", "minimum": 1, "maximum": 20 }
+      ],
+      "description": "MIB implementation-order wave (1–20). Prefer deliveryWave for user Wave 1–10 names."
+    },
+    "deliveryWave": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "integer", "minimum": 1, "maximum": 10 }
+      ],
+      "description": "User delivery wave 1–10 (Foundation…Production) mapped from EIR WAVE-01..10."
+    },
+    "workCategory": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "string",
+          "enum": [
+            "Feature",
+            "Defect",
+            "TechDebt",
+            "Security",
+            "Performance",
+            "Testing",
+            "Documentation",
+            "Ops",
+            "Governance"
+          ]
+        }
+      ]
+    },
+    "auditGapRefs": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^GAP-[0-9]{3}$" }
+    },
+    "notes": { "oneOf": [{ "type": "null" }, { "type": "string", "maxLength": 2000 }] },
+    "dependencies": { "$ref": "#/$defs/dependencies" },
+    "blockers": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 500 }
+    },
+    "acceptanceCriteria": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 1000 }
+    },
+    "validationRequirements": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 1000 }
+    },
+    "testCases": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 260 }
+    },
+    "uiScreens": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 260 }
+    },
+    "apis": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 260 }
+    },
+    "databaseTables": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 120 }
+    },
+    "databaseViews": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 120 }
+    },
+    "databaseFunctions": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 120 }
+    },
+    "storedProcedures": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 120 }
+    },
+    "reports": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 260 }
+    },
+    "dashboards": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 260 }
+    },
+    "securityControls": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 260 }
+    },
+    "auditRequirements": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 500 }
+    },
+    "offlineSupport": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "maxLength": 500 }
+      ]
+    },
+    "synchronizationRequirements": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "maxLength": 1000 }
+      ]
+    },
+    "performanceRequirements": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "maxLength": 1000 }
+      ]
+    },
+    "monitoringRequirements": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "maxLength": 1000 }
+      ]
+    },
+    "documentationReferences": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 320 }
+    },
+    "relatedEnterprisePhaseReferences": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^PH-[0-9]{3}$" }
+    },
+    "relatedModuleReferences": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^MOD-[0-9]{3}$" }
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "createdDate": {
+      "type": "string",
+      "format": "date"
+    },
+    "modifiedDate": {
+      "type": "string",
+      "format": "date"
+    },
+    "wave": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "integer", "minimum": 1, "maximum": 20 }
+      ]
+    },
+    "notes": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "maxLength": 2000 }
+      ]
+    }
+  },
+  "$defs": {
+    "backlogIdentifier": {
+      "type": "string",
+      "pattern": "^(PRG-[0-9]{4}|PH-[0-9]{3}|MOD-[0-9]{3}|EPC-[0-9]{6}|FEAT-[0-9]{6}|USR-[0-9]{6}|TASK-[0-9]{6}|SUB-[0-9]{6}|TEST-[0-9]{6}|BUG-[0-9]{6}|RISK-[0-9]{6}|CR-[0-9]{6}|REL-[0-9]{6})$"
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["Critical", "High", "Medium", "Low"]
+    },
+    "riskLevel": {
+      "type": "string",
+      "enum": ["Critical", "High", "Medium", "Low"]
+    },
+    "complexity": {
+      "type": "string",
+      "enum": ["XS", "S", "M", "L", "XL"]
+    },
+    "storyPoints": {
+      "type": "integer",
+      "enum": [1, 2, 3, 5, 8, 13, 21, 34, 55]
+    },
+    "status": {
+      "type": "string",
+      "description": "Canonical preferred: Completed|Ready|Planned|In Progress|Blocked|Deferred|Cancelled. Legacy aliases accepted and normalized at write-time.",
+      "enum": [
+        "Completed",
+        "Ready",
+        "Planned",
+        "In Progress",
+        "Blocked",
+        "Deferred",
+        "Cancelled",
+        "Not Started",
+        "Code Complete",
+        "Code Review",
+        "QA Testing",
+        "UAT",
+        "Ready for Release",
+        "Released"
+      ]
+    },
+    "dependencies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "prerequisites",
+        "dependentTasks",
+        "blockingTasks",
+        "relatedTasks",
+        "crossModule",
+        "crossPhase"
+      ],
+      "properties": {
+        "prerequisites": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/backlogIdentifier" }
+        },
+        "dependentTasks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/backlogIdentifier" }
+        },
+        "blockingTasks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/backlogIdentifier" }
+        },
+        "relatedTasks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/backlogIdentifier" }
+        },
+        "crossModule": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^MOD-[0-9]{3}$" }
+        },
+        "crossPhase": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^PH-[0-9]{3}$" }
+        }
+      }
+    }
+  }
+}

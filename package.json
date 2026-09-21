@@ -1,0 +1,129 @@
+{
+  "name": "smile-trust-susu-management-system",
+  "version": "3.2.0",
+  "description": "SMILE TRUST SUSU MANAGEMENT SYSTEM for desktop and Android.",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "node server.js",
+    "sync": "node sync-server.js",
+    "desktop": "electron .",
+    "desktop:dev": "npm run prepare:web ; electron .",
+    "prepare:web": "node scripts/prepare-web.js",
+    "generate:icons": "node scripts/generate-icons.js",
+    "extract:ui": "node scripts/extract-ui.js && node scripts/patch-ui-runtime.js",
+    "build:app": "node scripts/build-app.js",
+    "test": "node --test tests/*.test.js",
+    "validate:rc": "node scripts/wave8-release-validate.js",
+    "validate:pilot": "node scripts/wave9-pilot-assess.js",
+    "wave9:assess": "node scripts/wave9-pilot-assess.js",
+    "validate:golive": "node scripts/wave10-golive-assess.js",
+    "wave10:assess": "node scripts/wave10-golive-assess.js",
+    "import:relational": "node scripts/import-snapshot-to-relational.js",
+    "prebuild:exe": "npm run prepare:web && npm run generate:icons",
+    "build:exe": "electron-builder --win nsis portable && node scripts/apply-exe-icon.js",
+    "build:installer": "electron-builder --win nsis",
+    "build:portable": "electron-builder --win portable && node scripts/apply-exe-icon.js",
+    "build:exe:dir": "electron-builder --win dir",
+    "check:electron": "node -e \"const p=require('./package.json'); const b=p.build||{}; if(!b.win||!b.nsis) process.exit(1); console.log('electron-builder ok', b.appId);\"",
+    "check:electron-signing": "node scripts/check-electron-signing.js",
+    "check:channels": "node scripts/check-channels.js",
+    "check:prod-readiness": "node scripts/check-prod-readiness.js",
+    "check:www-sot": "node scripts/check-www-sot.js",
+    "git:connect-remote": "node scripts/connect-git-remote.js",
+    "uat:apply-migrations": "node scripts/apply-uat-migrations.js",
+    "wave10:cutover-record": "node scripts/wave10-cutover-record.js",
+    "precap:add:android": "npm run prepare:web",
+    "cap:add:android": "cap add android",
+    "android:ensure": "node scripts/ensure-android-platform.js",
+    "precap:sync": "npm run prepare:web",
+    "cap:sync": "cap sync android",
+    "android:open": "cap open android",
+    "prebuild:apk": "npm run prepare:web && npm run cap:sync",
+    "build:apk": "node scripts/build-apk.js",
+    "setup:android-signing": "node scripts/setup-android-signing.js",
+    "check:android": "node scripts/check-android-path.js",
+    "pilot:android": "node scripts/pilot-android.js",
+    "release:android": "node scripts/release-android.js",
+    "hash:artifacts": "node scripts/hash-release-artifacts.js",
+    "prebuild:apk:release": "npm run prepare:web && npm run cap:sync && npm run setup:android-signing",
+    "build:apk:release": "node scripts/build-apk.js release"
+  },
+  "build": {
+    "appId": "com.smiletrust.susu",
+    "productName": "SMILE TRUST SUSU MANAGEMENT SYSTEM",
+    "files": [
+      "www/**/*",
+      "assets/**/*",
+      "electron/**/*",
+      "sync-server.js"
+    ],
+    "extraResources": [
+      {
+        "from": "assets/smile-trust-icon.ico",
+        "to": "assets/smile-trust-icon.ico"
+      },
+      {
+        "from": "assets/smile-trust-icon.png",
+        "to": "assets/smile-trust-icon.png"
+      }
+    ],
+    "icon": "build/icon.ico",
+    "afterPack": "scripts/after-pack-icon.js",
+    "publish": null,
+    "win": {
+      "icon": "build/icon.ico",
+      "executableName": "SmileTrustSusu",
+      "signAndEditExecutable": false,
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "menuCategory": "Smile Trust",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "shortcutName": "Smile Trust Susu",
+      "runAfterFinish": true,
+      "differentialPackage": true
+    },
+    "portable": {
+      "artifactName": "SmileTrustSusu-${version}-portable.exe"
+    },
+    "directories": {
+      "output": "dist"
+    }
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/cli": "^7.4.3",
+    "@capacitor/core": "^7.4.3",
+    "electron-updater": "^6.8.9",
+    "mammoth": "^1.12.0",
+    "pdfjs-dist": "^5.7.284",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "electron": "^37.2.6",
+    "electron-builder": "^26.0.12",
+    "rcedit": "^5.0.2",
+    "to-ico": "^1.1.5"
+  }
+}

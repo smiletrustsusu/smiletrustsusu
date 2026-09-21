@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/governance/release-record.schema.json",
+  "title": "EgccrmsReleaseRecord",
+  "description": "Phase 19 EGCCRMS release record. Consumes Phase 14 pipelines and Phase 16 quality gates/CERT; does not redefine them. additionalProperties false.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "releaseRecordId",
+    "title",
+    "releaseType",
+    "lifecycleStage",
+    "version",
+    "governance",
+    "metadata"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "releaseRecordId": {
+      "$ref": "#/$defs/releaseRecordId"
+    },
+    "releaseTypeId": {
+      "type": "string",
+      "pattern": "^REL-[0-9]{3}$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 4000
+    },
+    "releaseType": {
+      "$ref": "#/$defs/releaseType"
+    },
+    "lifecycleStage": {
+      "$ref": "#/$defs/releaseLifecycleStage"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "buildNumber": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "artifactIds": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "affectedCiIds": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^CI-[0-9]{3}$" },
+      "uniqueItems": true
+    },
+    "requiredGateIds": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^QG-[0-9]{3}$" },
+      "uniqueItems": true
+    },
+    "gateResults": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "enum": ["pass", "fail", "exception_approved"]
+      }
+    },
+    "certificationId": {
+      "type": "string",
+      "enum": ["CERT-001", "CERT-002"]
+    },
+    "exceptionId": {
+      "type": "string",
+      "pattern": "^EXC-[0-9]{3}$"
+    },
+    "rollbackPlanAttached": { "type": "boolean" },
+    "postValidationPlan": { "type": "boolean" },
+    "prodAuthorized": { "type": "boolean" },
+    "relatedModules": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 1, "maximum": 30 },
+      "uniqueItems": true
+    },
+    "consumesPhase14": { "type": "boolean" },
+    "consumesPhase16": { "type": "boolean" },
+    "governance": {
+      "$ref": "#/$defs/governance"
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    }
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "releaseRecordId": {
+      "type": "string",
+      "pattern": "^REL-[0-9]{8}-[0-9]+$"
+    },
+    "releaseType": {
+      "type": "string",
+      "enum": ["major", "minor", "patch", "hotfix", "emergency"]
+    },
+    "releaseLifecycleStage": {
+      "type": "string",
+      "enum": [
+        "planning",
+        "packaging",
+        "scheduling",
+        "approvals",
+        "readiness",
+        "prod_authorization",
+        "deployment",
+        "post_release_validation",
+        "rollback_decision",
+        "closure"
+      ]
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accountableAuthority", "responsibleParty", "auditAuthority"],
+      "properties": {
+        "accountableAuthority": { "type": "string", "minLength": 1 },
+        "responsibleParty": { "type": "string", "minLength": 1 },
+        "auditAuthority": { "type": "string", "minLength": 1 },
+        "roleId": { "type": "string", "pattern": "^ROLE-[A-Z0-9-]+$" },
+        "committeeId": { "type": "string", "pattern": "^COMM-[0-9]{3}$" }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["createdAt", "createdBy", "phase"],
+      "properties": {
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "minLength": 1 },
+        "phase": { "type": "integer", "const": 19 },
+        "correlationId": { "$ref": "#/$defs/uuid" },
+        "moneyInvariantsNote": { "type": "string", "maxLength": 200 },
+        "phase14EmergencyAlign": { "type": "boolean" },
+        "phase16Bypass": {
+          "type": "string",
+          "enum": ["emergency_exception_approved"]
+        }
+      }
+    }
+  }
+}

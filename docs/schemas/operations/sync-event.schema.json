@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/operations/sync-event.schema.json",
+  "title": "EossmsSyncEvent",
+  "description": "Phase 18 EOSSMS sync event metadata for support/ops. References Module 15 sync-ops; does not replace the engine. additionalProperties false.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "syncEventId",
+    "deviceId",
+    "collectorId",
+    "branchId",
+    "tenantId",
+    "queueSize",
+    "status",
+    "counts",
+    "timestamps",
+    "retryCount",
+    "correlationId",
+    "governance",
+    "metadata"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "syncEventId": {
+      "$ref": "#/$defs/uuid"
+    },
+    "deviceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "collectorId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "branchId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "tenantId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "queueSize": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "status": {
+      "$ref": "#/$defs/syncStatus"
+    },
+    "offlineMode": {
+      "$ref": "#/$defs/offlineMode"
+    },
+    "collectorStatus": {
+      "$ref": "#/$defs/collectorStatus"
+    },
+    "currentStage": {
+      "$ref": "#/$defs/syncStage"
+    },
+    "stageIndex": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 12
+    },
+    "counts": {
+      "$ref": "#/$defs/counts"
+    },
+    "timestamps": {
+      "$ref": "#/$defs/timestamps"
+    },
+    "retryCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "retryPolicyId": {
+      "type": "string",
+      "pattern": "^RETRY-[0-9]{3}$"
+    },
+    "correlationId": {
+      "$ref": "#/$defs/uuid"
+    },
+    "successPct": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "openConflicts": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "governance": {
+      "$ref": "#/$defs/governance"
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    }
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "syncStatus": {
+      "type": "string",
+      "enum": [
+        "Online",
+        "Offline",
+        "Synchronizing",
+        "Recovery",
+        "ReadOnly",
+        "pending",
+        "validating",
+        "uploading",
+        "uploaded",
+        "applying",
+        "applied",
+        "failed",
+        "retrying",
+        "conflict_detected",
+        "cancelled"
+      ]
+    },
+    "offlineMode": {
+      "type": "string",
+      "enum": ["Online", "Offline", "Synchronizing", "Recovery", "ReadOnly"]
+    },
+    "collectorStatus": {
+      "type": "string",
+      "enum": ["Online", "Offline", "Synchronizing", "SyncFailed", "ReadOnly", "PoorNetwork"]
+    },
+    "syncStage": {
+      "type": "string",
+      "enum": [
+        "authorize_device",
+        "connectivity_check",
+        "queue_snapshot",
+        "validate_local",
+        "conflict_prescan",
+        "upload_batch",
+        "server_ack",
+        "apply_server",
+        "download_deltas",
+        "apply_local",
+        "checkpoint",
+        "reconcile",
+        "session_close"
+      ]
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pending", "uploaded", "applied", "failed", "conflicts"],
+      "properties": {
+        "pending": { "type": "integer", "minimum": 0 },
+        "uploaded": { "type": "integer", "minimum": 0 },
+        "applied": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "conflicts": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "timestamps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["startedAt"],
+      "properties": {
+        "startedAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "lastSuccessfulSyncAt": { "type": "string", "format": "date-time" },
+        "offlineSince": { "type": "string", "format": "date-time" }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accountableAuthority", "auditAuthority"],
+      "properties": {
+        "accountableAuthority": { "type": "string", "minLength": 1 },
+        "responsibleParty": { "type": "string", "minLength": 1 },
+        "auditAuthority": { "type": "string", "minLength": 1 },
+        "roleId": {
+          "type": "string",
+          "pattern": "^ROLE-[A-Z0-9-]+$"
+        },
+        "module15EngineNotReplaced": { "type": "boolean", "const": true }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["createdAt", "createdBy", "phase"],
+      "properties": {
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "minLength": 1 },
+        "phase": { "type": "integer", "const": 18 },
+        "correlationId": { "$ref": "#/$defs/uuid" },
+        "moneyInvariantsNote": {
+          "type": "string",
+          "description": "Financial sync never LWW; pesewas; interest 15; collection 31; cashier 1000."
+        }
+      }
+    }
+  }
+}

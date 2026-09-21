@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "1.0.0",
+  "resultId": "b2c3d4e5-f6a7-4890-b123-456789abcdef",
+  "gateId": "QG-001",
+  "fromEnv": "DEV",
+  "toEnv": "QA",
+  "decision": "pass",
+  "mandatoryTestsPassed": true,
+  "thresholdResults": [
+    {
+      "thresholdId": "THR-001",
+      "metric": "test_pass_rate",
+      "measured": 100,
+      "passValue": 100,
+      "passFail": "pass"
+    },
+    {
+      "thresholdId": "THR-002",
+      "metric": "line_coverage",
+      "measured": 92.5,
+      "passValue": 90,
+      "passFail": "pass"
+    },
+    {
+      "thresholdId": "THR-006",
+      "metric": "critical_static_issues",
+      "measured": 0,
+      "passValue": 0,
+      "passFail": "pass"
+    }
+  ],
+  "defects": {
+    "openCritical": 0,
+    "openHigh": 0,
+    "highExceptionApproved": false
+  },
+  "approvals": ["ROLE-QA-LEAD"],
+  "emergencyExceptionApproved": false,
+  "reasons": [],
+  "governance": {
+    "accountableAuthority": "QA Lead",
+    "auditAuthority": "Internal Auditor",
+    "correlationId": "CORR-QG-001-20260915"
+  },
+  "evidence": [
+    {
+      "type": "coverage_report",
+      "reference": "ci/coverage/build-4521.json",
+      "capturedAt": "2026-09-15T08:10:00.000Z"
+    },
+    {
+      "type": "pipeline_run",
+      "reference": "PIPE-001/run-4521",
+      "capturedAt": "2026-09-15T08:12:00.000Z"
+    }
+  ],
+  "metadata": {
+    "createdAt": "2026-09-15T08:15:00.000Z",
+    "createdBy": "QA Lead",
+    "phase": 16,
+    "pipelineRef": "PIPE-001"
+  }
+}

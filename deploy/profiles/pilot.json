@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "smile-trust-deploy-profile/1.0",
+  "profileId": "pilot",
+  "displayName": "Pilot / UAT",
+  "gapRefs": ["GAP-016"],
+  "channels": {
+    "web": {
+      "prepareWeb": true,
+      "wwwMirrorRequired": true
+    },
+    "android": {
+      "buildVariant": "debug",
+      "signedReleaseRequired": false,
+      "apkPathHint": "android/app/build/outputs/apk/debug/app-debug.apk"
+    },
+    "electron": {
+      "codeSigningRequired": false,
+      "updateFeedMustBeProduction": false
+    }
+  },
+  "database": {
+    "applyMigrationsThrough": "045",
+    "includeRlsSql": true,
+    "target": "uat",
+    "forbidProdCutoverFromThisProfile": true
+  },
+  "payments": {
+    "liveMomoCalls": false,
+    "requireWebhookSecretInEnv": true,
+    "notes": "Use sandbox/stub adapters only; never commit provider API keys"
+  },
+  "governance": {
+    "allowSyntheticWaveEvidence": true,
+    "requireHumanApprovalsForGoLive": true
+  },
+  "envRefs": [
+    "SUPABASE_URL",
+    "SUPABASE_ANON_KEY",
+    "SMILE_MOMO_WEBHOOK_SECRET"
+  ],
+  "checklistCite": [
+    "docs/backlog/org-handoff-checklist.md",
+    "docs/release-evidence/"
+  ]
+}

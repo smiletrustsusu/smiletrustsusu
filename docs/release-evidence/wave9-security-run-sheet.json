@@ -1,0 +1,259 @@
+{
+  "schemaVersion": "wave9-security-run-sheet/1.0",
+  "wave": "WAVE-09",
+  "humanGate": "HG-04",
+  "pilotName": "NORTHRISE MICRO SAVINGS",
+  "product": "SMILE TRUST SUSU MANAGEMENT SYSTEM",
+  "status": "ReadyToExecute",
+  "createdAt": "2026-09-20T12:00:00.000Z",
+  "updatedAt": "2026-09-20T12:00:00.000Z",
+  "claim": {
+    "livePilotExecuted": false,
+    "securityAutoApproved": false,
+    "productionHardenedClaim": false,
+    "gatesAutoApproved": false,
+    "note": "Run sheet ready for human security acceptance - no fabricated findings or HA-SEC approval"
+  },
+  "moneyInvariants": {
+    "interest": 15,
+    "collectionDays": 31,
+    "cashierLimitGhs": 1000,
+    "pesewas": true
+  },
+  "loginGuidance": {
+    "primaryOperator": "JOHN",
+    "role": "System Owner / security acceptance facilitator oversight",
+    "securitySigner": "Security Governance / Compliance (HA-SEC)",
+    "developerSupportOnly": "KBA",
+    "isolation": "JOHN must not see or manage the KBA developer account"
+  },
+  "hardConstraints": {
+    "noProductionDeploy": true,
+    "noProdSupabaseMigrate": true,
+    "noProdConfigOrFinancialDataChange": true,
+    "preserveJohnKbaIsolation": true,
+    "superAdminForbidden": true,
+    "moneyInvariants": "15/31/1000 pesewas"
+  },
+  "guidePath": "docs/security/wave9-security-acceptance-execution-guide.md",
+  "evidencePath": "docs/release-evidence/wave9-security-run-sheet.json",
+  "humanGates": {
+    "HA-SEC": {
+      "id": "HA-SEC",
+      "role": "Security / Compliance (Security Acceptance)",
+      "status": "PendingHumanSignOff",
+      "signerName": null,
+      "signedAt": null,
+      "notes": null
+    }
+  },
+  "scores": {
+    "checklistTotal": 9,
+    "executableCount": 9,
+    "recordedPassFailCount": 0,
+    "passedCount": 0,
+    "failedOrBlockedCount": 0,
+    "securitySignOffPending": true,
+    "productionHardenedClaim": false
+  },
+  "checklist": [
+    {
+      "itemId": "SEC-AUTH-01",
+      "category": "auth",
+      "title": "Authentication controls (login / credential handling)",
+      "steps": [
+        "Attempt valid login on pilot/local for a non-developer role",
+        "Attempt invalid password and confirm denial without leaking account existence",
+        "Confirm logout clears session and requires re-auth for protected views"
+      ],
+      "expected": [
+        "Valid login succeeds; invalid denied; logout requires re-auth"
+      ],
+      "passFail": null,
+      "evidence": null,
+      "findingNotes": null,
+      "executedBy": null,
+      "executedAt": null,
+      "signerName": null,
+      "notes": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "itemId": "SEC-RBAC-01",
+      "category": "rbac",
+      "title": "RBAC — role permissions and SUPER_ADMIN_FORBIDDEN",
+      "steps": [
+        "Log in as a restricted role (e.g. Cashier) and attempt Admin-only actions",
+        "Confirm denied actions are blocked in UI and cannot be forced via deep links",
+        "Confirm SUPER_ADMIN_FORBIDDEN includes System.Reset and other forbidden ops"
+      ],
+      "expected": [
+        "Least-privilege holds; SUPER_ADMIN_FORBIDDEN enforced"
+      ],
+      "passFail": null,
+      "evidence": null,
+      "findingNotes": null,
+      "executedBy": null,
+      "executedAt": null,
+      "signerName": null,
+      "notes": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "itemId": "SEC-TENANT-01",
+      "category": "isolation",
+      "title": "Tenant / branch isolation",
+      "steps": [
+        "As a branch-scoped user, open customers/collections for own branch",
+        "Attempt to access another branch / tenant id via UI or URL params (pilot only)",
+        "Confirm cross-tenant/branch data is not returned"
+      ],
+      "expected": [
+        "Users only see their tenant/branch scope"
+      ],
+      "passFail": null,
+      "evidence": null,
+      "findingNotes": null,
+      "executedBy": null,
+      "executedAt": null,
+      "signerName": null,
+      "notes": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "itemId": "SEC-JOHN-KBA-01",
+      "category": "isolation",
+      "title": "JOHN cannot see or manage KBA (owner/developer isolation)",
+      "steps": [
+        "Log in as JOHN (System Owner)",
+        "Open user administration / account pickers used for staff management",
+        "Confirm KBA (system developer) does not appear and cannot be managed"
+      ],
+      "expected": [
+        "JOHN never sees KBA; developer account remains isolated"
+      ],
+      "passFail": null,
+      "evidence": null,
+      "findingNotes": null,
+      "executedBy": null,
+      "executedAt": null,
+      "signerName": null,
+      "notes": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "itemId": "SEC-SESSION-01",
+      "category": "session",
+      "title": "Session handling (timeout / revoke / concurrent use)",
+      "steps": [
+        "Confirm idle or explicit logout ends access to Audit/Reports and money screens",
+        "If device/session revoke is available in pilot, revoke a test session and confirm lockout",
+        "Confirm re-login required after revoke"
+      ],
+      "expected": [
+        "Sessions end cleanly; revoke (if present) locks the device/session"
+      ],
+      "passFail": null,
+      "evidence": null,
+      "findingNotes": null,
+      "executedBy": null,
+      "executedAt": null,
+      "signerName": null,
+      "notes": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "itemId": "SEC-AUDIT-01",
+      "category": "audit",
+      "title": "Audit logging of sensitive actions",
+      "steps": [
+        "Perform a sensitive action (login failure, permission denial, or money post on pilot)",
+        "Open Audit view and locate a corresponding audit/event record",
+        "Confirm actor, action, and timestamp are present without secret material (passwords)"
+      ],
+      "expected": [
+        "Sensitive actions produce audit evidence without leaking secrets"
+      ],
+      "passFail": null,
+      "evidence": null,
+      "findingNotes": null,
+      "executedBy": null,
+      "executedAt": null,
+      "signerName": null,
+      "notes": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "itemId": "SEC-ENCRYPT-01",
+      "category": "encryption",
+      "title": "Encryption / offline queue protection",
+      "steps": [
+        "Capture a sample offline queue / sync payload path on pilot/local (no production)",
+        "Confirm sensitive fields are not stored in cleartext where encryption is expected",
+        "Confirm queue sync does not expose other tenants' data"
+      ],
+      "expected": [
+        "Offline queue respects encryption/isolation expectations for pilot"
+      ],
+      "passFail": null,
+      "evidence": null,
+      "findingNotes": null,
+      "executedBy": null,
+      "executedAt": null,
+      "signerName": null,
+      "notes": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "itemId": "SEC-ISSUES-01",
+      "category": "issues",
+      "title": "No Critical/High unresolved for pilot (audit perspective)",
+      "steps": [
+        "Review Wave 9 issue register / security findings for NORTHRISE MICRO SAVINGS pilot",
+        "Confirm no open Critical or High security findings remain unresolved for pilot go",
+        "Document any waived Medium/Low items with owner and date"
+      ],
+      "expected": [
+        "Zero open Critical/High security findings for pilot acceptance"
+      ],
+      "passFail": null,
+      "evidence": null,
+      "findingNotes": null,
+      "executedBy": null,
+      "executedAt": null,
+      "signerName": null,
+      "notes": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "itemId": "SEC-RLS-01",
+      "category": "rls",
+      "title": "RLS notes for pilot environment (not prod migrate)",
+      "steps": [
+        "Confirm this check runs against pilot/local only — do not apply production migrations",
+        "Review RLS / row-scope notes for the pilot Supabase (or local) env used by Wave 9",
+        "Record that production RLS/migrations remain out of scope and untouched"
+      ],
+      "expected": [
+        "Pilot RLS posture documented; no production migrations applied from this gate"
+      ],
+      "passFail": null,
+      "evidence": null,
+      "findingNotes": null,
+      "executedBy": null,
+      "executedAt": null,
+      "signerName": null,
+      "notes": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    }
+  ]
+}

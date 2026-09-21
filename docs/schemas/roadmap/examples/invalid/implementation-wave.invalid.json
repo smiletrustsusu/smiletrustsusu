@@ -1,0 +1,52 @@
+{
+  "id": "WAVE-99",
+  "waveNumber": 99,
+  "name": "",
+  "code": "bad-code",
+  "objectives": [],
+  "deliverables": [],
+  "scope": [],
+  "dependencies": {
+    "prerequisiteWaves": ["WAVE-99"],
+    "blockingWaves": ["NOT-A-WAVE"]
+  },
+  "risks": [
+    {
+      "id": "BAD",
+      "level": "Severe",
+      "title": "",
+      "mitigation": ""
+    }
+  ],
+  "requiredSkills": [],
+  "estimatedDurationWeeks": { "min": -1, "max": -2 },
+  "waveStatus": "Done",
+  "entryCriteria": [],
+  "exitCriteria": [],
+  "acceptanceCriteria": [],
+  "qualityGates": [],
+  "testRequirements": [],
+  "releaseMilestones": [],
+  "requiredDocumentation": [],
+  "buildSequence": {
+    "buildBefore": [],
+    "buildAfter": [],
+    "blockingDependencies": [],
+    "criticalPath": "yes"
+  },
+  "mibWaves": [0, 99],
+  "moneyInvariantNote": "",
+  "_failureReasons": [
+    "id must match WAVE-01..WAVE-10",
+    "waveNumber must be 1..10",
+    "name minLength 1",
+    "code must be UPPER_SNAKE",
+    "objectives/deliverables/scope minItems 1",
+    "waveStatus must be Mostly Complete|In Progress|Planned",
+    "qualityGates/entry/exit required non-empty",
+    "risk id/level invalid",
+    "mibWaves must be 1..20",
+    "moneyInvariantNote minLength 1",
+    "criticalPath must be boolean"
+  ]
+}

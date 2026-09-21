@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/common/metadata.schema.json",
+  "title": "SmileTrustCommonMetadata",
+  "description": "Shared registry metadata for EAIADIS / enterprise schema packages.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "createdAt",
+    "createdBy",
+    "lastModifiedAt",
+    "lastModifiedBy",
+    "checksum"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version of the metadata block."
+    },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "createdBy": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "lastModifiedAt": { "type": "string", "format": "date-time" },
+    "lastModifiedBy": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "checksum": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Lowercase SHA-256 hex of the canonical payload excluding this checksum field."
+    },
+    "correlationId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Optional workflow / request correlation identifier."
+    },
+    "labels": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "maxLength": 100 }
+    },
+    "tags": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 50 }
+    },
+    "documentationUri": {
+      "type": "string",
+      "format": "uri",
+      "maxLength": 500
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "governanceId": "AI-GOV-099",
+  "riskClass": "Critical",
+  "approvalStatus": "PendingApproval",
+  "approvingAuthority": "Chief Data Steward",
+  "accountableAuthority": "Risk Manager",
+  "responsibleParty": "AI Platform Admin",
+  "consultedParties": ["AI Security", "Compliance"],
+  "informedParties": ["Internal Auditor"],
+  "humanOversightRequired": true,
+  "exceptionRequired": true,
+  "exceptionApprovalAuthority": "SystemOwner",
+  "exceptionJustification": "Temporary elevation for controlled shadow evaluation; still advisory with human review; no money posts.",
+  "policyReferences": ["Exception path EAIADIS §4"],
+  "sodProfile": {
+    "approverMustDifferFromAuditor": true,
+    "developerMustDifferFromValidator": true,
+    "deployerMustDifferFromSoleApprover": true
+  },
+  "effectiveFrom": "2026-09-14T00:00:00.000Z",
+  "effectiveTo": "2026-12-31T23:59:59.000Z",
+  "notes": "Demonstrates conditional exceptionApprovalAuthority when exceptionRequired or Critical."
+}

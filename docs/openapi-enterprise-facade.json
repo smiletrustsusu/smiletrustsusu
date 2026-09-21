@@ -1,0 +1,808 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "SMILE TRUST SUSU — Enterprise API Facade (ECACIS)",
+    "version": "1.0.0",
+    "description": "FACADE ONLY — This OpenAPI document describes documentation aliases for in-process invokeContract / Module 20 gateway routes. It is NOT a live REST HTTP server. Runtime authority: src/core/module-contracts.js and src/core/api-gateway-lifecycle.js. Do not assume network reachability of these paths."
+  },
+  "servers": [
+    {
+      "url": "urn:smile-trust:in-process",
+      "description": "No live HTTP server — in-process facade marker"
+    }
+  ],
+  "tags": [
+    {
+      "name": "contracts-facade",
+      "description": "Aliases for CONTRACT_CATALOG"
+    },
+    {
+      "name": "gateway-facade",
+      "description": "Aliases for ROUTE_CATALOG"
+    }
+  ],
+  "paths": {
+    "/contracts/{contractId}": {
+      "get": {
+        "operationId": "invokeContractQueryFacade",
+        "summary": "Facade alias for query/health contracts (NOT a live HTTP server)",
+        "parameters": [
+          {
+            "name": "contractId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Documentation-only success envelope"
+          }
+        }
+      },
+      "post": {
+        "operationId": "invokeContractCommandFacade",
+        "summary": "Facade alias for command/admin/batch contracts (NOT a live HTTP server)",
+        "parameters": [
+          {
+            "name": "contractId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Documentation-only success envelope"
+          }
+        }
+      }
+    },
+    "/gateway/{route}": {
+      "get": {
+        "operationId": "gatewayRouteGetFacade",
+        "summary": "Facade alias for gateway GET routes (NOT a live HTTP server)",
+        "parameters": [
+          {
+            "name": "route",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Documentation-only"
+          }
+        }
+      },
+      "post": {
+        "operationId": "gatewayRoutePostFacade",
+        "summary": "Facade alias for gateway POST routes (NOT a live HTTP server)",
+        "parameters": [
+          {
+            "name": "route",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Documentation-only"
+          }
+        }
+      }
+    },
+    "/health/snapshot": {
+      "post": {
+        "operationId": "facade_health_snapshot",
+        "summary": "Gateway facade alias for health.snapshot — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "health.snapshot",
+        "x-action": "Monitor.View",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/gateway/whoami": {
+      "get": {
+        "operationId": "facade_gateway_whoami",
+        "summary": "Gateway facade alias for gateway.whoami — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "gateway.whoami",
+        "x-action": "Gateway.View",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/gateway/docs": {
+      "get": {
+        "operationId": "facade_gateway_docs",
+        "summary": "Gateway facade alias for gateway.docs — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "gateway.docs",
+        "x-action": "Gateway.Docs",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/payments": {
+      "post": {
+        "operationId": "facade_payment_initiate",
+        "summary": "Gateway facade alias for payment.initiate — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "payment.initiate",
+        "x-action": "Payment.View",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/webhooks/payments": {
+      "post": {
+        "operationId": "facade_payment_callback",
+        "summary": "Gateway facade alias for payment.callback — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "payment.callback",
+        "x-action": "Payment.View",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/backups": {
+      "post": {
+        "operationId": "facade_backup_create",
+        "summary": "Gateway facade alias for backup.create — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "backup.create",
+        "x-action": "Backup.Create",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/backups/verify": {
+      "post": {
+        "operationId": "facade_backup_verify",
+        "summary": "Gateway facade alias for backup.verify — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "backup.verify",
+        "x-action": "Backup.Verify",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/monitor/diagnostics": {
+      "get": {
+        "operationId": "facade_monitor_diagnostics",
+        "summary": "Gateway facade alias for monitor.diagnostics — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "monitor.diagnostics",
+        "x-action": "Monitor.Diagnose",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/webhooks/deliver": {
+      "post": {
+        "operationId": "facade_webhook_deliver",
+        "summary": "Gateway facade alias for webhook.deliver — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "webhook.deliver",
+        "x-action": "Gateway.Webhook",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/security/risk": {
+      "post": {
+        "operationId": "facade_risk_evaluate",
+        "summary": "Gateway facade alias for risk.evaluate — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "risk.evaluate",
+        "x-action": "Security.Evaluate",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/security/incidents": {
+      "post": {
+        "operationId": "facade_security_incident_open",
+        "summary": "Gateway facade alias for security.incident.open — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "security.incident.open",
+        "x-action": "Security.Incident",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/workflows/start": {
+      "post": {
+        "operationId": "facade_workflow_start",
+        "summary": "Gateway facade alias for workflow.start — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "workflow.start",
+        "x-action": "Workflow.Start",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/workflows/status": {
+      "post": {
+        "operationId": "facade_workflow_status",
+        "summary": "Gateway facade alias for workflow.status — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "workflow.status",
+        "x-action": "Workflow.View",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/workflows/inbox": {
+      "post": {
+        "operationId": "facade_task_inbox",
+        "summary": "Gateway facade alias for task.inbox — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "task.inbox",
+        "x-action": "Workflow.View",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/workflows": {
+      "post": {
+        "operationId": "facade_workflow_create",
+        "summary": "Gateway facade alias for workflow.create — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "workflow.create",
+        "x-action": "Workflow.Start",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      },
+      "get": {
+        "operationId": "facade_workflow_list",
+        "summary": "Gateway facade alias for workflow.list — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "workflow.list",
+        "x-action": "Workflow.View",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/workflows/{workflowInstanceId}": {
+      "get": {
+        "operationId": "facade_workflow_get",
+        "summary": "Gateway facade alias for workflow.get — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "workflow.get",
+        "x-action": "Workflow.View",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/workflows/{workflowInstanceId}/suspend": {
+      "post": {
+        "operationId": "facade_workflow_suspend",
+        "summary": "Gateway facade alias for workflow.suspend — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "workflow.suspend",
+        "x-action": "Workflow.Admin",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/workflows/{workflowInstanceId}/resume": {
+      "post": {
+        "operationId": "facade_workflow_resume",
+        "summary": "Gateway facade alias for workflow.resume — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "workflow.resume",
+        "x-action": "Workflow.Admin",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/workflows/{workflowInstanceId}/cancel": {
+      "post": {
+        "operationId": "facade_workflow_cancel",
+        "summary": "Gateway facade alias for workflow.cancel — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "workflow.cancel",
+        "x-action": "Workflow.Start",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/workflows/{workflowInstanceId}/retry": {
+      "post": {
+        "operationId": "facade_workflow_retry",
+        "summary": "Gateway facade alias for workflow.retry — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "workflow.retry",
+        "x-action": "Workflow.Admin",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/workflows/{workflowInstanceId}/tasks": {
+      "get": {
+        "operationId": "facade_workflow_tasks",
+        "summary": "Gateway facade alias for workflow.tasks — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "workflow.tasks",
+        "x-action": "Workflow.View",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/workflows/{workflowInstanceId}/history": {
+      "get": {
+        "operationId": "facade_workflow_history",
+        "summary": "Gateway facade alias for workflow.history — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "workflow.history",
+        "x-action": "Workflow.View",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/workflows/statistics": {
+      "get": {
+        "operationId": "facade_workflow_statistics",
+        "summary": "Gateway facade alias for workflow.statistics — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "workflow.statistics",
+        "x-action": "Workflow.View",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/workflows/{workflowInstanceId}/replay": {
+      "post": {
+        "operationId": "facade_workflow_replay",
+        "summary": "Gateway facade alias for workflow.replay — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "workflow.replay",
+        "x-action": "Workflow.Admin",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/tasks/{taskId}/complete": {
+      "post": {
+        "operationId": "facade_task_complete",
+        "summary": "Gateway facade alias for task.complete — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "task.complete",
+        "x-action": "Workflow.Task",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/tasks/{taskId}/assign": {
+      "post": {
+        "operationId": "facade_task_assign",
+        "summary": "Gateway facade alias for task.assign — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "task.assign",
+        "x-action": "Workflow.Task",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/tasks/{taskId}/delegate": {
+      "post": {
+        "operationId": "facade_task_delegate",
+        "summary": "Gateway facade alias for task.delegate — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "task.delegate",
+        "x-action": "Workflow.Task",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/tasks/{taskId}/approve": {
+      "post": {
+        "operationId": "facade_task_approve",
+        "summary": "Gateway facade alias for task.approve — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "task.approve",
+        "x-action": "Workflow.Approve",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/tasks/{taskId}/reject": {
+      "post": {
+        "operationId": "facade_task_reject",
+        "summary": "Gateway facade alias for task.reject — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "task.reject",
+        "x-action": "Workflow.Approve",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/cases": {
+      "post": {
+        "operationId": "facade_case_create",
+        "summary": "Gateway facade alias for case.create — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "case.create",
+        "x-action": "Workflow.Case",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      },
+      "get": {
+        "operationId": "facade_case_list",
+        "summary": "Gateway facade alias for case.list — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "case.list",
+        "x-action": "Workflow.View",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/cases/{caseId}": {
+      "get": {
+        "operationId": "facade_case_get",
+        "summary": "Gateway facade alias for case.get — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "case.get",
+        "x-action": "Workflow.View",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/cases/{caseId}/close": {
+      "post": {
+        "operationId": "facade_case_close",
+        "summary": "Gateway facade alias for case.close — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "case.close",
+        "x-action": "Workflow.Case",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/workflow-definitions": {
+      "get": {
+        "operationId": "facade_workflow_definitions",
+        "summary": "Gateway facade alias for workflow.definitions — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "workflow.definitions",
+        "x-action": "Workflow.View",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/workflow-definitions/{definitionId}": {
+      "get": {
+        "operationId": "facade_workflow_definition_get",
+        "summary": "Gateway facade alias for workflow.definition.get — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "workflow.definition.get",
+        "x-action": "Workflow.View",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/workflow-definitions/{definitionId}/publish": {
+      "post": {
+        "operationId": "facade_workflow_definition_publish",
+        "summary": "Gateway facade alias for workflow.definition.publish — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "workflow.definition.publish",
+        "x-action": "Workflow.Design",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/workflow-definitions/{definitionId}/retire": {
+      "post": {
+        "operationId": "facade_workflow_definition_retire",
+        "summary": "Gateway facade alias for workflow.definition.retire — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "workflow.definition.retire",
+        "x-action": "Workflow.Design",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/rules/evaluate": {
+      "post": {
+        "operationId": "facade_rule_evaluate",
+        "summary": "Gateway facade alias for rule.evaluate — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "rule.evaluate",
+        "x-action": "Rule.View",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    },
+    "/rules/simulate": {
+      "post": {
+        "operationId": "facade_rule_simulate",
+        "summary": "Gateway facade alias for rule.simulate — NOT a live HTTP server",
+        "tags": [
+          "gateway-facade"
+        ],
+        "x-facade-only": true,
+        "x-route-id": "rule.simulate",
+        "x-action": "Rule.Simulate",
+        "responses": {
+          "200": {
+            "description": "Documentation-only facade response"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "FacadeEnvelope": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "contractId": {
+            "type": "string"
+          },
+          "facadeOnly": {
+            "type": "boolean",
+            "const": true
+          },
+          "liveHttpServer": {
+            "type": "boolean",
+            "const": false
+          }
+        }
+      }
+    }
+  },
+  "x-ecacis-endpoint-count": 426,
+  "x-facade-only": true,
+  "x-live-http-server": false
+}

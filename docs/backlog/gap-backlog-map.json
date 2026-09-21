@@ -1,0 +1,351 @@
+{
+  "schemaVersion": "smile-trust-gap-backlog-map/1.0",
+  "reconciledDate": "2026-09-17",
+  "mibVersion": "1.1.0",
+  "validateMasterBacklog": {
+    "ok": true,
+    "critical": 0,
+    "warnings": 0
+  },
+  "statusSummary": {
+    "completed": 430,
+    "released": 430,
+    "open": 303,
+    "cancelled": 1,
+    "total": 734,
+    "byStatus": {
+      "In Progress": 18,
+      "Completed": 430,
+      "Ready": 6,
+      "Planned": 267,
+      "Deferred": 8,
+      "Blocked": 5,
+      "Cancelled": 1
+    },
+    "byCanonical": {
+      "In Progress": 18,
+      "Completed": 430,
+      "Ready": 6,
+      "Planned": 267,
+      "Deferred": 8,
+      "Blocked": 5,
+      "Cancelled": 1
+    }
+  },
+  "implementationNote": "2026-09-20 slice 6: GAP-019 MoMo inventory + JS amountPesewas boundary; GAP-016 deploy profiles; GAP-018 check:www-sot. See docs/backlog/execution-progress-2026-09-18.md.",
+  "countsByType": {
+    "PRG": 1,
+    "PH": 20,
+    "MOD": 30,
+    "EPC": 81,
+    "FEAT": 187,
+    "TASK": 202,
+    "USR": 180,
+    "SUB": 15,
+    "TEST": 7,
+    "RISK": 2,
+    "BUG": 4,
+    "CR": 3,
+    "REL": 2
+  },
+  "statusMigrationNote": "2026-09-17 reconciliation: preferred status enum is Completed|Ready|Planned|In Progress|Blocked|Deferred|Cancelled. Legacy Released/Code Complete/Ready for Release/Code Review/QA Testing → Completed; Not Started → Planned; UAT → In Progress. Validators accept both; buildBacklogItem normalizes to canonical.",
+  "gaps": {
+    "GAP-003": [
+      {
+        "identifier": "TASK-000181",
+        "title": "[GAP-003] Wave 9 human gates — HA-* PendingHumanSignOff → Approved",
+        "status": "Ready",
+        "priority": "Critical",
+        "owner": "Release Manager",
+        "deliveryWave": 9,
+        "workCategory": "Governance"
+      }
+    ],
+    "GAP-015": [
+      {
+        "identifier": "TASK-000182",
+        "title": "[GAP-015] Prove MFA enroll/challenge path in UAT + PV",
+        "status": "Ready",
+        "priority": "Medium",
+        "owner": "Security Governance Lead",
+        "deliveryWave": 9,
+        "workCategory": "Security"
+      }
+    ],
+    "GAP-006": [
+      {
+        "identifier": "TASK-000183",
+        "title": "[GAP-006] Update PRODUCTION.md migrations list to 001–044 (+ rls.sql)",
+        "status": "Completed",
+        "priority": "High",
+        "owner": "Release Manager",
+        "deliveryWave": 10,
+        "workCategory": "Documentation"
+      }
+    ],
+    "GAP-016": [
+      {
+        "identifier": "TASK-000184",
+        "title": "[GAP-016] Populate deploy/ manifests for prod ≠ pilot profiles",
+        "status": "Completed",
+        "priority": "Medium",
+        "owner": "Release Manager",
+        "deliveryWave": 10,
+        "workCategory": "Ops"
+      }
+    ],
+    "GAP-005": [
+      {
+        "identifier": "BUG-000002",
+        "title": "[GAP-005] Defect: dual money model — numeric GHS vs integer-pesewas SoT",
+        "status": "In Progress",
+        "priority": "High",
+        "owner": "CIO",
+        "deliveryWave": 2,
+        "workCategory": "TechDebt"
+      }
+    ],
+    "GAP-010": [
+      {
+        "identifier": "BUG-000003",
+        "title": "[GAP-010] Defect: app_users.role CHECK lags full JS agency RBAC",
+        "status": "Completed",
+        "priority": "High",
+        "owner": "Security Governance Lead",
+        "deliveryWave": 2,
+        "workCategory": "Security"
+      }
+    ],
+    "GAP-019": [
+      {
+        "identifier": "BUG-000004",
+        "title": "[GAP-019] Defect: MoMo webhook amount numeric vs pesewas invariant",
+        "status": "In Progress",
+        "priority": "Medium",
+        "owner": "CIO",
+        "deliveryWave": 2,
+        "workCategory": "TechDebt"
+      }
+    ],
+    "GAP-004": [
+      {
+        "identifier": "TASK-000185",
+        "title": "[GAP-004] Android Capacitor Gradle project — reproducible APK path",
+        "status": "In Progress",
+        "priority": "High",
+        "owner": "Platform Administrator",
+        "deliveryWave": 4,
+        "workCategory": "Ops"
+      }
+    ],
+    "GAP-008": [
+      {
+        "identifier": "TASK-000186",
+        "title": "[GAP-008] Electron code signing + production update channel",
+        "status": "In Progress",
+        "priority": "High",
+        "owner": "Platform Administrator",
+        "deliveryWave": 6,
+        "workCategory": "Security"
+      }
+    ],
+    "GAP-012": [
+      {
+        "identifier": "TASK-000187",
+        "title": "[GAP-012] Produce signed release APK/EXE artifacts + evidence hashes",
+        "status": "In Progress",
+        "priority": "High",
+        "owner": "Release Manager",
+        "deliveryWave": 10,
+        "workCategory": "Ops"
+      }
+    ],
+    "GAP-001": [
+      {
+        "identifier": "TASK-000188",
+        "title": "[GAP-001] Execute live production cutover CO-01…CO-13",
+        "status": "Blocked",
+        "priority": "Critical",
+        "owner": "Release Manager",
+        "deliveryWave": 10,
+        "workCategory": "Ops"
+      }
+    ],
+    "GAP-009": [
+      {
+        "identifier": "TASK-000189",
+        "title": "[GAP-009] Execute PV-* business acceptance (0/18) + fill SM-* actuals",
+        "status": "Blocked",
+        "priority": "High",
+        "owner": "Release Manager",
+        "deliveryWave": 10,
+        "workCategory": "Governance"
+      }
+    ],
+    "GAP-011": [
+      {
+        "identifier": "TASK-000190",
+        "title": "[GAP-011] Start hypercare HC-001 after cutover — daily reviews + exit criteria",
+        "status": "Blocked",
+        "priority": "High",
+        "owner": "Release Manager",
+        "deliveryWave": 10,
+        "workCategory": "Ops"
+      }
+    ],
+    "GAP-002": [
+      {
+        "identifier": "TASK-000191",
+        "title": "[GAP-002] CERT-001 Accountable Authority certification (certified: true)",
+        "status": "Blocked",
+        "priority": "Critical",
+        "owner": "Governance Board Chair",
+        "deliveryWave": 10,
+        "workCategory": "Governance"
+      }
+    ],
+    "GAP-007": [
+      {
+        "identifier": "TASK-000192",
+        "title": "[GAP-007] Establish VCS remote + CI (test + wave validators on PR)",
+        "status": "In Progress",
+        "priority": "High",
+        "owner": "Platform Administrator",
+        "deliveryWave": 1,
+        "workCategory": "Ops"
+      }
+    ],
+    "GAP-018": [
+      {
+        "identifier": "TASK-000193",
+        "title": "[GAP-018] CI guard: forbid hand-edits to www/; regenerate via prepare:web",
+        "status": "Completed",
+        "priority": "Medium",
+        "owner": "Platform Administrator",
+        "deliveryWave": 1,
+        "workCategory": "TechDebt"
+      }
+    ],
+    "GAP-020": [
+      {
+        "identifier": "TASK-000194",
+        "title": "[GAP-020] MIB hygiene — reconcile open items with enterprise audit gaps",
+        "status": "Completed",
+        "priority": "Medium",
+        "owner": "Platform Administrator",
+        "deliveryWave": 1,
+        "workCategory": "Documentation"
+      }
+    ],
+    "GAP-013": [
+      {
+        "identifier": "TASK-000195",
+        "title": "[GAP-013] Extend invokeApi controllers for remaining posting paths",
+        "status": "Deferred",
+        "priority": "Medium",
+        "owner": "CIO",
+        "deliveryWave": 3,
+        "workCategory": "TechDebt"
+      }
+    ],
+    "GAP-014": [
+      {
+        "identifier": "TASK-000196",
+        "title": "[GAP-014] Tighten Electron CSP — remove unsafe-inline/unsafe-eval where SPA allows",
+        "status": "Planned",
+        "priority": "Medium",
+        "owner": "Security Governance Lead",
+        "deliveryWave": 6,
+        "workCategory": "Security"
+      }
+    ],
+    "GAP-017": [
+      {
+        "identifier": "CR-000002",
+        "title": "[GAP-017] CR: deep loan state-machine / CoA-GL rewrite (Modules 8 & 10)",
+        "status": "Deferred",
+        "priority": "Medium",
+        "owner": "CIO",
+        "deliveryWave": 6,
+        "workCategory": "TechDebt"
+      }
+    ],
+    "GAP-021": [
+      {
+        "identifier": "TASK-000197",
+        "title": "[GAP-021] Resolve package.json MODULE_TYPELESS (type:module or .mjs) safely",
+        "status": "Deferred",
+        "priority": "Low",
+        "owner": "Platform Administrator",
+        "deliveryWave": 1,
+        "workCategory": "TechDebt"
+      }
+    ],
+    "GAP-022": [
+      {
+        "identifier": "TASK-000198",
+        "title": "[GAP-022] Document EIR historical catalog name aliases for agents",
+        "status": "Completed",
+        "priority": "Low",
+        "owner": "Platform Administrator",
+        "deliveryWave": 1,
+        "workCategory": "Documentation"
+      }
+    ],
+    "GAP-023": [
+      {
+        "identifier": "TASK-000199",
+        "title": "[GAP-023] Define PWA / web-offline support level vs Capacitor offline",
+        "status": "Completed",
+        "priority": "Low",
+        "owner": "Platform Administrator",
+        "deliveryWave": 5,
+        "workCategory": "Documentation"
+      }
+    ],
+    "GAP-024": [
+      {
+        "identifier": "TASK-000200",
+        "title": "[GAP-024] Automated productionMode fail-closed for bootstrap default passwords",
+        "status": "Completed",
+        "priority": "Low",
+        "owner": "Security Governance Lead",
+        "deliveryWave": 10,
+        "workCategory": "Security"
+      }
+    ],
+    "GAP-025": [
+      {
+        "identifier": "FEAT-000187",
+        "title": "[GAP-025] Optional thin Kotlin bridges (biometrics, WorkManager)",
+        "status": "Deferred",
+        "priority": "Low",
+        "owner": "Platform Administrator",
+        "deliveryWave": 4,
+        "workCategory": "Feature"
+      }
+    ],
+    "GAP-026": [
+      {
+        "identifier": "TASK-000201",
+        "title": "[GAP-026] Broader OpenAPI coverage export from route-registry",
+        "status": "Deferred",
+        "priority": "Low",
+        "owner": "CIO",
+        "deliveryWave": 3,
+        "workCategory": "Documentation"
+      }
+    ],
+    "GAP-027": [
+      {
+        "identifier": "CR-000003",
+        "title": "[GAP-027] CR: post-go-live continuous improvement → MIB identifiers",
+        "status": "Deferred",
+        "priority": "Low",
+        "owner": "Change Manager",
+        "deliveryWave": 10,
+        "workCategory": "Ops"
+      }
+    ]
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "_failureReasons": [
+    "CERT-001 certified without disasterRecoveryPassed",
+    "gatesSatisfied false while decision certified",
+    "accountableAuthority equals auditAuthority",
+    "missing evidence"
+  ],
+  "schemaVersion": "1.0.0",
+  "certificationRecordId": "bad-id",
+  "certificationId": "CERT-001",
+  "releaseId": "REL-X",
+  "environment": "PRODUCTION",
+  "decision": "certified",
+  "gatesSatisfied": false,
+  "performancePassed": true,
+  "securityPassed": true,
+  "disasterRecoveryPassed": false,
+  "monitoringPassed": true,
+  "businessAcceptanceApproved": false,
+  "governance": {
+    "accountableAuthority": "CIO",
+    "auditAuthority": "CIO"
+  },
+  "evidence": [],
+  "metadata": {
+    "createdAt": "2026-09-15T18:05:00.000Z",
+    "createdBy": "CIO",
+    "phase": 16
+  }
+}

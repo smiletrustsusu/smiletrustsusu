@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/ai/audit.schema.json",
+  "title": "AICapabilityAudit",
+  "description": "Audit block for an AI capability. Auditor must be segregated from approving authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "auditId",
+    "auditStatus",
+    "auditor",
+    "auditTrailRequired",
+    "retentionDays",
+    "lastAuditAt",
+    "findingsOpen"
+  ],
+  "properties": {
+    "auditId": {
+      "$ref": "https://schemas.smiletrust.com/common/identifiers.schema.json#/$defs/auditId"
+    },
+    "auditStatus": {
+      "type": "string",
+      "enum": ["NotStarted", "InProgress", "Passed", "PassedWithFindings", "Failed", "Waived"]
+    },
+    "auditor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "Independent auditor. Must not equal approvingAuthority (SoD)."
+    },
+    "auditTrailRequired": {
+      "type": "boolean",
+      "const": true
+    },
+    "retentionDays": {
+      "type": "integer",
+      "minimum": 365,
+      "maximum": 3650,
+      "description": "Minimum retention for AI capability audit evidence."
+    },
+    "lastAuditAt": { "type": "string", "format": "date-time" },
+    "nextAuditDue": { "type": ["string", "null"], "format": "date-time" },
+    "findingsOpen": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "evidenceUris": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+    },
+    "controlsChecked": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["controlId", "result"],
+        "properties": {
+          "controlId": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "result": {
+            "type": "string",
+            "enum": ["Pass", "Fail", "NotApplicable", "Deferred"]
+          },
+          "notes": { "type": "string", "maxLength": 1000 }
+        }
+      }
+    },
+    "immutableLogReference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Pointer to Module 29 / audit log stream for this capability."
+    },
+    "notes": { "type": "string", "maxLength": 4000 }
+  }
+}

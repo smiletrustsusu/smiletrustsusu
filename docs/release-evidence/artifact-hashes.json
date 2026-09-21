@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "smile-trust-artifact-hashes/1.1",
+  "gapId": "GAP-012",
+  "backlogId": "TASK-000187",
+  "generatedAtUtc": "2026-09-20T16:14:21.668Z",
+  "status": "partial",
+  "notes": [
+    "Hashes are recorded only for files present on disk.",
+    "Signed production artifacts still require org CSC_* / Android keystore secrets (do not invent).",
+    "Debug APK hashes help pilot verification; release APK+EXE needed for GAP-012 Completed.",
+    "Unsigned release APK (app-release-unsigned.apk) is evidence of build path only — not production-ready."
+  ],
+  "checklist": {
+    "androidDebugApkPresent": true,
+    "androidReleaseApkPresent": false,
+    "androidReleaseApkUnsignedPresent": false,
+    "windowsExePresent": false,
+    "hashesWritten": true
+  },
+  "signingHints": {
+    "androidKeystorePropertiesPresent": false,
+    "androidKeystoreFilePresent": false,
+    "electronCscEnvPresent": false,
+    "electronCscPathExists": null,
+    "smileUpdateFeedConfigured": false,
+    "note": "Signing secrets are never invented; org must supply Android keystore + CSC_* for production."
+  },
+  "artifacts": [
+    {
+      "id": "android-debug-apk",
+      "channel": "android",
+      "kind": "debug",
+      "path": "android/app/build/outputs/apk/debug/app-debug.apk",
+      "bytes": 11773626,
+      "mtimeUtc": "2026-09-18T22:07:57.958Z",
+      "sha256": "b14030b1e425329da2e9f4e376deeecc11b154a8c6bb1fb380bd54e2f0dc9c89"
+    }
+  ]
+}

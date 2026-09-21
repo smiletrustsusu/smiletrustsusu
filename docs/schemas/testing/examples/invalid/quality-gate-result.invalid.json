@@ -1,0 +1,36 @@
+{
+  "_failureReasons": [
+    "decision pass but openCritical > 0",
+    "missing governance.auditAuthority",
+    "thresholdResults entry missing passFail",
+    "evidence empty"
+  ],
+  "schemaVersion": "1.0.0",
+  "resultId": "not-a-uuid",
+  "gateId": "GATE-1",
+  "fromEnv": "dev",
+  "toEnv": "qa",
+  "decision": "pass",
+  "mandatoryTestsPassed": false,
+  "thresholdResults": [
+    {
+      "thresholdId": "THR-002",
+      "metric": "line_coverage",
+      "measured": 70
+    }
+  ],
+  "defects": {
+    "openCritical": 2,
+    "openHigh": 1
+  },
+  "approvals": [],
+  "governance": {
+    "accountableAuthority": "QA Lead"
+  },
+  "evidence": [],
+  "metadata": {
+    "createdAt": "2026-09-15T08:15:00.000Z",
+    "createdBy": "QA Lead",
+    "phase": 16
+  }
+}

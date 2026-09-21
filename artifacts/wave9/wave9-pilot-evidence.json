@@ -1,0 +1,1170 @@
+{
+  "schemaVersion": "wave9-pilot-evidence/1.0",
+  "wave": "WAVE-09",
+  "version": "9.0.0-pilot-uat",
+  "catalogAlias": {
+    "deliveryName": "Pilot Deployment, UAT & Operational Readiness",
+    "deliveryCode": "PILOT_UAT_OPS_READINESS",
+    "historicalEirName": "Enterprise Features",
+    "historicalEirCode": "ENTERPRISE_FEATURES",
+    "enterpriseFeaturesNote": "Notifications/monitoring/AI/BCDR catalogs remain Phase 12–18 SoT; Wave 9 executes pilot/UAT/ops readiness over Waves 1–8 + RC1",
+    "productionCertNote": "Full CERT-001 / live production promote remains WAVE-10"
+  },
+  "startedAt": "2026-09-16T20:52:11.139Z",
+  "finishedAt": "2026-09-16T20:52:11.164Z",
+  "claim": {
+    "frameworkReady": true,
+    "livePilotExecuted": false,
+    "liveBranchCutover": false,
+    "productionReconciled": false,
+    "note": "Evidence pack for operators; synthetic run only — not a live bank branch cutover"
+  },
+  "rc1Entry": {
+    "ok": true,
+    "decision": "PASS",
+    "readyForWave9": true,
+    "reason": null,
+    "certificationScope": "RC1_PILOT_UAT",
+    "notProductionCert001": true
+  },
+  "goNoGo": {
+    "decision": "Conditional",
+    "recommendation": "Conditional",
+    "readyForWave10": "conditional",
+    "reasons": [],
+    "conditions": [
+      "business_uat_signoff_pending",
+      "training_completion_pending",
+      "financial_reconciliation_human_signoff_pending",
+      "executive_sponsor_pending_human_signoff",
+      "security_acceptance_pending"
+    ],
+    "meaning": "Pilot/UAT framework is ready for executive review. Conditions remaining: business_uat_signoff_pending, training_completion_pending, financial_reconciliation_human_signoff_pending, executive_sponsor_pending_human_signoff, security_acceptance_pending. Not a live branch cutover; Executive Sponsor remains PendingHumanSignOff.",
+    "dimensions": [
+      {
+        "id": "GL-RC1",
+        "pass": true,
+        "detail": "RC1 PASS"
+      },
+      {
+        "id": "GL-ENV",
+        "pass": true,
+        "detail": "Pilot isolation checklist ready"
+      },
+      {
+        "id": "GL-UAT",
+        "pass": true,
+        "detail": "executable 21/21; business signed 0/21"
+      },
+      {
+        "id": "GL-OPS",
+        "pass": true,
+        "detail": "ops readiness 100% (9/9)"
+      },
+      {
+        "id": "GL-TRAIN",
+        "pass": true,
+        "detail": "Training curricula ready; completion PendingHumanSignOff"
+      },
+      {
+        "id": "GL-ISSUES",
+        "pass": true,
+        "detail": "open Critical=0"
+      },
+      {
+        "id": "GL-RECON",
+        "pass": true,
+        "detail": "Reconciliation procedure present; live recon PendingHumanSignOff"
+      },
+      {
+        "id": "GL-EXEC",
+        "pass": false,
+        "detail": "Executive Sponsor: PendingHumanSignOff"
+      },
+      {
+        "id": "GL-SEC",
+        "pass": false,
+        "detail": "Security: PendingHumanSignOff"
+      },
+      {
+        "id": "GL-W10",
+        "pass": false,
+        "detail": "Ready for Executive Review — Wave 10 entry only with listed conditions + human approvals"
+      }
+    ],
+    "humanApprovals": [
+      {
+        "id": "HA-EXEC",
+        "role": "Executive Sponsor",
+        "status": "PendingHumanSignOff",
+        "requiredFor": "Full Go / Wave 10 production entry"
+      },
+      {
+        "id": "HA-PO",
+        "role": "Product / Business Owner",
+        "status": "PendingHumanSignOff",
+        "requiredFor": "Business UAT acceptance"
+      },
+      {
+        "id": "HA-QA",
+        "role": "QA Lead",
+        "status": "PendingHumanSignOff",
+        "requiredFor": "UAT pack sign-off"
+      },
+      {
+        "id": "HA-SEC",
+        "role": "Security / Compliance",
+        "status": "PendingHumanSignOff",
+        "requiredFor": "Security acceptance"
+      },
+      {
+        "id": "HA-RECON",
+        "role": "Finance / Branch Manager",
+        "status": "PendingHumanSignOff",
+        "requiredFor": "Financial reconciliation acceptance"
+      }
+    ]
+  },
+  "pilotRun": {
+    "runId": "PILOT-SYNTH-001",
+    "kind": "synthetic",
+    "liveBranchCutover": false,
+    "frameworkReady": true,
+    "livePilotExecuted": false,
+    "note": "Synthetic framework run — not a live branch cutover"
+  },
+  "uatMatrix": {
+    "domains": [
+      "admin",
+      "audit",
+      "auth",
+      "collections",
+      "customer",
+      "dashboards",
+      "deposits_withdrawals",
+      "eod",
+      "loans",
+      "notifications",
+      "offline",
+      "reports",
+      "savings",
+      "sync"
+    ],
+    "domainCoverageOk": true,
+    "scenarios": [
+      {
+        "scenarioId": "UAT-AUTH-01",
+        "domain": "auth",
+        "title": "Login, session timeout, and role-denied action",
+        "mandatory": true,
+        "technicalSmoke": true,
+        "actual": "Wave 8 / RC1 technical smoke already proved artifact presence and invariants",
+        "passFail": "pass",
+        "evidence": "docs/release-evidence/rc1-evidence.json",
+        "executedBy": "wave9-synthetic-seeder",
+        "executedAt": "2026-09-16T20:52:11.139Z",
+        "approver": null,
+        "approverStatus": "PendingHumanSignOff",
+        "notes": "Technical auto-pass only; business UAT sign-off still required",
+        "executable": true,
+        "status": "TechnicalPassPendingBusinessSignOff"
+      },
+      {
+        "scenarioId": "UAT-AUTH-02",
+        "domain": "auth",
+        "title": "Multi-role switch and audit of privileged actions",
+        "mandatory": true,
+        "technicalSmoke": false,
+        "actual": null,
+        "passFail": null,
+        "evidence": null,
+        "executedBy": null,
+        "executedAt": null,
+        "approver": null,
+        "approverStatus": "PendingHumanSignOff",
+        "notes": "Awaiting human pilot execution",
+        "executable": true,
+        "status": "ReadyToExecute"
+      },
+      {
+        "scenarioId": "UAT-CUST-01",
+        "domain": "customer",
+        "title": "Register customer and verify KYC fields",
+        "mandatory": true,
+        "technicalSmoke": false,
+        "actual": null,
+        "passFail": null,
+        "evidence": null,
+        "executedBy": null,
+        "executedAt": null,
+        "approver": null,
+        "approverStatus": "PendingHumanSignOff",
+        "notes": "Awaiting human pilot execution",
+        "executable": true,
+        "status": "ReadyToExecute"
+      },
+      {
+        "scenarioId": "UAT-CUST-02",
+        "domain": "customer",
+        "title": "Search / update customer without corrupting balances",
+        "mandatory": true,
+        "technicalSmoke": false,
+        "actual": null,
+        "passFail": null,
+        "evidence": null,
+        "executedBy": null,
+        "executedAt": null,
+        "approver": null,
+        "approverStatus": "PendingHumanSignOff",
+        "notes": "Awaiting human pilot execution",
+        "executable": true,
+        "status": "ReadyToExecute"
+      },
+      {
+        "scenarioId": "UAT-SAVE-01",
+        "domain": "savings",
+        "title": "Open savings product and post contribution",
+        "mandatory": true,
+        "technicalSmoke": false,
+        "actual": null,
+        "passFail": null,
+        "evidence": null,
+        "executedBy": null,
+        "executedAt": null,
+        "approver": null,
+        "approverStatus": "PendingHumanSignOff",
+        "notes": "Awaiting human pilot execution",
+        "executable": true,
+        "status": "ReadyToExecute"
+      },
+      {
+        "scenarioId": "UAT-COLL-01",
+        "domain": "collections",
+        "title": "Collector day cycle (31-day collection awareness)",
+        "mandatory": true,
+        "technicalSmoke": false,
+        "actual": null,
+        "passFail": null,
+        "evidence": null,
+        "executedBy": null,
+        "executedAt": null,
+        "approver": null,
+        "approverStatus": "PendingHumanSignOff",
+        "notes": "Awaiting human pilot execution",
+        "executable": true,
+        "status": "ReadyToExecute"
+      },
+      {
+        "scenarioId": "UAT-COLL-02",
+        "domain": "collections",
+        "title": "Cashier float limit 1000 GHS enforced",
+        "mandatory": true,
+        "technicalSmoke": false,
+        "actual": null,
+        "passFail": null,
+        "evidence": null,
+        "executedBy": null,
+        "executedAt": null,
+        "approver": null,
+        "approverStatus": "PendingHumanSignOff",
+        "notes": "Awaiting human pilot execution",
+        "executable": true,
+        "status": "ReadyToExecute"
+      },
+      {
+        "scenarioId": "UAT-TXN-01",
+        "domain": "deposits_withdrawals",
+        "title": "Deposit and withdrawal with receipt",
+        "mandatory": true,
+        "technicalSmoke": false,
+        "actual": null,
+        "passFail": null,
+        "evidence": null,
+        "executedBy": null,
+        "executedAt": null,
+        "approver": null,
+        "approverStatus": "PendingHumanSignOff",
+        "notes": "Awaiting human pilot execution",
+        "executable": true,
+        "status": "ReadyToExecute"
+      },
+      {
+        "scenarioId": "UAT-TXN-02",
+        "domain": "deposits_withdrawals",
+        "title": "Overdraft / insufficient funds blocked",
+        "mandatory": true,
+        "technicalSmoke": false,
+        "actual": null,
+        "passFail": null,
+        "evidence": null,
+        "executedBy": null,
+        "executedAt": null,
+        "approver": null,
+        "approverStatus": "PendingHumanSignOff",
+        "notes": "Awaiting human pilot execution",
+        "executable": true,
+        "status": "ReadyToExecute"
+      },
+      {
+        "scenarioId": "UAT-LOAN-01",
+        "domain": "loans",
+        "title": "Loan application advisory AI does not auto-approve",
+        "mandatory": true,
+        "technicalSmoke": false,
+        "actual": null,
+        "passFail": null,
+        "evidence": null,
+        "executedBy": null,
+        "executedAt": null,
+        "approver": null,
+        "approverStatus": "PendingHumanSignOff",
+        "notes": "Awaiting human pilot execution",
+        "executable": true,
+        "status": "ReadyToExecute"
+      },
+      {
+        "scenarioId": "UAT-LOAN-02",
+        "domain": "loans",
+        "title": "Loan disbursement and repayment schedule",
+        "mandatory": true,
+        "technicalSmoke": false,
+        "actual": null,
+        "passFail": null,
+        "evidence": null,
+        "executedBy": null,
+        "executedAt": null,
+        "approver": null,
+        "approverStatus": "PendingHumanSignOff",
+        "notes": "Awaiting human pilot execution",
+        "executable": true,
+        "status": "ReadyToExecute"
+      },
+      {
+        "scenarioId": "UAT-EOD-01",
+        "domain": "eod",
+        "title": "End-of-day close and till reconciliation procedure",
+        "mandatory": true,
+        "technicalSmoke": false,
+        "actual": null,
+        "passFail": null,
+        "evidence": null,
+        "executedBy": null,
+        "executedAt": null,
+        "approver": null,
+        "approverStatus": "PendingHumanSignOff",
+        "notes": "Awaiting human pilot execution",
+        "executable": true,
+        "status": "ReadyToExecute"
+      },
+      {
+        "scenarioId": "UAT-RPT-01",
+        "domain": "reports",
+        "title": "Operational reports export (CSV/JSON)",
+        "mandatory": true,
+        "technicalSmoke": true,
+        "actual": "Wave 8 / RC1 technical smoke already proved artifact presence and invariants",
+        "passFail": "pass",
+        "evidence": "docs/release-evidence/rc1-evidence.json",
+        "executedBy": "wave9-synthetic-seeder",
+        "executedAt": "2026-09-16T20:52:11.139Z",
+        "approver": null,
+        "approverStatus": "PendingHumanSignOff",
+        "notes": "Technical auto-pass only; business UAT sign-off still required",
+        "executable": true,
+        "status": "TechnicalPassPendingBusinessSignOff"
+      },
+      {
+        "scenarioId": "UAT-DASH-01",
+        "domain": "dashboards",
+        "title": "Wave 7 analytics KPI dashboard loads",
+        "mandatory": true,
+        "technicalSmoke": true,
+        "actual": "Wave 8 / RC1 technical smoke already proved artifact presence and invariants",
+        "passFail": "pass",
+        "evidence": "docs/release-evidence/rc1-evidence.json",
+        "executedBy": "wave9-synthetic-seeder",
+        "executedAt": "2026-09-16T20:52:11.139Z",
+        "approver": null,
+        "approverStatus": "PendingHumanSignOff",
+        "notes": "Technical auto-pass only; business UAT sign-off still required",
+        "executable": true,
+        "status": "TechnicalPassPendingBusinessSignOff"
+      },
+      {
+        "scenarioId": "UAT-AUD-01",
+        "domain": "audit",
+        "title": "Audit trail for money-moving action",
+        "mandatory": true,
+        "technicalSmoke": false,
+        "actual": null,
+        "passFail": null,
+        "evidence": null,
+        "executedBy": null,
+        "executedAt": null,
+        "approver": null,
+        "approverStatus": "PendingHumanSignOff",
+        "notes": "Awaiting human pilot execution",
+        "executable": true,
+        "status": "ReadyToExecute"
+      },
+      {
+        "scenarioId": "UAT-NOTIF-01",
+        "domain": "notifications",
+        "title": "Notification / alert delivery smoke for pilot channel",
+        "mandatory": true,
+        "technicalSmoke": false,
+        "actual": null,
+        "passFail": null,
+        "evidence": null,
+        "executedBy": null,
+        "executedAt": null,
+        "approver": null,
+        "approverStatus": "PendingHumanSignOff",
+        "notes": "Awaiting human pilot execution",
+        "executable": true,
+        "status": "ReadyToExecute"
+      },
+      {
+        "scenarioId": "UAT-OFF-01",
+        "domain": "offline",
+        "title": "Offline capture on Android / Capacitor path",
+        "mandatory": true,
+        "technicalSmoke": true,
+        "actual": "Wave 8 / RC1 technical smoke already proved artifact presence and invariants",
+        "passFail": "pass",
+        "evidence": "docs/release-evidence/rc1-evidence.json",
+        "executedBy": "wave9-synthetic-seeder",
+        "executedAt": "2026-09-16T20:52:11.139Z",
+        "approver": null,
+        "approverStatus": "PendingHumanSignOff",
+        "notes": "Technical auto-pass only; business UAT sign-off still required",
+        "executable": true,
+        "status": "TechnicalPassPendingBusinessSignOff"
+      },
+      {
+        "scenarioId": "UAT-SYNC-01",
+        "domain": "sync",
+        "title": "Sync conflict / retry / recovery",
+        "mandatory": true,
+        "technicalSmoke": true,
+        "actual": "Wave 8 / RC1 technical smoke already proved artifact presence and invariants",
+        "passFail": "pass",
+        "evidence": "docs/release-evidence/rc1-evidence.json",
+        "executedBy": "wave9-synthetic-seeder",
+        "executedAt": "2026-09-16T20:52:11.139Z",
+        "approver": null,
+        "approverStatus": "PendingHumanSignOff",
+        "notes": "Technical auto-pass only; business UAT sign-off still required",
+        "executable": true,
+        "status": "TechnicalPassPendingBusinessSignOff"
+      },
+      {
+        "scenarioId": "UAT-ADM-01",
+        "domain": "admin",
+        "title": "Admin portal search + ops monitoring (Wave 5)",
+        "mandatory": true,
+        "technicalSmoke": true,
+        "actual": "Wave 8 / RC1 technical smoke already proved artifact presence and invariants",
+        "passFail": "pass",
+        "evidence": "docs/release-evidence/rc1-evidence.json",
+        "executedBy": "wave9-synthetic-seeder",
+        "executedAt": "2026-09-16T20:52:11.139Z",
+        "approver": null,
+        "approverStatus": "PendingHumanSignOff",
+        "notes": "Technical auto-pass only; business UAT sign-off still required",
+        "executable": true,
+        "status": "TechnicalPassPendingBusinessSignOff"
+      },
+      {
+        "scenarioId": "UAT-ADM-02",
+        "domain": "admin",
+        "title": "RC1 / Wave 8 certification panel visible",
+        "mandatory": true,
+        "technicalSmoke": true,
+        "actual": "Wave 8 / RC1 technical smoke already proved artifact presence and invariants",
+        "passFail": "pass",
+        "evidence": "docs/release-evidence/rc1-evidence.json",
+        "executedBy": "wave9-synthetic-seeder",
+        "executedAt": "2026-09-16T20:52:11.139Z",
+        "approver": null,
+        "approverStatus": "PendingHumanSignOff",
+        "notes": "Technical auto-pass only; business UAT sign-off still required",
+        "executable": true,
+        "status": "TechnicalPassPendingBusinessSignOff"
+      },
+      {
+        "scenarioId": "UAT-RECON-01",
+        "domain": "eod",
+        "title": "Financial reconciliation procedure (pilot) — no false prod claim",
+        "mandatory": true,
+        "technicalSmoke": false,
+        "actual": null,
+        "passFail": null,
+        "evidence": null,
+        "executedBy": null,
+        "executedAt": null,
+        "approver": null,
+        "approverStatus": "PendingHumanSignOff",
+        "notes": "Awaiting human pilot execution",
+        "executable": true,
+        "status": "ReadyToExecute"
+      }
+    ],
+    "scores": {
+      "mandatoryTotal": 21,
+      "executableCount": 21,
+      "technicalPassedCount": 7,
+      "businessSignedCount": 0,
+      "packComplete": true,
+      "businessAcceptanceComplete": false
+    }
+  },
+  "pilotEnvironment": {
+    "checklist": [
+      {
+        "id": "PE-001",
+        "category": "tenant",
+        "title": "Dedicated pilot tenant provisioned",
+        "isolationFromProd": true,
+        "mandatory": true,
+        "status": "FrameworkReady",
+        "checked": true,
+        "evidence": "Pilot isolation checklist documented in docs/wave9-pilot-uat.md",
+        "note": "Checklist present for operators; live env confirmation is human"
+      },
+      {
+        "id": "PE-002",
+        "category": "region",
+        "title": "Pilot region / hosting slot confirmed",
+        "isolationFromProd": true,
+        "mandatory": true,
+        "status": "FrameworkReady",
+        "checked": true,
+        "evidence": "Pilot isolation checklist documented in docs/wave9-pilot-uat.md",
+        "note": "Checklist present for operators; live env confirmation is human"
+      },
+      {
+        "id": "PE-003",
+        "category": "branch",
+        "title": "Pilot branch (synthetic or designated) scoped",
+        "isolationFromProd": true,
+        "mandatory": true,
+        "status": "FrameworkReady",
+        "checked": true,
+        "evidence": "Pilot isolation checklist documented in docs/wave9-pilot-uat.md",
+        "note": "Checklist present for operators; live env confirmation is human"
+      },
+      {
+        "id": "PE-004",
+        "category": "users",
+        "title": "Pilot user accounts + RBAC roles seeded",
+        "isolationFromProd": true,
+        "mandatory": true,
+        "status": "FrameworkReady",
+        "checked": true,
+        "evidence": "Pilot isolation checklist documented in docs/wave9-pilot-uat.md",
+        "note": "Checklist present for operators; live env confirmation is human"
+      },
+      {
+        "id": "PE-005",
+        "category": "devices",
+        "title": "Pilot devices registered (Android + EXE + web)",
+        "isolationFromProd": true,
+        "mandatory": true,
+        "status": "FrameworkReady",
+        "checked": true,
+        "evidence": "Pilot isolation checklist documented in docs/wave9-pilot-uat.md",
+        "note": "Checklist present for operators; live env confirmation is human"
+      },
+      {
+        "id": "PE-006",
+        "category": "data",
+        "title": "Pilot seed data / anonymized snapshot loaded",
+        "isolationFromProd": true,
+        "mandatory": true,
+        "status": "FrameworkReady",
+        "checked": true,
+        "evidence": "Pilot isolation checklist documented in docs/wave9-pilot-uat.md",
+        "note": "Checklist present for operators; live env confirmation is human"
+      },
+      {
+        "id": "PE-007",
+        "category": "monitoring",
+        "title": "Pilot monitoring dashboards + alert routes",
+        "isolationFromProd": true,
+        "mandatory": true,
+        "status": "FrameworkReady",
+        "checked": true,
+        "evidence": "Pilot isolation checklist documented in docs/wave9-pilot-uat.md",
+        "note": "Checklist present for operators; live env confirmation is human"
+      },
+      {
+        "id": "PE-008",
+        "category": "backup",
+        "title": "Pilot backup schedule + restore drill slot",
+        "isolationFromProd": true,
+        "mandatory": true,
+        "status": "FrameworkReady",
+        "checked": true,
+        "evidence": "Pilot isolation checklist documented in docs/wave9-pilot-uat.md",
+        "note": "Checklist present for operators; live env confirmation is human"
+      },
+      {
+        "id": "PE-009",
+        "category": "reporting",
+        "title": "Pilot report exports + audit trail sinks",
+        "isolationFromProd": true,
+        "mandatory": true,
+        "status": "FrameworkReady",
+        "checked": true,
+        "evidence": "Pilot isolation checklist documented in docs/wave9-pilot-uat.md",
+        "note": "Checklist present for operators; live env confirmation is human"
+      },
+      {
+        "id": "PE-010",
+        "category": "network",
+        "title": "Network / API endpoints point to pilot invokeApi",
+        "isolationFromProd": true,
+        "mandatory": true,
+        "status": "FrameworkReady",
+        "checked": true,
+        "evidence": "Pilot isolation checklist documented in docs/wave9-pilot-uat.md",
+        "note": "Checklist present for operators; live env confirmation is human"
+      }
+    ],
+    "isolationRequired": true,
+    "allIsolationFlagsTrue": true
+  },
+  "operationalReadiness": {
+    "checks": [
+      {
+        "id": "OR-001",
+        "category": "service_desk",
+        "title": "Service desk queues + SLAs for pilot",
+        "mandatory": true,
+        "phaseRef": "Phase 18",
+        "rdyRef": "RDY-011",
+        "status": "FrameworkReady",
+        "checked": true,
+        "evidence": "Phase 18 / Phase 20 catalogs + wave9 ops registry"
+      },
+      {
+        "id": "OR-002",
+        "category": "runbooks",
+        "title": "Incident / offline / sync runbooks published",
+        "mandatory": true,
+        "phaseRef": "Phase 18",
+        "rdyRef": "RDY-009",
+        "status": "FrameworkReady",
+        "checked": true,
+        "evidence": "Phase 18 / Phase 20 catalogs + wave9 ops registry"
+      },
+      {
+        "id": "OR-003",
+        "category": "monitoring",
+        "title": "Monitoring health + alert routes (pilot)",
+        "mandatory": true,
+        "phaseRef": "Phase 13/18",
+        "rdyRef": "RDY-008",
+        "status": "FrameworkReady",
+        "checked": true,
+        "evidence": "Phase 18 / Phase 20 catalogs + wave9 ops registry"
+      },
+      {
+        "id": "OR-004",
+        "category": "backup",
+        "title": "Backup schedule + restore verification slot",
+        "mandatory": true,
+        "phaseRef": "Phase 15",
+        "rdyRef": "RDY-006",
+        "status": "FrameworkReady",
+        "checked": true,
+        "evidence": "Phase 18 / Phase 20 catalogs + wave9 ops registry"
+      },
+      {
+        "id": "OR-005",
+        "category": "dr",
+        "title": "DR procedure awareness (framework; live drill Wave 10)",
+        "mandatory": true,
+        "phaseRef": "Phase 15",
+        "rdyRef": "RDY-007",
+        "status": "FrameworkReady",
+        "checked": true,
+        "evidence": "Phase 18 / Phase 20 catalogs + wave9 ops registry"
+      },
+      {
+        "id": "OR-006",
+        "category": "incident_response",
+        "title": "IR / major incident bridge contacts",
+        "mandatory": true,
+        "phaseRef": "Phase 18",
+        "rdyRef": "RDY-010",
+        "status": "FrameworkReady",
+        "checked": true,
+        "evidence": "Phase 18 / Phase 20 catalogs + wave9 ops registry"
+      },
+      {
+        "id": "OR-007",
+        "category": "escalation",
+        "title": "Escalation matrix + sync escalation authority",
+        "mandatory": true,
+        "phaseRef": "Phase 18",
+        "rdyRef": "RDY-010",
+        "status": "FrameworkReady",
+        "checked": true,
+        "evidence": "Phase 18 / Phase 20 catalogs + wave9 ops registry"
+      },
+      {
+        "id": "OR-008",
+        "category": "knowledge_base",
+        "title": "KB articles linked to runbooks",
+        "mandatory": true,
+        "phaseRef": "Phase 18",
+        "rdyRef": "RDY-009",
+        "status": "FrameworkReady",
+        "checked": true,
+        "evidence": "Phase 18 / Phase 20 catalogs + wave9 ops registry"
+      },
+      {
+        "id": "OR-009",
+        "category": "on_call",
+        "title": "Primary + secondary on-call for pilot window",
+        "mandatory": true,
+        "phaseRef": "Phase 18",
+        "rdyRef": "RDY-010",
+        "status": "FrameworkReady",
+        "checked": true,
+        "evidence": "Phase 18 / Phase 20 catalogs + wave9 ops registry"
+      },
+      {
+        "id": "OR-010",
+        "category": "hypercare_staffing",
+        "title": "Hypercare staffing plan draft for Wave 10",
+        "mandatory": false,
+        "phaseRef": "Phase 20",
+        "rdyRef": "RDY-020",
+        "status": "FrameworkReady",
+        "checked": true,
+        "evidence": "Phase 18 / Phase 20 catalogs + wave9 ops registry"
+      }
+    ],
+    "scores": {
+      "mandatoryTotal": 9,
+      "mandatoryReady": 9,
+      "score": 100,
+      "ok": true
+    }
+  },
+  "training": {
+    "tracks": [
+      {
+        "id": "TR-CASHIER",
+        "role": "Cashier",
+        "durationHours": 4,
+        "moduleCount": 4,
+        "exerciseCount": 3,
+        "competencyCount": 3
+      },
+      {
+        "id": "TR-COLLECTOR",
+        "role": "Collector",
+        "durationHours": 4,
+        "moduleCount": 4,
+        "exerciseCount": 3,
+        "competencyCount": 3
+      },
+      {
+        "id": "TR-MANAGER",
+        "role": "Branch Manager",
+        "durationHours": 3,
+        "moduleCount": 4,
+        "exerciseCount": 3,
+        "competencyCount": 3
+      },
+      {
+        "id": "TR-AUDITOR",
+        "role": "Auditor / Compliance",
+        "durationHours": 3,
+        "moduleCount": 4,
+        "exerciseCount": 3,
+        "competencyCount": 3
+      },
+      {
+        "id": "TR-ADMIN",
+        "role": "Platform Admin / Ops",
+        "durationHours": 5,
+        "moduleCount": 5,
+        "exerciseCount": 3,
+        "competencyCount": 3
+      },
+      {
+        "id": "TR-EXEC",
+        "role": "Executive Sponsor (briefing)",
+        "durationHours": 1.5,
+        "moduleCount": 4,
+        "exerciseCount": 3,
+        "competencyCount": 3
+      }
+    ],
+    "results": [
+      {
+        "trackId": "TR-CASHIER",
+        "role": "Cashier",
+        "completionStatus": "PendingHumanSignOff",
+        "completedAt": null,
+        "completedBy": null,
+        "competencyPassed": null,
+        "notes": "Curriculum defined; attendance/competency recording is human"
+      },
+      {
+        "trackId": "TR-COLLECTOR",
+        "role": "Collector",
+        "completionStatus": "PendingHumanSignOff",
+        "completedAt": null,
+        "completedBy": null,
+        "competencyPassed": null,
+        "notes": "Curriculum defined; attendance/competency recording is human"
+      },
+      {
+        "trackId": "TR-MANAGER",
+        "role": "Branch Manager",
+        "completionStatus": "PendingHumanSignOff",
+        "completedAt": null,
+        "completedBy": null,
+        "competencyPassed": null,
+        "notes": "Curriculum defined; attendance/competency recording is human"
+      },
+      {
+        "trackId": "TR-AUDITOR",
+        "role": "Auditor / Compliance",
+        "completionStatus": "PendingHumanSignOff",
+        "completedAt": null,
+        "completedBy": null,
+        "competencyPassed": null,
+        "notes": "Curriculum defined; attendance/competency recording is human"
+      },
+      {
+        "trackId": "TR-ADMIN",
+        "role": "Platform Admin / Ops",
+        "completionStatus": "PendingHumanSignOff",
+        "completedAt": null,
+        "completedBy": null,
+        "competencyPassed": null,
+        "notes": "Curriculum defined; attendance/competency recording is human"
+      },
+      {
+        "trackId": "TR-EXEC",
+        "role": "Executive Sponsor (briefing)",
+        "completionStatus": "PendingHumanSignOff",
+        "completedAt": null,
+        "completedBy": null,
+        "competencyPassed": null,
+        "notes": "Curriculum defined; attendance/competency recording is human"
+      }
+    ]
+  },
+  "participants": [
+    {
+      "id": "PG-EXEC",
+      "name": "Executive Sponsor",
+      "humanSignOffRequired": true,
+      "responsibilityCount": 3
+    },
+    {
+      "id": "PG-PO",
+      "name": "Product / Business Owner",
+      "humanSignOffRequired": true,
+      "responsibilityCount": 3
+    },
+    {
+      "id": "PG-QA",
+      "name": "QA Lead",
+      "humanSignOffRequired": true,
+      "responsibilityCount": 3
+    },
+    {
+      "id": "PG-OPS",
+      "name": "Operations / Service Desk",
+      "humanSignOffRequired": false,
+      "responsibilityCount": 3
+    },
+    {
+      "id": "PG-BRANCH",
+      "name": "Pilot Branch Staff (Cashier / Collector / Manager)",
+      "humanSignOffRequired": false,
+      "responsibilityCount": 3
+    },
+    {
+      "id": "PG-SEC",
+      "name": "Security / Compliance",
+      "humanSignOffRequired": true,
+      "responsibilityCount": 3
+    },
+    {
+      "id": "PG-IT",
+      "name": "Platform / DevOps",
+      "humanSignOffRequired": false,
+      "responsibilityCount": 3
+    },
+    {
+      "id": "PG-TRAIN",
+      "name": "Training Lead",
+      "humanSignOffRequired": false,
+      "responsibilityCount": 3
+    }
+  ],
+  "feedbackRegister": [
+    {
+      "id": "FB-0001",
+      "source": "synthetic",
+      "severity": "Enhancement",
+      "title": "Add printable pilot attendance sheet",
+      "status": "open",
+      "createdAt": "2026-09-16T20:52:11.139Z"
+    }
+  ],
+  "issueRegister": [
+    {
+      "id": "ISS-0001",
+      "severity": "Enhancement",
+      "title": "Live branch UAT not yet executed",
+      "status": "open",
+      "blocking": false,
+      "createdAt": "2026-09-16T20:52:11.139Z",
+      "note": "Expected — framework delivery only"
+    }
+  ],
+  "openIssues": {
+    "critical": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "enhancement": 1
+  },
+  "moneyDefaults": {
+    "interest": 15,
+    "collectionDays": 31,
+    "cashierLimitGhs": 1000,
+    "pesewas": true
+  },
+  "gaps": {
+    "wave": "WAVE-09",
+    "version": "9.0.0-pilot-uat",
+    "architecture": "shared-spa-pilot-uat-ops",
+    "notNextJsRewrite": true,
+    "catalogAlias": {
+      "deliveryName": "Pilot Deployment, UAT & Operational Readiness",
+      "deliveryCode": "PILOT_UAT_OPS_READINESS",
+      "historicalEirName": "Enterprise Features",
+      "historicalEirCode": "ENTERPRISE_FEATURES",
+      "enterpriseFeaturesNote": "Notifications/monitoring/AI/BCDR catalogs remain Phase 12–18 SoT; Wave 9 executes pilot/UAT/ops readiness over Waves 1–8 + RC1",
+      "productionCertNote": "Full CERT-001 / live production promote remains WAVE-10"
+    },
+    "items": [
+      {
+        "id": "W9-G01",
+        "title": "Pilot environment checklist (isolated from prod)",
+        "status": "closed",
+        "severity": "critical"
+      },
+      {
+        "id": "W9-G02",
+        "title": "Participant groups + responsibilities",
+        "status": "closed",
+        "severity": "critical"
+      },
+      {
+        "id": "W9-G03",
+        "title": "Mandatory UAT scenario pack",
+        "status": "closed",
+        "severity": "critical"
+      },
+      {
+        "id": "W9-G04",
+        "title": "Operational readiness checks (Phase 18)",
+        "status": "closed",
+        "severity": "critical"
+      },
+      {
+        "id": "W9-G05",
+        "title": "Training tracks + competency templates",
+        "status": "closed",
+        "severity": "high"
+      },
+      {
+        "id": "W9-G06",
+        "title": "Feedback + issue registers",
+        "status": "closed",
+        "severity": "high"
+      },
+      {
+        "id": "W9-G07",
+        "title": "Go/No-Go evaluator with human sign-off gates",
+        "status": "closed",
+        "severity": "critical"
+      },
+      {
+        "id": "W9-G08",
+        "title": "RC1 PASS entry criterion linkage",
+        "status": "closed",
+        "severity": "critical"
+      },
+      {
+        "id": "W9-G09",
+        "title": "Pilot evidence JSON + validate:pilot",
+        "status": "closed",
+        "severity": "critical"
+      },
+      {
+        "id": "W9-G10",
+        "title": "Audit/Reports pilot panels",
+        "status": "closed",
+        "severity": "medium"
+      },
+      {
+        "id": "W9-G11",
+        "title": "docs/wave9-pilot-uat.md + training + go-nogo template",
+        "status": "closed",
+        "severity": "medium"
+      },
+      {
+        "id": "W9-G12",
+        "title": "Live pilot branch cutover / human business UAT sign-off",
+        "status": "deferred",
+        "severity": "critical",
+        "note": "Framework + synthetic run only; live branch execution and executive sign-off are human Wave 9/10 gates"
+      },
+      {
+        "id": "W9-G13",
+        "title": "Production financial reconciliation in live branch",
+        "status": "deferred",
+        "severity": "high",
+        "note": "Procedures + automated balance smoke only; no false prod reconciled claim"
+      }
+    ],
+    "closedCount": 11,
+    "deferredCount": 2,
+    "openCritical": 0,
+    "frameworkReady": true,
+    "moneyDefaults": {
+      "interest": 15,
+      "collectionDays": 31,
+      "cashierLimitGhs": 1000,
+      "pesewas": true
+    },
+    "parity": [
+      {
+        "id": "W9-P01",
+        "title": "Same SPA entry (www/ after prepare:web)",
+        "channel": "Web↔EXE↔APK"
+      },
+      {
+        "id": "W9-P02",
+        "title": "RC1 PASS required before pilot assessment PASS path",
+        "channel": "Governance"
+      },
+      {
+        "id": "W9-P03",
+        "title": "Money: pesewas / 15 / 31 / 1000 preserved",
+        "channel": "Web↔EXE↔APK"
+      },
+      {
+        "id": "W9-P04",
+        "title": "AI advisory-only (no auto-approve)",
+        "channel": "Web↔EXE↔APK"
+      },
+      {
+        "id": "W9-P05",
+        "title": "No new top-level nav — Audit/Reports panels only",
+        "channel": "Web↔EXE↔APK"
+      },
+      {
+        "id": "W9-P06",
+        "title": "SUPER_ADMIN_FORBIDDEN retained",
+        "channel": "Web↔EXE↔APK"
+      },
+      {
+        "id": "W9-P07",
+        "title": "Framework ready ≠ live pilot executed",
+        "channel": "Governance"
+      },
+      {
+        "id": "W9-P08",
+        "title": "Executive Sponsor approval is PendingHumanSignOff until documented",
+        "channel": "Governance"
+      }
+    ],
+    "counts": {
+      "uatScenarios": 21,
+      "mandatoryUat": 21,
+      "opsChecks": 10,
+      "trainingTracks": 6,
+      "envChecks": 10,
+      "participantGroups": 8,
+      "goLiveDimensions": 10
+    }
+  },
+  "parity": [
+    {
+      "id": "W9-P01",
+      "title": "Same SPA entry (www/ after prepare:web)",
+      "channel": "Web↔EXE↔APK"
+    },
+    {
+      "id": "W9-P02",
+      "title": "RC1 PASS required before pilot assessment PASS path",
+      "channel": "Governance"
+    },
+    {
+      "id": "W9-P03",
+      "title": "Money: pesewas / 15 / 31 / 1000 preserved",
+      "channel": "Web↔EXE↔APK"
+    },
+    {
+      "id": "W9-P04",
+      "title": "AI advisory-only (no auto-approve)",
+      "channel": "Web↔EXE↔APK"
+    },
+    {
+      "id": "W9-P05",
+      "title": "No new top-level nav — Audit/Reports panels only",
+      "channel": "Web↔EXE↔APK"
+    },
+    {
+      "id": "W9-P06",
+      "title": "SUPER_ADMIN_FORBIDDEN retained",
+      "channel": "Web↔EXE↔APK"
+    },
+    {
+      "id": "W9-P07",
+      "title": "Framework ready ≠ live pilot executed",
+      "channel": "Governance"
+    },
+    {
+      "id": "W9-P08",
+      "title": "Executive Sponsor approval is PendingHumanSignOff until documented",
+      "channel": "Governance"
+    }
+  ],
+  "scriptChecks": {
+    "validatePilot": true,
+    "validateRc": true,
+    "prepareWeb": true,
+    "test": true
+  },
+  "registries": {
+    "uatScenarioCount": 21,
+    "mandatoryUatCount": 21,
+    "opsCheckCount": 10,
+    "trainingTrackCount": 6,
+    "envCheckCount": 10,
+    "goLiveDimensionCount": 10
+  },
+  "links": {
+    "rc1Evidence": "docs/release-evidence/rc1-evidence.json",
+    "pilotDoc": "docs/wave9-pilot-uat.md",
+    "uatPack": "docs/wave9-uat-pack.md",
+    "training": "docs/wave9-training-package.md",
+    "goNoGoReport": "docs/wave9-go-nogo-report.md"
+  }
+}

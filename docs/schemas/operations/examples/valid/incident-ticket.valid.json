@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "1.0.0",
+  "ticketId": "INC-10042",
+  "title": "Branch Accra-Central collector sync backlog",
+  "description": "Collectors unable to flush offline queue for >4h; money path still posting locally in pesewas.",
+  "severity": "high",
+  "severityId": "SEV-002",
+  "status": "in_progress",
+  "classification": "incident",
+  "serviceId": "SVC-007",
+  "relatedModules": [15, 6, 19],
+  "sla": {
+    "responseMinutes": 30,
+    "resolveMinutes": 480,
+    "escalateMinutes": 60,
+    "responseBreached": false,
+    "resolveBreached": false
+  },
+  "assignment": {
+    "assignee": "On-Call Engineer",
+    "team": "Platform Ops",
+    "escalationLevel": "l2"
+  },
+  "customerComms": {
+    "cadenceMinutes": 60,
+    "lastNotifiedAt": "2026-09-15T08:00:00.000Z",
+    "channel": "branch"
+  },
+  "majorIncident": false,
+  "pirRequired": false,
+  "governance": {
+    "accountableAuthority": "Incident Manager",
+    "responsibleParty": "On-Call Engineer",
+    "auditAuthority": "Internal Auditor",
+    "roleId": "ROLE-INC-MGR"
+  },
+  "metadata": {
+    "createdAt": "2026-09-15T07:30:00.000Z",
+    "createdBy": "Service Desk",
+    "phase": 18,
+    "correlationId": "b2c3d4e5-f6a7-4890-b123-456789abcdef",
+    "moneyInvariantsNote": "pesewas; interest 15; collection days 31; cashier 1000"
+  }
+}

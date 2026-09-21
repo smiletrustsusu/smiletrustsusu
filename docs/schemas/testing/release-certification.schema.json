@@ -1,0 +1,256 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/testing/release-certification.schema.json",
+  "title": "EtqavsReleaseCertification",
+  "description": "Phase 16 ETQAVS production/hotfix release certification decision. Requires quality gates, security, DR (CERT-001), monitoring, and governance. additionalProperties false.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "certificationRecordId",
+    "certificationId",
+    "releaseId",
+    "environment",
+    "decision",
+    "gatesSatisfied",
+    "performancePassed",
+    "securityPassed",
+    "disasterRecoveryPassed",
+    "monitoringPassed",
+    "businessAcceptanceApproved",
+    "governance",
+    "evidence",
+    "metadata"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "certificationRecordId": {
+      "$ref": "#/$defs/uuid"
+    },
+    "certificationId": {
+      "type": "string",
+      "pattern": "^CERT-[0-9]{3}$"
+    },
+    "releaseId": {
+      "type": "string",
+      "minLength": 4,
+      "maxLength": 128
+    },
+    "environment": {
+      "type": "string",
+      "enum": ["STAGING", "PRODUCTION"]
+    },
+    "decision": {
+      "type": "string",
+      "enum": ["certified", "rejected", "pending"]
+    },
+    "gatesSatisfied": {
+      "type": "boolean"
+    },
+    "gateIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^QG-[0-9]{3}$"
+      },
+      "uniqueItems": true
+    },
+    "performancePassed": {
+      "type": "boolean"
+    },
+    "securityPassed": {
+      "type": "boolean"
+    },
+    "disasterRecoveryPassed": {
+      "type": "boolean"
+    },
+    "monitoringPassed": {
+      "type": "boolean",
+      "description": "Module 19 monitoring validation — engine not replaced"
+    },
+    "businessAcceptanceApproved": {
+      "type": "boolean"
+    },
+    "emergencyExceptionApproved": {
+      "type": "boolean"
+    },
+    "reasons": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "recoveryEvidence": {
+      "$ref": "#/$defs/recoveryEvidence"
+    },
+    "governance": {
+      "$ref": "#/$defs/governance"
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/evidence"
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "decision": { "const": "certified" },
+          "certificationId": { "const": "CERT-001" }
+        },
+        "required": ["decision", "certificationId"]
+      },
+      "then": {
+        "properties": {
+          "gatesSatisfied": { "const": true },
+          "performancePassed": { "const": true },
+          "securityPassed": { "const": true },
+          "disasterRecoveryPassed": { "const": true },
+          "monitoringPassed": { "const": true },
+          "businessAcceptanceApproved": { "const": true }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "certificationId": { "const": "CERT-002" },
+          "decision": { "const": "certified" }
+        },
+        "required": ["certificationId", "decision"]
+      },
+      "then": {
+        "properties": {
+          "emergencyExceptionApproved": { "const": true },
+          "securityPassed": { "const": true },
+          "monitoringPassed": { "const": true }
+        },
+        "required": ["emergencyExceptionApproved"]
+      }
+    }
+  ],
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accountableAuthority", "auditAuthority"],
+      "properties": {
+        "accountableAuthority": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 128
+        },
+        "auditAuthority": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 128
+        },
+        "approvedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "correlationId": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 128
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "reference"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "quality_gate_result",
+            "security_report",
+            "performance_report",
+            "dr_exercise",
+            "monitoring_report",
+            "business_signoff",
+            "exception_record",
+            "other"
+          ]
+        },
+        "reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "capturedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "recoveryEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "recoveryLimitId": {
+          "type": "string",
+          "pattern": "^RLIM-[0-9]{3}$"
+        },
+        "measuredMinutes": {
+          "type": "number",
+          "minimum": 0
+        },
+        "targetMinutes": {
+          "type": "number",
+          "minimum": 0
+        },
+        "usesPhase15Rto": {
+          "type": "boolean"
+        },
+        "stabilizationMinutes": {
+          "type": "number",
+          "minimum": 30,
+          "description": "Must be ≥30; aligns with Phase 14/15 — not redefined"
+        },
+        "passFail": {
+          "type": "string",
+          "enum": ["pass", "fail"]
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["createdAt", "createdBy", "phase"],
+      "properties": {
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "phase": {
+          "type": "integer",
+          "const": 16
+        },
+        "module30Ref": {
+          "type": "string",
+          "description": "Module 30 platform-ops release governance reference"
+        }
+      }
+    }
+  }
+}

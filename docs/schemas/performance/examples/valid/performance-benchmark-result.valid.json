@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "1.0.0",
+  "resultId": "e5f6a7b8-c9d0-4123-e456-789012cdef01",
+  "benchmarkId": "BEN-004",
+  "category": "collections",
+  "decision": "pass",
+  "phase16Aligned": true,
+  "measurements": {
+    "medianMs": 280,
+    "p95Ms": 720,
+    "p99Ms": 1400,
+    "errorRatePct": 0.2,
+    "sampleSize": 10000
+  },
+  "checks": [
+    {
+      "metric": "median_ms",
+      "measured": 280,
+      "target": 300,
+      "passed": true,
+      "phase16Ceiling": true
+    },
+    {
+      "metric": "p95_ms",
+      "measured": 720,
+      "target": 750,
+      "passed": true,
+      "phase16Ceiling": true
+    },
+    {
+      "metric": "p99_ms",
+      "measured": 1400,
+      "target": 1500,
+      "passed": true,
+      "phase16Ceiling": true
+    }
+  ],
+  "failures": [],
+  "workloadId": "WLP-005",
+  "governance": {
+    "accountableAuthority": "Performance Test Engineer",
+    "auditAuthority": "QA Lead",
+    "exceptionApproved": false
+  },
+  "evidence": [
+    {
+      "type": "load_test_report",
+      "reference": "perf/BEN-004-collections-20260915.json",
+      "capturedAt": "2026-09-15T11:00:00.000Z"
+    }
+  ],
+  "metadata": {
+    "createdAt": "2026-09-15T11:00:00.000Z",
+    "createdBy": "Performance Test Engineer",
+    "phase": 17,
+    "correlationId": "f6a7b8c9-d0e1-4234-f567-890123def012",
+    "environment": "STAGING"
+  }
+}

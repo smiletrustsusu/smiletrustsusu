@@ -1,0 +1,31 @@
+{
+  "_failureReasons": [
+    "benchmarkId pattern invalid",
+    "category not in enum",
+    "decision pass but checks empty",
+    "governance missing auditAuthority",
+    "measurements has additionalProperties",
+    "metadata.phase not 17"
+  ],
+  "schemaVersion": "1.0.0",
+  "resultId": "not-uuid",
+  "benchmarkId": "BENCH-1",
+  "category": "payments",
+  "decision": "pass",
+  "phase16Aligned": true,
+  "measurements": {
+    "medianMs": 500,
+    "p95Ms": 900,
+    "extraField": true
+  },
+  "checks": [],
+  "governance": {
+    "accountableAuthority": "Performance Test Engineer"
+  },
+  "evidence": [],
+  "metadata": {
+    "createdAt": "2026-09-15T11:00:00.000Z",
+    "createdBy": "x",
+    "phase": 16
+  }
+}

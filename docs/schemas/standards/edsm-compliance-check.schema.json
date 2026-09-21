@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/standards/edsm-compliance-check.schema.json",
+  "title": "EdsmComplianceCheckResult",
+  "description": "EDSM compliance check evaluation result. Asserts Capacitor/SPA stack (not Compose/Next as primary) and money invariants. additionalProperties false.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "code",
+    "status",
+    "critical",
+    "reviewer",
+    "evaluatedAt",
+    "moneyInvariantNote",
+    "stackNote"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^CHK-[0-9]{3}$"
+    },
+    "code": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]{2,63}$"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pass", "fail", "exception_approved", "pending"]
+    },
+    "critical": {
+      "type": "boolean"
+    },
+    "evidence": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "reviewer": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "evaluatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "moneyInvariantNote": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Must mention pesewas / interest 15 / days 31 / cashier 1000"
+    },
+    "stackNote": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Must state Capacitor/SPA authoritative; Next/Compose not primary"
+    },
+    "mapsTo": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^(COD|NAM|API|DB|UI)-[0-9]{3}$"
+      }
+    }
+  }
+}

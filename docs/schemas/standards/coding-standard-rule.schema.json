@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/standards/coding-standard-rule.schema.json",
+  "title": "EdsmCodingStandardRule",
+  "description": "EDSM coding/naming/API/DB/UI standard rule entry. Catalog only — does not redefine Phase 14/15 RPO/RTO or Module engines. additionalProperties false.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "code",
+    "category",
+    "severity",
+    "ownerId",
+    "title",
+    "rule"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^(COD|NAM|API|DB|UI)-[0-9]{3}$"
+    },
+    "code": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]{2,63}$"
+    },
+    "category": {
+      "type": "string",
+      "enum": ["coding", "naming", "api", "database", "ui"]
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low"]
+    },
+    "ownerId": {
+      "type": "string",
+      "pattern": "^OWN-[0-9]{3}$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "rule": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "enforcement": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "waveRef": {
+      "type": "string",
+      "pattern": "^WAVE-(0[1-9]|10)$"
+    },
+    "moneyInvariant": {
+      "type": "boolean"
+    },
+    "rejectedStacks": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    }
+  }
+}

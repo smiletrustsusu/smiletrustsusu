@@ -1,0 +1,28 @@
+{
+  "_failureReasons": [
+    "ticketId does not match INC-####",
+    "severity not in enum",
+    "status invalid",
+    "sla missing resolveMinutes",
+    "governance missing auditAuthority",
+    "metadata.phase not 18",
+    "additional property notAllowed"
+  ],
+  "schemaVersion": "1.0",
+  "ticketId": "TICKET-1",
+  "title": "",
+  "severity": "urgent",
+  "status": "working",
+  "sla": {
+    "responseMinutes": 0
+  },
+  "governance": {
+    "accountableAuthority": "Incident Manager"
+  },
+  "metadata": {
+    "createdAt": "not-a-date",
+    "createdBy": "x",
+    "phase": 17
+  },
+  "notAllowed": true
+}

@@ -1,0 +1,27 @@
+{
+  "_failureReasons": [
+    "certificationId pattern fail",
+    "recordKind invalid",
+    "decision invalid",
+    "evidence empty",
+    "governance missing auditAuthority",
+    "metadata.phase not 20",
+    "additional property notAllowed"
+  ],
+  "schemaVersion": "1.0",
+  "recordId": "bad-id",
+  "certificationId": "CERT-001",
+  "recordKind": "hotfix",
+  "decision": "ship_it",
+  "issuedAt": "yesterday",
+  "governance": {
+    "accountableAuthority": "Release Manager"
+  },
+  "evidence": [],
+  "metadata": {
+    "createdAt": "bad",
+    "createdBy": "x",
+    "phase": 16
+  },
+  "notAllowed": true
+}

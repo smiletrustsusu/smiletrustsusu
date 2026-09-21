@@ -1,0 +1,16 @@
+{
+  "supabaseUrl": "https://your-project.supabase.co",
+  "supabaseAnonKey": "your-anon-key",
+  "businessId": "your-business-id",
+  "localBackupUrl": "http://localhost:8787",
+  "syncToken": "",
+  "defaultOwnerPassword": "change-me-immediately",
+  "developerPassword": "change-me",
+  "syncAccessKey": "use-a-long-random-secret-at-least-32-characters",
+  "allowDeveloperLogin": false,
+  "productionMode": false,
+  "unifiedCloud": true,
+  "relationalSync": true,
+  "postgresSourceOfTruth": true,
+  "encryptOfflineQueue": true
+}

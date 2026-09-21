@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/monitoring/health-check.schema.json",
+  "title": "EmooisHealthCheckEntry",
+  "description": "Phase 13 EMOOIS health-check catalog entry. Executed by Module 19 collectHealthSnapshot.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "id",
+    "code",
+    "name",
+    "domain",
+    "intervalMs",
+    "timeoutMs",
+    "severity",
+    "owner",
+    "owningModule",
+    "metadata"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^HC-[0-9]{3}$"
+    },
+    "code": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]{2,63}$"
+    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "domain": { "type": "string", "minLength": 1 },
+    "intervalMs": {
+      "type": "integer",
+      "minimum": 1000,
+      "description": "Collection interval in milliseconds."
+    },
+    "timeoutMs": {
+      "type": "integer",
+      "minimum": 100,
+      "description": "Must be <= intervalMs."
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["information", "warning", "minor", "major", "critical"]
+    },
+    "owner": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "owningModule": { "type": "integer", "const": 19 },
+    "engineRef": { "type": "string" },
+    "relatedModules": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 1, "maximum": 30 },
+      "uniqueItems": true
+    },
+    "metadata": {
+      "$ref": "https://schemas.smiletrust.com/common/metadata.schema.json"
+    }
+  }
+}

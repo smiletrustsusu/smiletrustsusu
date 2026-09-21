@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "1.0.0",
+  "releaseRecordId": "REL-20260915-1",
+  "releaseTypeId": "REL-002",
+  "title": "Minor release 2.5.0 — branch reporting polish",
+  "description": "Consumes Phase 14 pipeline and Phase 16 CERT-001 readiness.",
+  "releaseType": "minor",
+  "lifecycleStage": "readiness",
+  "version": "2.5.0",
+  "buildNumber": 1842,
+  "artifactIds": ["CI-002@2.5.0+1842", "CI-001@2.5.0+1842"],
+  "affectedCiIds": ["CI-001", "CI-002", "CI-010"],
+  "requiredGateIds": ["QG-001", "QG-002", "QG-003", "QG-004"],
+  "gateResults": {
+    "QG-001": "pass",
+    "QG-002": "pass",
+    "QG-003": "pass",
+    "QG-004": "pass"
+  },
+  "certificationId": "CERT-001",
+  "rollbackPlanAttached": true,
+  "postValidationPlan": true,
+  "prodAuthorized": false,
+  "relatedModules": [11, 30],
+  "consumesPhase14": true,
+  "consumesPhase16": true,
+  "governance": {
+    "accountableAuthority": "Release Manager",
+    "responsibleParty": "Platform Administrator",
+    "auditAuthority": "Internal Auditor",
+    "roleId": "ROLE-RELEASE-MGR",
+    "committeeId": "COMM-004"
+  },
+  "metadata": {
+    "createdAt": "2026-09-15T11:00:00.000Z",
+    "createdBy": "Release Manager",
+    "phase": 19,
+    "correlationId": "c3d4e5f6-a7b8-4901-c234-567890abcdef",
+    "moneyInvariantsNote": "pesewas; interest 15; collection days 31; cashier 1000"
+  }
+}

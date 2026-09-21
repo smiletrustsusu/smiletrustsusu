@@ -1,0 +1,14 @@
+{
+  "appId": "com.kba.susu",
+  "appName": "Smile Trust Susu",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "includePlugins": [],
+  "plugins": {
+    "SmileTrustSecure": {
+      "screenshotProtectionDefault": true
+    }
+  }
+}

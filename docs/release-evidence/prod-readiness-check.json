@@ -1,0 +1,85 @@
+{
+  "schemaVersion": "smile-trust-prod-readiness/1.1",
+  "generatedAtUtc": "2026-09-20T20:59:23.214Z",
+  "runTests": true,
+  "runTestsDefault": false,
+  "runTestsHint": "Default skips npm test (Partial). Pass --run-tests to execute the suite for a Ready tests row.",
+  "note": "Read-only dashboard. Does not flip HA-* gates, invent certs, or deploy.",
+  "checks": {
+    "tests": {
+      "status": "Ready",
+      "detail": "npm test exit 0"
+    },
+    "rc1Evidence": {
+      "status": "Ready",
+      "detail": "decision=PASS"
+    },
+    "haStatuses": {
+      "status": "Blocked",
+      "detail": "5/5 still PendingHumanSignOff (read-only; not flipped)",
+      "gates": [
+        {
+          "id": "HA-EXEC",
+          "status": "PendingHumanSignOff"
+        },
+        {
+          "id": "HA-PO",
+          "status": "PendingHumanSignOff"
+        },
+        {
+          "id": "HA-QA",
+          "status": "PendingHumanSignOff"
+        },
+        {
+          "id": "HA-SEC",
+          "status": "PendingHumanSignOff"
+        },
+        {
+          "id": "HA-RECON",
+          "status": "PendingHumanSignOff"
+        }
+      ]
+    },
+    "androidDebugApk": {
+      "status": "Partial",
+      "detail": "debug present (android/app/build/outputs/apk/debug/app-debug.apk); release APK absent (org keystore)"
+    },
+    "signingEnv": {
+      "status": "Blocked",
+      "detail": "No SMILE_ANDROID_* / CSC_* / SMILE_UPDATE_FEED_URL (do not invent certs)"
+    },
+    "gitRemote": {
+      "status": "Blocked",
+      "detail": "not a git repo / .git missing"
+    },
+    "migrationsDoc": {
+      "status": "Ready",
+      "detail": "PRODUCTION.md lists 001–045 (apply on UAT only — not prod from this script)"
+    },
+    "wwwSot": {
+      "status": "Ready",
+      "detail": "www/ matches src/ sample 7/7 (GAP-018)"
+    },
+    "deployProfiles": {
+      "status": "Ready",
+      "detail": "pilot≠prod manifests present (non-secret)"
+    },
+    "bootstrapPasswordGuard": {
+      "status": "Partial",
+      "detail": "config has bootstrap defaults; productionMode off (Partial until live secrets)"
+    },
+    "channelScripts": {
+      "status": "Ready",
+      "detail": "channel smoke scripts present (run: npm run check:channels)"
+    },
+    "orgBlockedDoc": {
+      "status": "Ready",
+      "detail": "blocked-on-org.md published (org/human hard stops)"
+    }
+  },
+  "counts": {
+    "ready": 7,
+    "partial": 2,
+    "blocked": 3
+  }
+}

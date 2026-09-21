@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "smile-trust-deploy-profile/1.0",
+  "profileId": "prod",
+  "displayName": "Production",
+  "gapRefs": ["GAP-016", "GAP-001", "GAP-006"],
+  "channels": {
+    "web": {
+      "prepareWeb": true,
+      "wwwMirrorRequired": true
+    },
+    "android": {
+      "buildVariant": "release",
+      "signedReleaseRequired": true,
+      "apkPathHint": "android/app/build/outputs/apk/release/",
+      "keystoreEnv": [
+        "SMILE_ANDROID_KEYSTORE_FILE",
+        "SMILE_ANDROID_STORE_PASSWORD",
+        "SMILE_ANDROID_KEY_ALIAS",
+        "SMILE_ANDROID_KEY_PASSWORD"
+      ]
+    },
+    "electron": {
+      "codeSigningRequired": true,
+      "updateFeedMustBeProduction": true,
+      "cscEnv": ["CSC_LINK", "CSC_KEY_PASSWORD"],
+      "updateFeedEnv": ["SMILE_UPDATE_FEED_URL"]
+    }
+  },
+  "database": {
+    "applyMigrationsThrough": "045",
+    "includeRlsSql": true,
+    "target": "production",
+    "forbidProdCutoverFromThisProfile": false,
+    "requiresHumanGates": ["HA-*", "CO-*"]
+  },
+  "payments": {
+    "liveMomoCalls": true,
+    "requireWebhookSecretInEnv": true,
+    "notes": "Org-supplied MoMo credentials only; no keys in git; GAP-019 SQL pesewas still freeze-gated"
+  },
+  "governance": {
+    "allowSyntheticWaveEvidence": false,
+    "requireHumanApprovalsForGoLive": true,
+    "cert001MustBeCertified": true
+  },
+  "envRefs": [
+    "SUPABASE_URL",
+    "SUPABASE_ANON_KEY",
+    "SMILE_MOMO_WEBHOOK_SECRET",
+    "SMILE_ANDROID_KEYSTORE_FILE",
+    "CSC_LINK",
+    "SMILE_UPDATE_FEED_URL"
+  ],
+  "checklistCite": [
+    "PRODUCTION.md",
+    "docs/backlog/org-handoff-checklist.md",
+    "docs/backlog/human-gates-runbook.md",
+    "deploy/README.md"
+  ]
+}

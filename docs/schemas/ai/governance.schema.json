@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/ai/governance.schema.json",
+  "title": "AICapabilityGovernance",
+  "description": "Governance block for an AI capability. Exception approval authority is required when exceptionRequired is true or riskClass is Critical.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "governanceId",
+    "riskClass",
+    "approvalStatus",
+    "approvingAuthority",
+    "accountableAuthority",
+    "responsibleParty",
+    "humanOversightRequired",
+    "exceptionRequired",
+    "sodProfile"
+  ],
+  "properties": {
+    "governanceId": {
+      "$ref": "https://schemas.smiletrust.com/common/identifiers.schema.json#/$defs/governanceId"
+    },
+    "riskClass": {
+      "type": "string",
+      "enum": ["Low", "Medium", "High", "Critical"]
+    },
+    "approvalStatus": {
+      "type": "string",
+      "enum": ["Draft", "PendingApproval", "Approved", "Rejected", "Suspended", "Retired"]
+    },
+    "approvingAuthority": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "Role or person who may approve the capability for use. Must differ from auditor under SoD."
+    },
+    "accountableAuthority": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "Single accountable authority (RACI A). Exactly one per capability."
+    },
+    "responsibleParty": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "RACI R — executes work; may differ from accountableAuthority."
+    },
+    "consultedParties": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 120 }
+    },
+    "informedParties": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 120 }
+    },
+    "humanOversightRequired": {
+      "type": "boolean",
+      "const": true,
+      "description": "Always true for Smile Trust AI capabilities (advisory + human review)."
+    },
+    "exceptionRequired": { "type": "boolean" },
+    "exceptionApprovalAuthority": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "Required when exceptionRequired=true or riskClass=Critical."
+    },
+    "exceptionJustification": {
+      "type": "string",
+      "maxLength": 4000
+    },
+    "policyReferences": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+    },
+    "sodProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["approverMustDifferFromAuditor", "developerMustDifferFromValidator"],
+      "properties": {
+        "approverMustDifferFromAuditor": { "type": "boolean", "const": true },
+        "developerMustDifferFromValidator": { "type": "boolean", "const": true },
+        "deployerMustDifferFromSoleApprover": { "type": "boolean", "default": true }
+      }
+    },
+    "effectiveFrom": { "type": "string", "format": "date-time" },
+    "effectiveTo": { "type": ["string", "null"], "format": "date-time" },
+    "notes": { "type": "string", "maxLength": 4000 }
+  },
+  "allOf": [
+    {
+      "if": {
+        "anyOf": [
+          { "properties": { "exceptionRequired": { "const": true } }, "required": ["exceptionRequired"] },
+          { "properties": { "riskClass": { "const": "Critical" } }, "required": ["riskClass"] }
+        ]
+      },
+      "then": {
+        "required": ["exceptionApprovalAuthority"],
+        "properties": {
+          "exceptionApprovalAuthority": { "type": "string", "minLength": 1, "maxLength": 120 }
+        }
+      }
+    }
+  ]
+}

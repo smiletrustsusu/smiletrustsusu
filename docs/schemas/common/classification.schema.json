@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/common/classification.schema.json",
+  "title": "SmileTrustDataClassification",
+  "description": "Enterprise data classification vocabulary aligned with Module 29 / Phase 2.",
+  "type": "string",
+  "enum": ["Public", "Internal", "Confidential", "Restricted"]
+}

@@ -1,0 +1,54 @@
+config.json
+node_modules/
+dist/
+backup/
+.gradle-home/
+# Capacitor Android: prefer generating Gradle locally (GAP-004). Keep README + plugins-src.
+android/app/
+android/.gradle/
+android/build/
+android/local.properties
+android/gradle/
+android/gradlew
+android/gradlew.bat
+android/capacitor.settings.gradle
+android/settings.gradle
+android/build.gradle
+android/variables.gradle
+android/gradle.properties
+android/capacitor-cordova-android-plugins/
+android/keystore.properties
+android/smile-trust-release.keystore
+android/.idea/
+*.log
+verification-*.png
+.DS_Store
+Thumbs.db
+*.pfx
+*.p12
+CSC_*
+# Environment
+.env
+.env.*
+!.env.example
+
+# Build outputs
+build/
+out/
+coverage/
+
+# Local JDKs
+.jdk-17/
+.jdk-21/
+
+# Electron
+release/
+electron/dist/
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Temporary files
+*.tmp
+*.temp

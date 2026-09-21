@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "1.0.0",
+  "forecastResultId": "c3d4e5f6-a7b8-4901-c234-567890abcdef",
+  "forecastId": "FRC-003",
+  "capacityId": "CAP-006",
+  "horizonMonths": 24,
+  "projection": {
+    "baseline": 12000,
+    "projectedValue": 140000,
+    "growthFactor": 11.667,
+    "method": "linear",
+    "unit": "daily_txns"
+  },
+  "scaling": {
+    "triggered": true,
+    "scalingTriggerPct": 70,
+    "measuredUtilizationPct": 82.5,
+    "upgradeStrategy": "stateless_replicas",
+    "recommendation": "Scale using stateless_replicas"
+  },
+  "phase16Alignment": {
+    "medianApiMs": 300,
+    "p95ResponseMs": 750,
+    "p99ResponseMs": 1500,
+    "cpuSteadyPct": 70,
+    "memorySteadyPct": 75,
+    "doesNotRedefine": true
+  },
+  "phase13SloRefs": ["SLO-006", "SLO-001"],
+  "governance": {
+    "accountableAuthority": "Capacity Planner",
+    "approvalAuthority": "Platform Operations Lead",
+    "auditAuthority": "Internal Auditor",
+    "exceptionApproved": false
+  },
+  "evidence": [
+    {
+      "type": "forecast_worksheet",
+      "reference": "capacity/FRC-003-2026Q3.xlsx",
+      "capturedAt": "2026-09-15T10:30:00.000Z"
+    }
+  ],
+  "metadata": {
+    "createdAt": "2026-09-15T10:30:00.000Z",
+    "createdBy": "Capacity Planner",
+    "phase": 17,
+    "correlationId": "d4e5f6a7-b8c9-4012-d345-678901bcdef0"
+  }
+}

@@ -1,0 +1,133 @@
+{
+  "schemaVersion": "wave9-executive-run-sheet/1.0",
+  "wave": "WAVE-09",
+  "humanGate": "HG-05",
+  "pilotName": "NORTHRISE MICRO SAVINGS",
+  "product": "SMILE TRUST SUSU MANAGEMENT SYSTEM",
+  "status": "ReadyToExecute",
+  "createdAt": "2026-09-20T13:00:00.000Z",
+  "updatedAt": "2026-09-20T13:00:00.000Z",
+  "claim": {
+    "livePilotExecuted": false,
+    "executiveAutoApproved": false,
+    "fullGoClaimed": false,
+    "wave10CutoverAuthorized": false,
+    "cert001Certified": false,
+    "gatesAutoApproved": false,
+    "note": "Run sheet ready for human Executive Sponsor review - no fabricated Full Go or HA-EXEC approval"
+  },
+  "moneyInvariants": {
+    "interest": 15,
+    "collectionDays": 31,
+    "cashierLimitGhs": 1000,
+    "pesewas": true
+  },
+  "loginGuidance": {
+    "primaryOperator": "JOHN",
+    "role": "System Owner / executive briefing facilitator",
+    "executiveSigner": "Executive Sponsor (HA-EXEC / HA-W9-EXEC)",
+    "developerSupportOnly": "KBA",
+    "isolation": "JOHN must not see or manage the KBA developer account"
+  },
+  "hardConstraints": {
+    "noProductionDeploy": true,
+    "noProdSupabaseMigrate": true,
+    "noProdConfigOrFinancialDataChange": true,
+    "preserveJohnKbaIsolation": true,
+    "superAdminForbidden": true,
+    "moneyInvariants": "15/31/1000 pesewas",
+    "noFakeApprovals": true,
+    "wave10BlockedUntilRealApprovals": true
+  },
+  "guidePath": "docs/governance/wave9-executive-sponsor-execution-guide.md",
+  "evidencePath": "docs/release-evidence/wave9-executive-run-sheet.json",
+  "reviewPack": {
+    "rc1Status": "PASS (framework entry) — confirm against docs/release-evidence/rc1-evidence.json",
+    "conditionalGoMeaning": "Wave 9 framework Conditional / Ready for Executive Review — not a live branch cutover",
+    "deferredUat": "HG-01 Business UAT deferred by request; remains PendingHumanSignOff (do not fake HA-PO / HA-QA)",
+    "trainingStatus": "HG-02 prepared; PendingHumanSignOff until humans complete training evidence",
+    "reconStatus": "HG-03 prepared; PendingHumanSignOff until humans complete recon evidence",
+    "securityStatus": "HG-04 prepared; PendingHumanSignOff until humans complete HA-SEC",
+    "goNoGoReportPath": "docs/wave9-go-nogo-report.md",
+    "afterHg05Note": "After HG-05 human path is prepared and (later) signed, Wave 10 cutover remains blocked until HA-* approvals are real — never mark Wave 10 Accepted / CERT-001 certified from this pack alone"
+  },
+  "prerequisites": [
+    {
+      "id": "HG-01",
+      "label": "Business UAT",
+      "status": "PendingHumanSignOff",
+      "note": "Deferred by request — remains PendingHumanSignOff until humans resume",
+      "source": "default_pending"
+    },
+    {
+      "id": "HG-02",
+      "label": "Training Completion",
+      "status": "PendingHumanSignOff",
+      "note": "Prepared — PendingHumanSignOff until training evidence complete",
+      "source": "default_pending"
+    },
+    {
+      "id": "HG-03",
+      "label": "Financial Reconciliation",
+      "status": "PendingHumanSignOff",
+      "note": "Prepared — PendingHumanSignOff until recon evidence complete",
+      "source": "default_pending"
+    },
+    {
+      "id": "HG-04",
+      "label": "Security Acceptance",
+      "status": "PendingHumanSignOff",
+      "note": "Prepared — PendingHumanSignOff until HA-SEC signed",
+      "source": "default_pending"
+    }
+  ],
+  "memo": {
+    "decision": null,
+    "decisionRationale": null,
+    "openConditions": [],
+    "acceptOpenConditions": false,
+    "rc1Acknowledged": null,
+    "deferredUatAcknowledged": null,
+    "trainingStatusNote": null,
+    "reconStatusNote": null,
+    "securityStatusNote": null,
+    "sponsorMemoFields": {
+      "pilotName": null,
+      "reviewDate": null,
+      "rc1Summary": null,
+      "conditionsList": null,
+      "recommendation": null,
+      "risksOrWaivers": null,
+      "wave10EntryIntent": null
+    }
+  },
+  "humanGates": {
+    "HA-EXEC": {
+      "id": "HA-EXEC",
+      "role": "Executive Sponsor",
+      "status": "PendingHumanSignOff",
+      "signerName": null,
+      "signedAt": null,
+      "decision": null,
+      "notes": null
+    },
+    "HA-W9-EXEC": {
+      "id": "HA-W9-EXEC",
+      "role": "Wave 9 Executive Sponsor (carry-forward)",
+      "status": "PendingHumanSignOff",
+      "signerName": null,
+      "signedAt": null,
+      "decision": null,
+      "notes": null
+    }
+  },
+  "scores": {
+    "prerequisiteTotal": 4,
+    "prerequisitesPendingCount": 4,
+    "prerequisitesApprovedCount": 0,
+    "executiveSignOffPending": true,
+    "fullGoEligibleWithoutConditions": false,
+    "decisionRecorded": false,
+    "wave10CutoverAuthorized": false
+  }
+}

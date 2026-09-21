@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "smile-trust-electron-signing-check/1.0",
+  "gapId": "GAP-008",
+  "backlogId": "TASK-000186",
+  "generatedAtUtc": "2026-09-20T20:27:05.986Z",
+  "strict": false,
+  "ok": true,
+  "productionReady": false,
+  "signAndEditExecutable": false,
+  "cscEnvPresent": false,
+  "cscPathExists": null,
+  "updateFeedConfigured": false,
+  "notes": [
+    "build.publish is null (pilot-safe; set SMILE_UPDATE_FEED_URL for production)",
+    "signAndEditExecutable=false (unsigned pilot OK; flip only with real certs)",
+    "electron/updater.js present (placeholder feeds blocked at runtime)",
+    "SMILE_UPDATE_FEED_URL unset (checks skipped until org feed exists)"
+  ],
+  "warnings": [],
+  "errors": []
+}

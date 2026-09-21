@@ -1,0 +1,81 @@
+{
+  "id": "WAVE-05",
+  "waveNumber": 5,
+  "name": "Core Business Modules",
+  "code": "CORE_BUSINESS",
+  "objectives": [
+    "Harden customers, savings, daily collections, receipts, passbook, deposits, withdrawals",
+    "Preserve 31-day collection cycle and pesewas posting"
+  ],
+  "deliverables": [
+    "Core business regression pack",
+    "Wave-05 exit package"
+  ],
+  "scope": [
+    "Customer CRM",
+    "Individual + group savings",
+    "Daily collections"
+  ],
+  "outOfScope": [
+    "No Next.js/Flutter rewrite",
+    "Loan product rewrite (WAVE-06)"
+  ],
+  "dependencies": {
+    "prerequisiteWaves": ["WAVE-01", "WAVE-02", "WAVE-03", "WAVE-04"],
+    "blockingWaves": ["WAVE-04"],
+    "relatedPhases": [3, 4, 16],
+    "relatedModules": [3, 4, 6, 7, 9],
+    "relatedApis": ["customer", "savings", "collections"],
+    "relatedDb": ["customers", "savings_accounts"],
+    "relatedUi": ["collections-entry"],
+    "relatedTests": ["tests/master-backlog-consistency.test.js"],
+    "relatedPipelines": ["prepare:web"]
+  },
+  "risks": [
+    {
+      "id": "EIR-R-008",
+      "level": "Critical",
+      "title": "Collection day/interest drift",
+      "mitigation": "Enforce days=31 and interest=15 in regression"
+    }
+  ],
+  "requiredSkills": ["Domain", "QA", "UI"],
+  "estimatedDurationWeeks": { "min": 2, "max": 3 },
+  "estimatedEffortPersonWeeks": 12,
+  "waveStatus": "Mostly Complete",
+  "entryCriteria": ["WAVE-04 exit criteria met"],
+  "exitCriteria": ["MIB waves 7–9 exit met or gaps ticketed"],
+  "acceptanceCriteria": [
+    "Core business hardening accepted by CIO",
+    "Money invariants preserved: integer pesewas; interest 15; collection days 31; cashier float 1000."
+  ],
+  "qualityGates": ["QG-001", "QG-002", "Money invariant gate (pesewas/15/31/1000)"],
+  "testRequirements": ["Collections/savings regression"],
+  "releaseMilestones": ["MS-W05-COLLECT", "MS-W05-EXIT"],
+  "requiredDocumentation": [
+    "docs/enterprise-implementation-roadmap.md",
+    "docs/individual-savings-collection.md"
+  ],
+  "buildSequence": {
+    "buildBefore": ["WAVE-04"],
+    "buildAfter": ["WAVE-06"],
+    "blockingDependencies": ["WAVE-04"],
+    "parallelOpportunities": [],
+    "criticalPath": true
+  },
+  "mibWaves": [7, 8, 9],
+  "mibWaveCodes": ["CUSTOMER", "SAVINGS", "DAILY_COLLECTIONS"],
+  "primaryModules": [3, 4, 6, 7, 9],
+  "primaryPhases": [3, 4, 16],
+  "resourceProfile": {
+    "developers": 3,
+    "qa": 2,
+    "dba": 0,
+    "devops": 0,
+    "uiux": 1,
+    "security": 0,
+    "productOwner": 1
+  },
+  "moneyInvariantNote": "Money invariants preserved: integer pesewas; interest 15; collection days 31; cashier float 1000.",
+  "notes": "Example valid implementation wave for schema tests"
+}

@@ -1,0 +1,360 @@
+{
+  "packageId": "smiletrust-schemas",
+  "title": "SMILE TRUST Enterprise Schema Package",
+  "version": "1.0.0",
+  "status": "Authoritative",
+  "baseUri": "https://schemas.smiletrust.com",
+  "phaseCoverage": {
+    "phase12": [
+      "ai/ai-capability-registry.schema.json",
+      "ai/governance.schema.json",
+      "ai/audit.schema.json"
+    ],
+    "phase13": [
+      "monitoring/metric.schema.json",
+      "monitoring/alert.schema.json",
+      "monitoring/health-check.schema.json",
+      "monitoring/slo.schema.json"
+    ],
+    "phase15": [
+      "business-continuity/rpo-rto-breach-report.schema.json"
+    ],
+    "phase16": [
+      "testing/quality-gate-result.schema.json",
+      "testing/release-certification.schema.json"
+    ],
+    "phase17": [
+      "performance/workload-profile.schema.json",
+      "performance/capacity-forecast.schema.json",
+      "performance/performance-benchmark-result.schema.json"
+    ],
+    "phase18": [
+      "operations/incident-ticket.schema.json",
+      "operations/sync-event.schema.json",
+      "operations/service-request.schema.json"
+    ],
+    "phase19": [
+      "governance/change-request.schema.json",
+      "governance/configuration-item.schema.json",
+      "governance/release-record.schema.json"
+    ],
+    "phase20": [
+      "baseline/enterprise-baseline-artifact.schema.json",
+      "baseline/production-readiness-result.schema.json",
+      "baseline/enterprise-certification.schema.json"
+    ],
+    "backlog": [
+      "backlog/backlog-item.schema.json"
+    ],
+    "roadmap": [
+      "roadmap/implementation-wave.schema.json"
+    ],
+    "standards": [
+      "standards/coding-standard-rule.schema.json",
+      "standards/edsm-compliance-check.schema.json"
+    ],
+    "foundation": [
+      "common/metadata.schema.json",
+      "common/identifiers.schema.json",
+      "common/classification.schema.json",
+      "common/module-ref.schema.json",
+      "envelope/document-envelope.schema.json",
+      "envelope/section-envelope.schema.json"
+    ]
+  },
+  "schemas": [
+    {
+      "path": "common/metadata.schema.json",
+      "$id": "https://schemas.smiletrust.com/common/metadata.schema.json"
+    },
+    {
+      "path": "common/identifiers.schema.json",
+      "$id": "https://schemas.smiletrust.com/common/identifiers.schema.json"
+    },
+    {
+      "path": "common/classification.schema.json",
+      "$id": "https://schemas.smiletrust.com/common/classification.schema.json"
+    },
+    {
+      "path": "common/module-ref.schema.json",
+      "$id": "https://schemas.smiletrust.com/common/module-ref.schema.json"
+    },
+    {
+      "path": "envelope/document-envelope.schema.json",
+      "$id": "https://schemas.smiletrust.com/envelope/document-envelope.schema.json"
+    },
+    {
+      "path": "envelope/section-envelope.schema.json",
+      "$id": "https://schemas.smiletrust.com/envelope/section-envelope.schema.json"
+    },
+    {
+      "path": "ai/ai-capability-registry.schema.json",
+      "$id": "https://schemas.smiletrust.com/ai/ai-capability-registry.schema.json"
+    },
+    {
+      "path": "ai/governance.schema.json",
+      "$id": "https://schemas.smiletrust.com/ai/governance.schema.json"
+    },
+    {
+      "path": "ai/audit.schema.json",
+      "$id": "https://schemas.smiletrust.com/ai/audit.schema.json"
+    },
+    {
+      "path": "monitoring/metric.schema.json",
+      "$id": "https://schemas.smiletrust.com/monitoring/metric.schema.json"
+    },
+    {
+      "path": "monitoring/alert.schema.json",
+      "$id": "https://schemas.smiletrust.com/monitoring/alert.schema.json"
+    },
+    {
+      "path": "monitoring/health-check.schema.json",
+      "$id": "https://schemas.smiletrust.com/monitoring/health-check.schema.json"
+    },
+    {
+      "path": "monitoring/slo.schema.json",
+      "$id": "https://schemas.smiletrust.com/monitoring/slo.schema.json"
+    },
+    {
+      "path": "business-continuity/rpo-rto-breach-report.schema.json",
+      "$id": "https://schemas.smiletrust.com/business-continuity/rpo-rto-breach-report.schema.json",
+      "sha256": "2b3f7909ab5e4e1f15b69ee5fbd5aea5e42dcbf42431f79ca71365d53e5fd27f",
+      "phase": 15,
+      "title": "EbcbdrsRpoRtoBreachReport"
+    },
+    {
+      "path": "testing/quality-gate-result.schema.json",
+      "$id": "https://schemas.smiletrust.com/testing/quality-gate-result.schema.json",
+      "sha256": "abd570545a4192c4d152c69fe9104b43cf1336ba2f4b350dfc1d894a83bffcf2",
+      "phase": 16,
+      "title": "EtqavsQualityGateResult"
+    },
+    {
+      "path": "testing/release-certification.schema.json",
+      "$id": "https://schemas.smiletrust.com/testing/release-certification.schema.json",
+      "sha256": "2f722fce5029c2a1cc6fa4c499fd059461ff43b73b1cf76012673a97c6081e71",
+      "phase": 16,
+      "title": "EtqavsReleaseCertification"
+    },
+    {
+      "path": "performance/workload-profile.schema.json",
+      "$id": "https://schemas.smiletrust.com/performance/workload-profile.schema.json",
+      "sha256": "b082ab45563481349014731ba8f9deb125f7a3d073029035cf0c994e730b2987",
+      "phase": 17,
+      "title": "EpscmsWorkloadProfile"
+    },
+    {
+      "path": "performance/capacity-forecast.schema.json",
+      "$id": "https://schemas.smiletrust.com/performance/capacity-forecast.schema.json",
+      "sha256": "849d6387ee88afd366829102b365198e943a6dbc77c94487c59ea46c701841b8",
+      "phase": 17,
+      "title": "EpscmsCapacityForecast"
+    },
+    {
+      "path": "performance/performance-benchmark-result.schema.json",
+      "$id": "https://schemas.smiletrust.com/performance/performance-benchmark-result.schema.json",
+      "sha256": "c84b924cbff0216b4117e63a8ec24720d03cbbfe5bf122334fa1d6b74a26f4b6",
+      "phase": 17,
+      "title": "EpscmsPerformanceBenchmarkResult"
+    },
+    {
+      "path": "operations/incident-ticket.schema.json",
+      "$id": "https://schemas.smiletrust.com/operations/incident-ticket.schema.json",
+      "sha256": "289f43afd82206ac3d606bd7663101231d0d6c3a65886c437f5991b5e9db3cd5",
+      "phase": 18,
+      "title": "EossmsIncidentTicket"
+    },
+    {
+      "path": "operations/sync-event.schema.json",
+      "$id": "https://schemas.smiletrust.com/operations/sync-event.schema.json",
+      "sha256": "4938a28b2b7de2ee7f448a8e81ee7cbc5afe78425b265960c5f86336e8d19906",
+      "phase": 18,
+      "title": "EossmsSyncEvent"
+    },
+    {
+      "path": "operations/service-request.schema.json",
+      "$id": "https://schemas.smiletrust.com/operations/service-request.schema.json",
+      "sha256": "656942d2657c94abe109990e5b06e3432b8735b351ab62e67fbcefdc39710918",
+      "phase": 18,
+      "title": "EossmsServiceRequest"
+    },
+    {
+      "path": "governance/change-request.schema.json",
+      "$id": "https://schemas.smiletrust.com/governance/change-request.schema.json",
+      "sha256": "c31f9ec0f3f504979863c4db9e84a753c7ad2442af3bf5855a91ede8100c85b9",
+      "phase": 19,
+      "title": "EgccrmsChangeRequest"
+    },
+    {
+      "path": "governance/configuration-item.schema.json",
+      "$id": "https://schemas.smiletrust.com/governance/configuration-item.schema.json",
+      "sha256": "60f5a7c6176c6216b7d33dadf87deef2249ef99ffe8d6b1abedd140efaeb457a",
+      "phase": 19,
+      "title": "EgccrmsConfigurationItem"
+    },
+    {
+      "path": "governance/release-record.schema.json",
+      "$id": "https://schemas.smiletrust.com/governance/release-record.schema.json",
+      "sha256": "73427bb7eca9eb27087382944d1a43e33bf00be6f617212f5a5a63b16672d5f9",
+      "phase": 19,
+      "title": "EgccrmsReleaseRecord"
+    },
+    {
+      "path": "baseline/enterprise-baseline-artifact.schema.json",
+      "$id": "https://schemas.smiletrust.com/baseline/enterprise-baseline-artifact.schema.json",
+      "sha256": "a5844701c331886d47b1820ad137a15d6b27eda5130a22a36c8aee0d22374579",
+      "phase": 20,
+      "title": "EibprfbsEnterpriseBaselineArtifact"
+    },
+    {
+      "path": "baseline/production-readiness-result.schema.json",
+      "$id": "https://schemas.smiletrust.com/baseline/production-readiness-result.schema.json",
+      "sha256": "e019d33a0e948c981c38e6cdc723b73dd009cab4f3a8a064559f7b43a667cecb",
+      "phase": 20,
+      "title": "EibprfbsProductionReadinessResult"
+    },
+    {
+      "path": "baseline/enterprise-certification.schema.json",
+      "$id": "https://schemas.smiletrust.com/baseline/enterprise-certification.schema.json",
+      "sha256": "e7c89b3444b11e0c2b5a3c0895f3d16e7ef59586212413acb60419a2d1daa607",
+      "phase": 20,
+      "title": "EibprfbsEnterpriseCertification"
+    },
+    {
+      "path": "backlog/backlog-item.schema.json",
+      "$id": "https://schemas.smiletrust.com/backlog/backlog-item.schema.json",
+      "sha256": "d2813c40be6fc9744e8f445b9cab86d2f9af30b486f23d1c573865e299aa1489",
+      "phase": null,
+      "title": "MibBacklogItem",
+      "package": "master-implementation-backlog"
+    },
+    {
+      "path": "roadmap/implementation-wave.schema.json",
+      "$id": "https://schemas.smiletrust.com/roadmap/implementation-wave.schema.json",
+      "sha256": "ca05eea276d1632c1b1bf23bb5d19dc07b977105003fa0ab4f1408346cac0bee",
+      "phase": null,
+      "title": "EirImplementationWave",
+      "package": "enterprise-implementation-roadmap"
+    },
+    {
+      "path": "standards/coding-standard-rule.schema.json",
+      "$id": "https://schemas.smiletrust.com/standards/coding-standard-rule.schema.json",
+      "sha256": "14d0723d63a34a35937d0917a20d3f569c8a19a247840174ea405a4ae1877dcd",
+      "phase": null,
+      "title": "EdsmCodingStandardRule",
+      "package": "enterprise-development-standards"
+    },
+    {
+      "path": "standards/edsm-compliance-check.schema.json",
+      "$id": "https://schemas.smiletrust.com/standards/edsm-compliance-check.schema.json",
+      "sha256": "092de60a143ea82ed8645a208b69c22493fb17ca675e1b9350a43d84bce46edb",
+      "phase": null,
+      "title": "EdsmComplianceCheckResult",
+      "package": "enterprise-development-standards"
+    }
+  ],
+  "examples": [
+    "examples/ai-cap-001-loan-default-prediction.json",
+    "examples/governance-example.json",
+    "examples/governance-exception-example.json",
+    "examples/audit-example.json",
+    "examples/document-envelope-example.json",
+    "business-continuity/examples/valid/rpo-rto-breach-report.valid.json",
+    "business-continuity/examples/invalid/rpo-rto-breach-report.invalid.json",
+    "testing/examples/valid/quality-gate-result.valid.json",
+    "testing/examples/invalid/quality-gate-result.invalid.json",
+    "testing/examples/valid/release-certification.valid.json",
+    "testing/examples/invalid/release-certification.invalid.json",
+    "performance/examples/valid/workload-profile.valid.json",
+    "performance/examples/invalid/workload-profile.invalid.json",
+    "performance/examples/valid/capacity-forecast.valid.json",
+    "performance/examples/invalid/capacity-forecast.invalid.json",
+    "performance/examples/valid/performance-benchmark-result.valid.json",
+    "performance/examples/invalid/performance-benchmark-result.invalid.json",
+    "operations/examples/valid/incident-ticket.valid.json",
+    "operations/examples/invalid/incident-ticket.invalid.json",
+    "operations/examples/valid/sync-event.valid.json",
+    "operations/examples/invalid/sync-event.invalid.json",
+    "operations/examples/valid/service-request.valid.json",
+    "operations/examples/invalid/service-request.invalid.json",
+    "governance/examples/valid/change-request.valid.json",
+    "governance/examples/invalid/change-request.invalid.json",
+    "governance/examples/valid/configuration-item.valid.json",
+    "governance/examples/invalid/configuration-item.invalid.json",
+    "governance/examples/valid/release-record.valid.json",
+    "governance/examples/invalid/release-record.invalid.json",
+    "baseline/examples/valid/enterprise-baseline-artifact.valid.json",
+    "baseline/examples/invalid/enterprise-baseline-artifact.invalid.json",
+    "baseline/examples/valid/production-readiness-result.valid.json",
+    "baseline/examples/invalid/production-readiness-result.invalid.json",
+    "baseline/examples/valid/enterprise-certification.valid.json",
+    "baseline/examples/invalid/enterprise-certification.invalid.json",
+    "backlog/examples/valid/backlog-item.valid.json",
+    "backlog/examples/invalid/backlog-item.invalid.json",
+    "roadmap/examples/valid/implementation-wave.valid.json",
+    "roadmap/examples/invalid/implementation-wave.invalid.json",
+    "standards/examples/valid/coding-standard-rule.valid.json",
+    "standards/examples/invalid/coding-standard-rule.invalid.json",
+    "standards/examples/valid/edsm-compliance-check.valid.json",
+    "standards/examples/invalid/edsm-compliance-check.invalid.json"
+  ],
+  "constraints": {
+    "aiDecisionMode": "advisory",
+    "ruleEngineModule": 24,
+    "aiOwningModule": 29,
+    "platformModuleExcludedFromAiOwnership": 30,
+    "noAutoLoanApproval": true,
+    "noMoneyPosts": true,
+    "phase15DoesNotReplaceModule21": true,
+    "phase15DoesNotReplaceModule30": true,
+    "phase15DoesNotRedefinePhase14RpoRtoPolicy": true,
+    "phase16DoesNotRedefinePhase14EnvPromotion": true,
+    "phase16DoesNotRedefinePhase15RpoRtoPolicy": true,
+    "phase16DoesNotReplaceModule19": true,
+    "phase16DoesNotReplaceModule21": true,
+    "phase16DoesNotReplaceModule29": true,
+    "phase16DoesNotReplaceModule30": true,
+    "phase17DoesNotRedefinePhase13Monitoring": true,
+    "phase17DoesNotRedefinePhase16TestingStandards": true,
+    "phase17DoesNotReplaceModule19": true,
+    "phase17DoesNotReplaceModule18": true,
+    "phase17DoesNotReplaceModule21": true,
+    "phase17DoesNotReplaceModule29": true,
+    "phase17DoesNotReplaceModule30": true,
+    "phase18DoesNotRedefinePhase13Monitoring": true,
+    "phase18DoesNotRedefinePhase14Deployment": true,
+    "phase18DoesNotRedefinePhase15Bcdr": true,
+    "phase18DoesNotRedefinePhase16Testing": true,
+    "phase18DoesNotRedefinePhase17Performance": true,
+    "phase18DoesNotReplaceModule15": true,
+    "phase18DoesNotReplaceModule19": true,
+    "phase18DoesNotReplaceModule21": true,
+    "phase18DoesNotReplaceModule30": true,
+    "phase19DoesNotRedefinePhase8Config": true,
+    "phase19DoesNotRedefinePhase14Deployment": true,
+    "phase19DoesNotRedefinePhase16Testing": true,
+    "phase19DoesNotRedefinePhase18Ops": true,
+    "phase19DoesNotReplaceModule30": true,
+    "phase20DoesNotRedefinePhases1to19": true,
+    "phase20DoesNotReplaceModules1to30": true,
+    "phase20SpecificationBaselineOnly": true,
+    "phase20DoesNotRedefinePhase16Testing": true,
+    "phase20DoesNotRedefinePhase19Governance": true,
+    "mibDoesNotRedefinePhases1to20": true,
+    "mibDoesNotReplaceModules1to30": true,
+    "mibIsExecutionBacklogSoT": true,
+    "eirDoesNotRedefinePhases1to20": true,
+    "eirDoesNotReplaceModules1to30": true,
+    "eirDoesNotInventSecondBacklog": true,
+    "eirMapsMibToTenDeliveryWaves": true,
+    "edsmDoesNotRedefinePhases1to20": true,
+    "edsmDoesNotReplaceModules1to30": true,
+    "edsmDoesNotRedefinePhase14RpoRto": true,
+    "edsmDoesNotRedefinePhase15RpoRto": true,
+    "edsmDoesNotRedefinePhase16Gates": true,
+    "edsmAuthoritativeStackIsSpaCapacitorElectron": true,
+    "edsmRejectsNextJsAsPrimary": true,
+    "edsmRejectsComposeAsPrimary": true,
+    "edsmInvokeApiOpenApiFacadeOnly": true
+  }
+}

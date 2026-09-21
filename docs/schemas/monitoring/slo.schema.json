@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/monitoring/slo.schema.json",
+  "title": "EmooisSloEntry",
+  "description": "Phase 13 EMOOIS SLO catalog entry. Collection posting SLOs are observe-only.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "id",
+    "code",
+    "name",
+    "sliId",
+    "target",
+    "window",
+    "owner",
+    "owningModule",
+    "metadata"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^SLO-[0-9]{3}$"
+    },
+    "code": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]{2,63}$"
+    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "description": { "type": "string", "maxLength": 4000 },
+    "sliId": {
+      "type": "string",
+      "pattern": "^SLI-[0-9]{3}$"
+    },
+    "target": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "window": { "type": "string", "minLength": 1, "maxLength": 40 },
+    "owner": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "owningModule": { "type": "integer", "const": 19 },
+    "observeOnly": { "type": "boolean" },
+    "advisoryOnly": { "type": "boolean" },
+    "metadata": {
+      "$ref": "https://schemas.smiletrust.com/common/metadata.schema.json"
+    }
+  }
+}

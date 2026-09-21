@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/baseline/production-readiness-result.schema.json",
+  "title": "EibprfbsProductionReadinessResult",
+  "description": "Phase 20 production readiness evaluation result. Mandatory gates fail closed without approved exception (Phase 16/19 consume). Catalog evaluation only — does not claim live bank go-live. additionalProperties false.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "evaluationId",
+    "ready",
+    "failClosed",
+    "checkResults",
+    "governance",
+    "metadata"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "evaluationId": {
+      "$ref": "#/$defs/uuid"
+    },
+    "ready": { "type": "boolean" },
+    "failClosed": { "type": "boolean" },
+    "asOf": { "type": "string", "format": "date-time" },
+    "checkResults": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/checkResult" }
+    },
+    "exceptions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/exceptionLink" }
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "reason"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^RDY-[0-9]{3}$" },
+          "reason": { "type": "string", "minLength": 1 },
+          "failClosed": { "type": "boolean" }
+        }
+      }
+    },
+    "consumesPhase16ExceptionRule": {
+      "type": "string",
+      "const": "emergency_exception_approved"
+    },
+    "liveProductionGoLiveClaimed": {
+      "type": "boolean",
+      "const": false
+    },
+    "governance": { "$ref": "#/$defs/governance" },
+    "metadata": { "$ref": "#/$defs/metadata" }
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "checkResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["checkId", "status"],
+      "properties": {
+        "checkId": { "type": "string", "pattern": "^RDY-[0-9]{3}$" },
+        "status": {
+          "type": "string",
+          "enum": ["pass", "fail", "missing", "exception_approved", "waived"]
+        },
+        "evidenceRef": { "type": "string" },
+        "category": {
+          "type": "string",
+          "enum": [
+            "functional",
+            "security",
+            "performance",
+            "bcdr",
+            "monitoring",
+            "ops",
+            "support",
+            "training",
+            "docs",
+            "regulatory",
+            "executive"
+          ]
+        }
+      }
+    },
+    "exceptionLink": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["checkId", "exceptionId", "state"],
+      "properties": {
+        "checkId": { "type": "string", "pattern": "^RDY-[0-9]{3}$" },
+        "exceptionId": { "type": "string", "pattern": "^EXC-[0-9]{3}$" },
+        "state": {
+          "type": "string",
+          "enum": ["requested", "approved", "denied", "expired", "revoked"]
+        },
+        "rule": {
+          "type": "string",
+          "const": "emergency_exception_approved"
+        },
+        "validTo": { "type": "string", "format": "date-time" }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accountableAuthority", "auditAuthority"],
+      "properties": {
+        "accountableAuthority": { "type": "string", "minLength": 1 },
+        "responsibleParty": { "type": "string" },
+        "auditAuthority": { "type": "string", "minLength": 1 }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["createdAt", "createdBy", "phase"],
+      "properties": {
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "minLength": 1 },
+        "phase": { "type": "integer", "const": 20 },
+        "correlationId": { "$ref": "#/$defs/uuid" },
+        "moneyInvariantsNote": { "type": "string", "maxLength": 200 }
+      }
+    }
+  }
+}

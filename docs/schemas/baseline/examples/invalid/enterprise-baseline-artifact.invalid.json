@@ -1,0 +1,27 @@
+{
+  "_failureReasons": [
+    "artifactId does not match BL-(MOD|PH)-###",
+    "kind not in enum",
+    "status invalid",
+    "governance missing auditAuthority",
+    "metadata.phase not 20",
+    "additional property notAllowed"
+  ],
+  "schemaVersion": "1.0",
+  "artifactId": "BASELINE-1",
+  "kind": "engine",
+  "title": "",
+  "version": "v1",
+  "status": "live",
+  "accountableAuthority": "x",
+  "effectiveDate": "15-09-2026",
+  "governance": {
+    "accountableAuthority": "Platform Administrator"
+  },
+  "metadata": {
+    "createdAt": "not-a-date",
+    "createdBy": "x",
+    "phase": 19
+  },
+  "notAllowed": true
+}

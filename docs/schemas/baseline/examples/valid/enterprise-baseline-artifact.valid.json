@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "1.0.0",
+  "artifactId": "BL-MOD-030",
+  "kind": "module",
+  "moduleId": 30,
+  "title": "Enterprise Platform Administration",
+  "version": "1.0.0",
+  "status": "published",
+  "accountableAuthority": "Platform Administrator",
+  "effectiveDate": "2026-09-15",
+  "primaryDoc": "docs/platform-administration.md",
+  "registryPath": "src/core/canonical-config-registry.js",
+  "enginesNotReplaced": true,
+  "contentNotRedefined": true,
+  "moneyInvariantGuard": false,
+  "approvalRecord": {
+    "status": "pending_package",
+    "accountableAuthority": "Platform Administrator",
+    "approvingBody": "Enterprise Governance Board",
+    "approvedAt": null,
+    "approvalRef": null,
+    "notes": "Placeholder for executive approval package"
+  },
+  "traceability": {
+    "emasRef": "docs/enterprise-master-architecture.md#7-module-catalog-modules-1-30",
+    "baselinePhase": 20,
+    "priorSpecsConsumed": true
+  },
+  "governance": {
+    "accountableAuthority": "Platform Administrator",
+    "responsibleParty": "Release Manager",
+    "auditAuthority": "Internal Auditor"
+  },
+  "metadata": {
+    "createdAt": "2026-09-15T12:00:00.000Z",
+    "createdBy": "Phase 20 EIBPRFBS",
+    "phase": 20,
+    "correlationId": "b20c0d1e-2f3a-4b5c-8d9e-0f1a2b3c4d5e",
+    "moneyInvariantsNote": "pesewas; interest 15; collection days 31; cashier 1000"
+  }
+}

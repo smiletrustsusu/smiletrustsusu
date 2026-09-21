@@ -1,0 +1,19 @@
+{
+  "id": "CHK-XX",
+  "code": "bad",
+  "status": "maybe",
+  "critical": "yes",
+  "reviewer": "",
+  "evaluatedAt": "not-a-date",
+  "moneyInvariantNote": "",
+  "stackNote": "",
+  "_failureReasons": [
+    "id pattern CHK-###",
+    "code pattern",
+    "status enum",
+    "critical must be boolean",
+    "reviewer minLength",
+    "moneyInvariantNote/stackNote minLength",
+    "Must not claim Next.js or Compose as required primary"
+  ]
+}

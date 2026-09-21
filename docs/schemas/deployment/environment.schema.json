@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/deployment/environment.schema.json",
+  "title": "EddiesEnvironmentEntry",
+  "description": "Phase 14 EDDIES environment catalog entry. Module 30 is the operational manager.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "id",
+    "code",
+    "name",
+    "tier",
+    "module30Code",
+    "accountableAuthority",
+    "metadata"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^ENV-[0-9]{3}$"
+    },
+    "code": {
+      "type": "string",
+      "enum": ["DEV", "QA", "UAT", "STAGING", "PRODUCTION", "DR"]
+    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "tier": {
+      "type": "string",
+      "enum": ["development", "qa", "uat", "staging", "production", "dr"]
+    },
+    "module30Code": {
+      "type": "string",
+      "enum": ["development", "testing", "uat", "staging", "production", "dr"]
+    },
+    "purpose": { "type": "string", "maxLength": 4000 },
+    "accountableAuthority": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "Exactly one accountable authority."
+    },
+    "stabilizationMinutes": { "type": "number", "minimum": 0 },
+    "rpoMinutes": { "type": "number", "exclusiveMinimum": 0 },
+    "rtoMinutes": { "type": "number", "exclusiveMinimum": 0 },
+    "operationalManager": { "type": "string", "const": "Module 30" },
+    "metadata": {
+      "$ref": "https://schemas.smiletrust.com/common/metadata.schema.json"
+    }
+  }
+}

@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.smiletrust.com/operations/incident-ticket.schema.json",
+  "title": "EossmsIncidentTicket",
+  "description": "Phase 18 EOSSMS incident ticket document. Catalog/support only; does not redefine Phase 13 monitoring or replace Module 19. additionalProperties false.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "ticketId",
+    "title",
+    "severity",
+    "status",
+    "sla",
+    "governance",
+    "metadata"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "ticketId": {
+      "$ref": "#/$defs/ticketId"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 4000
+    },
+    "severity": {
+      "$ref": "#/$defs/severity"
+    },
+    "severityId": {
+      "type": "string",
+      "pattern": "^SEV-[0-9]{3}$"
+    },
+    "status": {
+      "$ref": "#/$defs/ticketStatus"
+    },
+    "classification": {
+      "type": "string",
+      "enum": ["incident", "major_incident", "service_request_misroute"]
+    },
+    "serviceId": {
+      "type": "string",
+      "pattern": "^SVC-[0-9]{3}$"
+    },
+    "relatedModules": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 1, "maximum": 30 },
+      "uniqueItems": true
+    },
+    "sla": {
+      "$ref": "#/$defs/sla"
+    },
+    "assignment": {
+      "$ref": "#/$defs/assignment"
+    },
+    "customerComms": {
+      "$ref": "#/$defs/customerComms"
+    },
+    "majorIncident": {
+      "type": "boolean"
+    },
+    "pirRequired": {
+      "type": "boolean"
+    },
+    "governance": {
+      "$ref": "#/$defs/governance"
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    }
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "ticketId": {
+      "type": "string",
+      "pattern": "^INC-[0-9]{4,}$"
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low"]
+    },
+    "ticketStatus": {
+      "type": "string",
+      "enum": [
+        "new",
+        "classified",
+        "assigned",
+        "in_progress",
+        "pending_customer",
+        "pending_vendor",
+        "resolved",
+        "closed",
+        "reopened"
+      ]
+    },
+    "sla": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["responseMinutes", "resolveMinutes"],
+      "properties": {
+        "responseMinutes": { "type": "integer", "minimum": 1 },
+        "resolveMinutes": { "type": "integer", "minimum": 1 },
+        "escalateMinutes": { "type": "integer", "minimum": 1 },
+        "responseBreached": { "type": "boolean" },
+        "resolveBreached": { "type": "boolean" }
+      }
+    },
+    "assignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "assignee": { "type": "string", "minLength": 1 },
+        "team": { "type": "string", "minLength": 1 },
+        "escalationLevel": {
+          "type": "string",
+          "enum": ["l1", "l2", "l3", "major_incident"]
+        }
+      }
+    },
+    "customerComms": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cadenceMinutes": { "type": "integer", "minimum": 1 },
+        "lastNotifiedAt": { "type": "string", "format": "date-time" },
+        "channel": {
+          "type": "string",
+          "enum": ["in_app", "sms", "email", "voice", "branch"]
+        }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accountableAuthority", "auditAuthority"],
+      "properties": {
+        "accountableAuthority": { "type": "string", "minLength": 1 },
+        "responsibleParty": { "type": "string", "minLength": 1 },
+        "auditAuthority": { "type": "string", "minLength": 1 },
+        "roleId": {
+          "type": "string",
+          "pattern": "^ROLE-[A-Z0-9-]+$"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["createdAt", "createdBy", "phase"],
+      "properties": {
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "minLength": 1 },
+        "phase": { "type": "integer", "const": 18 },
+        "correlationId": { "$ref": "#/$defs/uuid" },
+        "moneyInvariantsNote": {
+          "type": "string",
+          "description": "Pesewas, interest 15, collection days 31, cashier 1000 preserved."
+        }
+      }
+    }
+  }
+}

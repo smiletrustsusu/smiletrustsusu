@@ -1,0 +1,693 @@
+{
+  "schemaVersion": "wave9-uat-run-sheet/1.0",
+  "wave": "WAVE-09",
+  "pilotName": "NORTHRISE MICRO SAVINGS",
+  "product": "SMILE TRUST SUSU MANAGEMENT SYSTEM",
+  "status": "ReadyToExecute",
+  "createdAt": "2026-09-20T10:00:00.000Z",
+  "updatedAt": "2026-09-20T10:31:33.449Z",
+  "claim": {
+    "livePilotExecuted": false,
+    "gatesAutoApproved": false,
+    "note": "Run sheet ready for human execution — no fabricated signatures"
+  },
+  "moneyInvariants": {
+    "interest": 15,
+    "collectionDays": 31,
+    "cashierLimitGhs": 1000,
+    "pesewas": true
+  },
+  "loginGuidance": {
+    "primaryOperator": "JOHN",
+    "role": "System Owner / business UAT",
+    "developerSupportOnly": "KBA",
+    "isolation": "JOHN must not see or manage the KBA developer account"
+  },
+  "guidePath": "docs/uat/wave9-uat-execution-guide.md",
+  "evidencePath": "docs/release-evidence/wave9-uat-run-sheet.json",
+  "humanGates": {
+    "HA-PO": {
+      "id": "HA-PO",
+      "role": "Product / Business Owner",
+      "status": "PendingHumanSignOff",
+      "approverName": null,
+      "approvedAt": null,
+      "notes": null
+    },
+    "HA-QA": {
+      "id": "HA-QA",
+      "role": "QA Lead",
+      "status": "PendingHumanSignOff",
+      "approverName": null,
+      "approvedAt": null,
+      "notes": null
+    }
+  },
+  "scores": {
+    "mandatoryTotal": 21,
+    "executableCount": 21,
+    "businessSignedCount": 0,
+    "recordedPassFailCount": 0,
+    "businessAcceptanceComplete": false
+  },
+  "scenarios": [
+    {
+      "scenarioId": "UAT-AUTH-01",
+      "domain": "auth",
+      "title": "Login, session timeout, and role-denied action",
+      "mandatory": true,
+      "technicalSmoke": true,
+      "preconditions": [
+        "Pilot users seeded",
+        "RBAC matrix loaded"
+      ],
+      "steps": [
+        "Login as cashier",
+        "Attempt System.Reset",
+        "Wait for idle timeout / re-auth"
+      ],
+      "expected": [
+        "Login succeeds",
+        "System.Reset forbidden",
+        "Session requires re-auth"
+      ],
+      "actual": null,
+      "passFail": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "notes": null,
+      "approver": null,
+      "approverStatus": "PendingHumanSignOff",
+      "approvedAt": null,
+      "status": "TechnicalPassPendingBusinessSignOff",
+      "executable": true
+    },
+    {
+      "scenarioId": "UAT-AUTH-02",
+      "domain": "auth",
+      "title": "Multi-role switch and audit of privileged actions",
+      "mandatory": true,
+      "technicalSmoke": false,
+      "preconditions": [
+        "Auditor + admin pilot accounts"
+      ],
+      "steps": [
+        "Login as auditor",
+        "Open Audit panel",
+        "Export audit sample"
+      ],
+      "expected": [
+        "Access granted per RBAC",
+        "Audit events recorded"
+      ],
+      "actual": null,
+      "passFail": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "notes": null,
+      "approver": null,
+      "approverStatus": "PendingHumanSignOff",
+      "approvedAt": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "scenarioId": "UAT-CUST-01",
+      "domain": "customer",
+      "title": "Register customer and verify KYC fields",
+      "mandatory": true,
+      "technicalSmoke": false,
+      "preconditions": [
+        "Cashier or customer-officer role"
+      ],
+      "steps": [
+        "Create customer",
+        "Capture required ID fields",
+        "Save and reopen"
+      ],
+      "expected": [
+        "Customer persisted",
+        "Validation errors block incomplete KYC"
+      ],
+      "actual": null,
+      "passFail": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "notes": null,
+      "approver": null,
+      "approverStatus": "PendingHumanSignOff",
+      "approvedAt": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "scenarioId": "UAT-CUST-02",
+      "domain": "customer",
+      "title": "Search / update customer without corrupting balances",
+      "mandatory": true,
+      "technicalSmoke": false,
+      "preconditions": [
+        "Existing pilot customer with savings"
+      ],
+      "steps": [
+        "Search by name/phone",
+        "Update contact",
+        "Confirm balances unchanged"
+      ],
+      "expected": [
+        "Profile updated",
+        "Ledger balances identical (pesewas)"
+      ],
+      "actual": null,
+      "passFail": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "notes": null,
+      "approver": null,
+      "approverStatus": "PendingHumanSignOff",
+      "approvedAt": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "scenarioId": "UAT-SAVE-01",
+      "domain": "savings",
+      "title": "Open savings product and post contribution",
+      "mandatory": true,
+      "technicalSmoke": false,
+      "preconditions": [
+        "Savings product configured",
+        "Customer enrolled"
+      ],
+      "steps": [
+        "Open account",
+        "Post contribution in pesewas",
+        "View statement"
+      ],
+      "expected": [
+        "Balance increases by posted pesewas",
+        "Interest policy remains 15% default"
+      ],
+      "actual": null,
+      "passFail": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "notes": null,
+      "approver": null,
+      "approverStatus": "PendingHumanSignOff",
+      "approvedAt": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "scenarioId": "UAT-COLL-01",
+      "domain": "collections",
+      "title": "Collector day cycle (31-day collection awareness)",
+      "mandatory": true,
+      "technicalSmoke": false,
+      "preconditions": [
+        "Collector route assigned",
+        "Collection day calendar"
+      ],
+      "steps": [
+        "Open collection sheet",
+        "Record collections",
+        "Submit day total"
+      ],
+      "expected": [
+        "Day totals reconcile",
+        "Collection cycle days = 31 invariant documented"
+      ],
+      "actual": null,
+      "passFail": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "notes": null,
+      "approver": null,
+      "approverStatus": "PendingHumanSignOff",
+      "approvedAt": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "scenarioId": "UAT-COLL-02",
+      "domain": "collections",
+      "title": "Cashier float limit 1000 GHS enforced",
+      "mandatory": true,
+      "technicalSmoke": false,
+      "preconditions": [
+        "Cashier float tracking enabled"
+      ],
+      "steps": [
+        "Attempt float breach above 1000",
+        "Attempt allowed amount"
+      ],
+      "expected": [
+        "Breach blocked or escalated",
+        "Allowed post succeeds"
+      ],
+      "actual": null,
+      "passFail": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "notes": null,
+      "approver": null,
+      "approverStatus": "PendingHumanSignOff",
+      "approvedAt": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "scenarioId": "UAT-TXN-01",
+      "domain": "deposits_withdrawals",
+      "title": "Deposit and withdrawal with receipt",
+      "mandatory": true,
+      "technicalSmoke": false,
+      "preconditions": [
+        "Active savings account"
+      ],
+      "steps": [
+        "Deposit",
+        "Withdraw within available balance",
+        "Print/export receipt"
+      ],
+      "expected": [
+        "Balances correct in pesewas",
+        "Receipt references transaction ids"
+      ],
+      "actual": null,
+      "passFail": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "notes": null,
+      "approver": null,
+      "approverStatus": "PendingHumanSignOff",
+      "approvedAt": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "scenarioId": "UAT-TXN-02",
+      "domain": "deposits_withdrawals",
+      "title": "Overdraft / insufficient funds blocked",
+      "mandatory": true,
+      "technicalSmoke": false,
+      "preconditions": [
+        "Known low-balance account"
+      ],
+      "steps": [
+        "Attempt withdrawal exceeding balance"
+      ],
+      "expected": [
+        "Transaction rejected",
+        "No partial ledger corruption"
+      ],
+      "actual": null,
+      "passFail": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "notes": null,
+      "approver": null,
+      "approverStatus": "PendingHumanSignOff",
+      "approvedAt": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "scenarioId": "UAT-LOAN-01",
+      "domain": "loans",
+      "title": "Loan application advisory AI does not auto-approve",
+      "mandatory": true,
+      "technicalSmoke": false,
+      "preconditions": [
+        "Loan product available",
+        "AI advisory module present"
+      ],
+      "steps": [
+        "Create loan application",
+        "Request AI advisory",
+        "Attempt approve without human"
+      ],
+      "expected": [
+        "Advisory recommendation shown",
+        "No autonomous approve",
+        "Human approval path required"
+      ],
+      "actual": null,
+      "passFail": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "notes": null,
+      "approver": null,
+      "approverStatus": "PendingHumanSignOff",
+      "approvedAt": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "scenarioId": "UAT-LOAN-02",
+      "domain": "loans",
+      "title": "Loan disbursement and repayment schedule",
+      "mandatory": true,
+      "technicalSmoke": false,
+      "preconditions": [
+        "Approved loan application"
+      ],
+      "steps": [
+        "Disburse",
+        "View schedule",
+        "Post one repayment"
+      ],
+      "expected": [
+        "Schedule generated",
+        "Repayment reduces outstanding correctly"
+      ],
+      "actual": null,
+      "passFail": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "notes": null,
+      "approver": null,
+      "approverStatus": "PendingHumanSignOff",
+      "approvedAt": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "scenarioId": "UAT-EOD-01",
+      "domain": "eod",
+      "title": "End-of-day close and till reconciliation procedure",
+      "mandatory": true,
+      "technicalSmoke": false,
+      "preconditions": [
+        "Day transactions posted",
+        "Cashier till open"
+      ],
+      "steps": [
+        "Run EOD checklist",
+        "Compare till vs system",
+        "Close day"
+      ],
+      "expected": [
+        "EOD status recorded",
+        "Variance procedure available if mismatch"
+      ],
+      "actual": null,
+      "passFail": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "notes": null,
+      "approver": null,
+      "approverStatus": "PendingHumanSignOff",
+      "approvedAt": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "scenarioId": "UAT-RPT-01",
+      "domain": "reports",
+      "title": "Operational reports export (CSV/JSON)",
+      "mandatory": true,
+      "technicalSmoke": true,
+      "preconditions": [
+        "Reports.View permission"
+      ],
+      "steps": [
+        "Open Reports",
+        "Export collections / savings summary"
+      ],
+      "expected": [
+        "Export succeeds",
+        "PILOT label or tenant id present in metadata when configured"
+      ],
+      "actual": null,
+      "passFail": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "notes": null,
+      "approver": null,
+      "approverStatus": "PendingHumanSignOff",
+      "approvedAt": null,
+      "status": "TechnicalPassPendingBusinessSignOff",
+      "executable": true
+    },
+    {
+      "scenarioId": "UAT-DASH-01",
+      "domain": "dashboards",
+      "title": "Wave 7 analytics KPI dashboard loads",
+      "mandatory": true,
+      "technicalSmoke": true,
+      "preconditions": [
+        "Analytics panel access"
+      ],
+      "steps": [
+        "Open Audit/Reports analytics",
+        "Verify KPI tiles"
+      ],
+      "expected": [
+        "KPIs render",
+        "No posting side effects"
+      ],
+      "actual": null,
+      "passFail": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "notes": null,
+      "approver": null,
+      "approverStatus": "PendingHumanSignOff",
+      "approvedAt": null,
+      "status": "TechnicalPassPendingBusinessSignOff",
+      "executable": true
+    },
+    {
+      "scenarioId": "UAT-AUD-01",
+      "domain": "audit",
+      "title": "Audit trail for money-moving action",
+      "mandatory": true,
+      "technicalSmoke": false,
+      "preconditions": [
+        "Recent deposit posted"
+      ],
+      "steps": [
+        "Locate audit events for transaction",
+        "Verify actor + amount"
+      ],
+      "expected": [
+        "Immutable audit row",
+        "Amount in pesewas"
+      ],
+      "actual": null,
+      "passFail": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "notes": null,
+      "approver": null,
+      "approverStatus": "PendingHumanSignOff",
+      "approvedAt": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "scenarioId": "UAT-NOTIF-01",
+      "domain": "notifications",
+      "title": "Notification / alert delivery smoke for pilot channel",
+      "mandatory": true,
+      "technicalSmoke": false,
+      "preconditions": [
+        "Pilot alert route configured"
+      ],
+      "steps": [
+        "Trigger test alert",
+        "Confirm receipt on pilot channel"
+      ],
+      "expected": [
+        "Alert received",
+        "Not routed to production on-call"
+      ],
+      "actual": null,
+      "passFail": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "notes": null,
+      "approver": null,
+      "approverStatus": "PendingHumanSignOff",
+      "approvedAt": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    },
+    {
+      "scenarioId": "UAT-OFF-01",
+      "domain": "offline",
+      "title": "Offline capture on Android / Capacitor path",
+      "mandatory": true,
+      "technicalSmoke": true,
+      "preconditions": [
+        "Wave 4 sync engine",
+        "Device offline"
+      ],
+      "steps": [
+        "Capture collection offline",
+        "Queue visible",
+        "Reconnect"
+      ],
+      "expected": [
+        "Queue retained",
+        "No financial LWW corruption on sync"
+      ],
+      "actual": null,
+      "passFail": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "notes": null,
+      "approver": null,
+      "approverStatus": "PendingHumanSignOff",
+      "approvedAt": null,
+      "status": "TechnicalPassPendingBusinessSignOff",
+      "executable": true
+    },
+    {
+      "scenarioId": "UAT-SYNC-01",
+      "domain": "sync",
+      "title": "Sync conflict / retry / recovery",
+      "mandatory": true,
+      "technicalSmoke": true,
+      "preconditions": [
+        "Offline queue with pending items"
+      ],
+      "steps": [
+        "Force sync",
+        "Simulate retry",
+        "Confirm recovery runbook path"
+      ],
+      "expected": [
+        "Sync completes or escalates per Phase 18",
+        "Balances consistent"
+      ],
+      "actual": null,
+      "passFail": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "notes": null,
+      "approver": null,
+      "approverStatus": "PendingHumanSignOff",
+      "approvedAt": null,
+      "status": "TechnicalPassPendingBusinessSignOff",
+      "executable": true
+    },
+    {
+      "scenarioId": "UAT-ADM-01",
+      "domain": "admin",
+      "title": "Admin portal search + ops monitoring (Wave 5)",
+      "mandatory": true,
+      "technicalSmoke": true,
+      "preconditions": [
+        "Admin role"
+      ],
+      "steps": [
+        "Global search",
+        "Open ops monitoring under Audit/Reports"
+      ],
+      "expected": [
+        "Search returns scoped results",
+        "No new top-level nav required"
+      ],
+      "actual": null,
+      "passFail": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "notes": null,
+      "approver": null,
+      "approverStatus": "PendingHumanSignOff",
+      "approvedAt": null,
+      "status": "TechnicalPassPendingBusinessSignOff",
+      "executable": true
+    },
+    {
+      "scenarioId": "UAT-ADM-02",
+      "domain": "admin",
+      "title": "RC1 / Wave 8 certification panel visible",
+      "mandatory": true,
+      "technicalSmoke": true,
+      "preconditions": [
+        "Audit.View or Reports.View"
+      ],
+      "steps": [
+        "Open Release Certification panel",
+        "Confirm last RC decision surface"
+      ],
+      "expected": [
+        "Panel renders",
+        "RC1 PASS visible when evidence loaded"
+      ],
+      "actual": null,
+      "passFail": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "notes": null,
+      "approver": null,
+      "approverStatus": "PendingHumanSignOff",
+      "approvedAt": null,
+      "status": "TechnicalPassPendingBusinessSignOff",
+      "executable": true
+    },
+    {
+      "scenarioId": "UAT-RECON-01",
+      "domain": "eod",
+      "title": "Financial reconciliation procedure (pilot) — no false prod claim",
+      "mandatory": true,
+      "technicalSmoke": false,
+      "preconditions": [
+        "EOD closed",
+        "Pilot ledger export available"
+      ],
+      "steps": [
+        "Export trial balance / account balances",
+        "Compare to till + collection sheets",
+        "Document variances",
+        "Record sign-off status as PendingHumanSignOff until business owner approves"
+      ],
+      "expected": [
+        "Reconciliation worksheet completed",
+        "Status is procedure-validated or PendingHumanSignOff — never auto-claimed as production reconciled"
+      ],
+      "actual": null,
+      "passFail": null,
+      "evidence": null,
+      "executedBy": null,
+      "executedAt": null,
+      "notes": null,
+      "approver": null,
+      "approverStatus": "PendingHumanSignOff",
+      "approvedAt": null,
+      "status": "ReadyToExecute",
+      "executable": true
+    }
+  ],
+  "exportedAt": "2026-09-20T10:31:33.451Z",
+  "exportPurpose": "human_signoff_packet",
+  "instructions": [
+    "Attach screenshots / receipts as evidence paths or notes",
+    "Use Record human approval only after typed name + confirmation phrase",
+    "Do not mark production reconciled or CERT-001 from this export"
+  ]
+}

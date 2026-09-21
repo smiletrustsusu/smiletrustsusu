@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.0.0",
+  "profileId": "WLP-005",
+  "code": "WLP_PEAK_COLLECTION",
+  "name": "Peak collection day (market day)",
+  "profileClass": "peak",
+  "branches": 250,
+  "demand": {
+    "concurrentUsers": 3200,
+    "tps": 900,
+    "apiRequestsPerMin": 54000,
+    "queueEventsPerMin": 5500,
+    "dbOpsPerSec": 3800,
+    "aiInferencesPerHour": 1800,
+    "storageGrowthGbPerMonth": 420
+  },
+  "peakMultiplier": 2.2,
+  "relatedModules": [6, 16, 19, 27],
+  "notes": "31-day collection cycle peaks; cashier float limit 1000; amounts in integer pesewas; interest default 15%.",
+  "governance": {
+    "accountableAuthority": "Capacity Planner",
+    "responsibleParty": "SRE Lead",
+    "auditAuthority": "Internal Auditor",
+    "roleId": "ROLE-CAP-PLANNER"
+  },
+  "metadata": {
+    "createdAt": "2026-09-15T10:00:00.000Z",
+    "createdBy": "Capacity Planner",
+    "phase": 17,
+    "correlationId": "a1b2c3d4-e5f6-4789-a012-3456789abcde",
+    "moneyInvariantsNote": "pesewas; interest 15; collection days 31; cashier 1000"
+  }
+}
