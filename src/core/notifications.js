@@ -166,9 +166,9 @@ export function defaultNotificationTemplates() {
 export const EXTRA_NOTIFICATION_TEMPLATES = {
   customer_registered: {
     title: "Customer Registered",
-    sms: "Smile Trust: Welcome {{name}}. Your account is {{customerNumber}}.",
-    whatsapp: "Welcome {{name}}. Your Smile Trust account is {{customerNumber}}.",
-    email: "Dear {{name}},\n\nYour account {{customerNumber}} has been registered.\n\nSmile Trust Susu."
+    sms: "Smile Trust: Welcome {{name}}. Login: Account {{accountNo}} / PIN {{portalPin}}.",
+    whatsapp: "Welcome {{name}}. Login with account {{accountNo}} and PIN {{portalPin}}.",
+    email: "Dear {{name}},\n\nYour Smile Trust account {{accountNo}} is ready.\nLogin PIN: {{portalPin}} (last 4 digits of your phone).\nMember ID: {{customerNumber}}.\n\nSmile Trust Susu."
   },
   customer_verified: {
     title: "Customer Verified",

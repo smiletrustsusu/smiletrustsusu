@@ -577,16 +577,25 @@ export function renderAgentStaffExtras(editing) {
 }
 
 export function renderCustomerKycExtras(editing) {
+  const signatureSrc = String(editing?.signatureData || "").trim();
   return `
     <div class="section-title full"><h3>KYC Details</h3></div>
-    <div class="field"><label>Date of Birth</label><input name="dateOfBirth" type="date" value="${escapeAttr(editing?.dateOfBirth || "")}" /></div>
+    <div class="field"><label>Date of Birth</label><input name="dateOfBirth" type="date" value="${escapeAttr(editing?.dateOfBirth || "")}" required /></div>
     <div class="field"><label>Occupation</label><input name="occupation" value="${escapeAttr(editing?.occupation || "")}" /></div>
     <div class="field"><label>Employer</label><input name="employer" value="${escapeAttr(editing?.employer || "")}" /></div>
-    <div class="field"><label>Alternate Phone</label><input name="phoneAlt" value="${escapeAttr(editing?.phoneAlt || "")}" /></div>
     <div class="field"><label>GPS Address</label><input name="gpsAddress" value="${escapeAttr(editing?.gpsAddress || "")}" placeholder="GA-123-4567" /></div>
-    <div class="field"><label>Next of Kin Phone</label><input name="nextOfKinPhone" value="${escapeAttr(editing?.nextOfKinPhone || "")}" /></div>
-    <div class="field full"><label>Next of Kin Address</label><input name="nextOfKinAddress" value="${escapeAttr(editing?.nextOfKinAddress || "")}" /></div>
-    <div class="field full"><label>Digital Signature (optional)</label><input name="signatureData" value="${escapeAttr(editing?.signatureData || "")}" placeholder="Signed on device / initials" /></div>
+    <div class="field full signature-pad-field">
+      <label>Signature <span class="muted">(draw with finger, stylus, or mouse)</span></label>
+      <div class="signature-pad-wrap">
+        <canvas id="memberSignaturePad" class="signature-pad" width="640" height="180" aria-label="Signature pad"></canvas>
+      </div>
+      <input type="hidden" name="signatureData" id="memberSignatureData" value="${escapeAttr(signatureSrc)}" />
+      <div class="signature-pad-actions">
+        <button type="button" class="btn ghost" id="clearMemberSignature">Clear signature</button>
+        ${signatureSrc ? `<img class="signature-preview" id="memberSignaturePreview" src="${escapeAttr(signatureSrc)}" alt="Saved signature" />` : `<img class="signature-preview" id="memberSignaturePreview" alt="" hidden />`}
+      </div>
+      <div class="muted">Signature is required for new member registration.</div>
+    </div>
   `;
 }
 

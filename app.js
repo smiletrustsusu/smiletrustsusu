@@ -48,8 +48,10 @@ import {
   canVerifyHandover,
   canViewAuditReports,
   canWriteFinancialData,
+  filterCollectionsForUser,
   filterCustomersForUser,
   isAuditorRole,
+  isCollectorScopedRole,
   isReadOnlyRole,
   resolveCollectorForRegistration
 } from "./src/core/permissions.js";
@@ -114,6 +116,9 @@ import {
   isSystemOwnerUser,
   listUsersForActor,
   needsForcedPasswordChange,
+  canViewStaffLoginPassword,
+  staffLoginPasswordDisplay,
+  setStaffLoginPasswordHint,
   transferSystemOwnership,
   validateForcedPassword
 } from "./src/core/system-accounts.js";
@@ -373,6 +378,26 @@ import {
   statusBadge
 } from "./src/ui/customer-views.js";
 import {
+  bucketCrmWizardSteps,
+  closeCustomerRegistrationSession,
+  CUSTOMER_CREATE_OPEN_KEY,
+  CUSTOMER_REG_DRAFT_KEY,
+  customerRegistrationDraftFromFormData,
+  defaultBusinessLocationForCollector,
+  EDIT_CUSTOMER_ID_KEY,
+  isCustomerCreateSessionOpen,
+  isSignatureCaptured,
+  openCustomerRegistrationSession,
+  relationshipOptionsHtml,
+  requiredFieldsInStep,
+  shouldShowCustomerRegistrationForm,
+  shouldShowRegisterAnotherControls,
+  validateMemberRegistrationPayload
+} from "./src/core/customer-wizard.js";
+import { enqueueCustomerRegistrationSms } from "./src/core/customer-registration-notify.js";
+import { compressMemberMediaBundle, isStorageQuotaError, reclaimCustomerMediaSpace } from "./src/core/media-compress.js";
+import { districtSelectOptionsHtml } from "./src/core/ghana-geo.js";
+import {
   createWithdrawalRequest,
   advanceWithdrawal,
   nextWithdrawalAction,
@@ -410,7 +435,7 @@ import {
   recordReportHistory,
   scheduleReport,
   runDueSchedules,
-  searchRecords,
+  searchRecords as searchReportRecords,
   analyticsSeries,
   exportReportCsv,
   REPORT_CATALOG
@@ -433,7 +458,7 @@ import {
   auditTimeline,
   verifyAuditIntegrity,
   processAuditOutbox,
-  replayDeadLetter,
+  replayDeadLetter as replayAuditDeadLetter,
   archiveExpiredAudit,
   complianceReport,
   complianceCsv,
@@ -700,7 +725,7 @@ import {
   enqueueJob,
   tickScheduler,
   scheduleJob,
-  replayDeadLetter,
+  replayDeadLetter as replayJobDeadLetter,
   decideJobApproval,
   searchJobs,
   jobDashboard,
@@ -825,7 +850,7 @@ import {
   uploadRecord,
   archiveRecord,
   placeLegalHold,
-  searchRecords,
+  searchRecords as searchDigitalRecords,
   recordsDashboard,
   recordsReports,
   exportRecordsCsv,
@@ -908,7 +933,7 @@ import {
   recordMeetingLine,
   finalizeMeetingTotals
 } from "./src/core/group-meetings.js";
-import { findPortalCustomer, verifyPortalPin, canCustomerRequestWithdrawal } from "./src/core/customer-portal.js";
+import { findPortalCustomer, verifyPortalPin, canCustomerRequestWithdrawal, ensureDefaultPortalCredentials, portalPinFromPhone } from "./src/core/customer-portal.js";
 import { qrSvg, barcodeSvg } from "./src/core/receipt-codes.js";
 import {
   renderExpenses,
@@ -925,7 +950,7 @@ import {
   buildDashboardModel,
   normalizeDashboardPrefs,
   searchCustomers,
-  searchGroups
+  searchGroups as searchDashboardGroups
 } from "./src/core/dashboard-analytics.js";
 import { renderDashboardHome, renderSearchResults, renderNotificationDrawer } from "./src/ui/dashboard-views.js";
 
@@ -1497,11 +1522,42 @@ function normalizeState(data) {
   return normalized;
 }
 
-function saveState() {
+function saveState(options = {}) {
   state.updatedAt = new Date().toISOString();
-  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  const write = () => localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  try {
+    write();
+  } catch (error) {
+    if (!isStorageQuotaError(error)) throw error;
+    reclaimCustomerMediaSpace(state, { keepCustomerId: options.keepCustomerId || "" });
+    try {
+      write();
+    } catch (retryError) {
+      if (!isStorageQuotaError(retryError)) throw retryError;
+      throw new Error("Device storage is full. Free space or remove old member photos, then try again.");
+    }
+  }
   localSavePending = true;
   queueCloudBackup();
+}
+
+function signOutCurrentUser() {
+  logAudit("Logout", `${currentUser()?.username || ""} signed out`);
+  clearSession();
+  clearAuthSession();
+  void signOutSupabase(state);
+  clearSensitiveOfflineCache();
+  sessionUserId = null;
+  mobileMoreOpen = false;
+  mobileDrawerOpen = false;
+  render();
+}
+
+function confirmSignOutAllowed() {
+  // Collectors / phone: skip backup nag so Sign out is one tap.
+  if (isCollector() || isMobileLayout()) return true;
+  if (backupDoneToday()) return true;
+  return confirm("No backup has been recorded today. Sign out anyway?");
 }
 
 function defaultCloudUrl() {
@@ -1743,7 +1799,7 @@ function renderMobileMoreSheet() {
             Sync: ${state.settings.lastSyncedAt ? escapeHtml(new Date(state.settings.lastSyncedAt).toLocaleString()) : "Never"}
           </div>
           <button class="btn ghost" type="button" id="mobileSyncNowBtn">Sync now</button>
-          <button class="btn secondary" type="button" id="mobileLogoutBtn">Sign out</button>
+          <button class="btn danger" type="button" id="mobileLogoutBtn">Sign out</button>
         </div>
       </div>
     </div>
@@ -2133,7 +2189,8 @@ function attachMobileNavHandlers() {
   });
   document.querySelector("#mobileSyncNowBtn")?.addEventListener("click", syncNow);
   document.querySelector("#mobileLogoutBtn")?.addEventListener("click", () => {
-    document.querySelector("#logoutBtn")?.click();
+    if (!confirmSignOutAllowed()) return;
+    signOutCurrentUser();
   });
   document.querySelector("#mobileColorModeSelect")?.addEventListener("change", (event) => {
     state.settings.colorMode = event.target.value;
@@ -3018,7 +3075,10 @@ function collectorNavItems(user = currentUser()) {
 
 function ensureActiveViewAllowed() {
   if (!canAccessView(activeView)) {
-    const nav = isCollector() ? collectorNavItems() : [];
+    const user = currentUser();
+    const nav = isCollector()
+      ? collectorNavItems()
+      : (user ? navItemsForRole(user.role) : []);
     activeView = nav[0]?.[0] || "dashboard";
   }
 }
@@ -3355,7 +3415,14 @@ function visibleGroups() {
   if (isKBA()) return state.groups;
   const user = currentUser();
   if (!user) return [];
-  if (["Admin", "Collector"].includes(user.role)) {
+  if (isCollector() || isCollectorScopedRole(user)) {
+    return state.groups.filter((group) =>
+      group.collectorId === user.id
+      || (user.groupId && group.id === user.groupId)
+      || (user.branchId && (group.id === user.branchId || group.branchId === user.branchId))
+    );
+  }
+  if (user.role === "Admin") {
     return state.groups.filter((group) => userLinkedToGroup(user, group));
   }
   return state.groups.filter((group) => group.collectorId === user.id);
@@ -3370,12 +3437,13 @@ function visibleCustomers() {
 }
 
 function visibleCollections() {
+  const user = currentUser();
   const groups = visibleGroupIds();
-  let collections = isKBA() || isAuditor() ? state.collections : state.collections.filter((item) => groups.includes(item.groupId));
+  let collections = filterCollectionsForUser(state.collections || [], user, {
+    customers: state.customers || [],
+    groupIds: isKBA() || isAuditor() ? [] : groups
+  });
   if (isCollector()) {
-    const customerIds = new Set(visibleCustomers().map((customer) => customer.id));
-    collections = collections.filter((item) => customerIds.has(item.customerId));
-    const user = currentUser();
     if (!collectorDoesSusuGroup(user)) {
       collections = collections.filter((item) => !item.susuGroupId && item.collectionType !== COLLECTION_TYPES.SUSU_GROUP);
     }
@@ -3398,7 +3466,12 @@ function susuGroupById(id) {
 function visibleLoans() {
   const groups = visibleGroupIds();
   if (isKBA()) return state.loans;
-  return state.loans.filter((loan) => groups.includes(loan.groupId));
+  let loans = state.loans.filter((loan) => groups.includes(loan.groupId));
+  if (isCollector()) {
+    const customerIds = new Set(visibleCustomers().map((customer) => customer.id));
+    loans = loans.filter((loan) => customerIds.has(loan.customerId));
+  }
+  return loans;
 }
 
 function visibleTransactions() {
@@ -3810,6 +3883,7 @@ function renderApp() {
             </div>
           </div>
           <div class="row-actions">
+            <button class="btn secondary" type="button" id="topbarLogoutBtn">Sign out</button>
             <span class="pill ${navigator.onLine && state.syncMeta?.status !== "synchronization_failed" ? "" : "bad"}">${state.syncMeta?.status === "synchronizing" ? "Syncing" : (navigator.onLine ? "Online" : "Offline")}</span>
             <span class="muted desktop-only">Sync: ${state.settings.lastSyncedAt ? escapeHtml(new Date(state.settings.lastSyncedAt).toLocaleString()) : "Never"}</span>
             <button class="btn ghost dash-bell" id="dashNotifyBtn" type="button" aria-label="Notifications">🔔${unreadNotifications(state).length ? `<span class="dash-bell-count">${unreadNotifications(state).length}</span>` : ""}</button>
@@ -3860,14 +3934,12 @@ function renderApp() {
     });
   });
   document.querySelector("#logoutBtn").addEventListener("click", () => {
-    if (!backupDoneToday() && !confirm("No backup has been recorded today. Sign out anyway?")) return;
-    logAudit("Logout", `${currentUser()?.username || ""} signed out`);
-    clearSession();
-    clearAuthSession();
-    void signOutSupabase(state);
-    clearSensitiveOfflineCache();
-    sessionUserId = null;
-    render();
+    if (!confirmSignOutAllowed()) return;
+    signOutCurrentUser();
+  });
+  document.querySelector("#topbarLogoutBtn")?.addEventListener("click", () => {
+    if (!confirmSignOutAllowed()) return;
+    signOutCurrentUser();
   });
   document.querySelector("#syncNowBtn").addEventListener("click", syncNow);
   document.querySelector("#colorModeSelect")?.addEventListener("change", (event) => {
@@ -3984,7 +4056,13 @@ function renderView() {
     notifications: renderNotifications,
     meetings: renderGroupMeetings
   }[activeView];
-  return typeof renderer === "function" ? renderer() : `<div class="notice">Screen not found.</div>`;
+  if (typeof renderer !== "function") return `<div class="notice">Screen not found.</div>`;
+  try {
+    return renderer();
+  } catch (error) {
+    console.error(`Screen render failed (${activeView}):`, error);
+    return `<div class="notice">This screen could not be opened. ${escapeHtml(error?.message || "Unexpected error")}. Try Sync now, then open it again.</div>`;
+  }
 }
 
 function metrics() {
@@ -4482,7 +4560,8 @@ function attachDashboardChrome() {
     if (sheet) sheet.hidden = !sheet.hidden;
   });
   document.querySelector("#dashProfileLogout")?.addEventListener("click", () => {
-    document.querySelector("#logoutBtn")?.click();
+    if (!confirmSignOutAllowed()) return;
+    signOutCurrentUser();
   });
   document.querySelectorAll("[data-note-read]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -4512,7 +4591,7 @@ function attachDashboardHandlers() {
     if (!box) return;
     box.innerHTML = renderSearchResults({
       customers: searchCustomers(visibleCustomers(), customerQuery),
-      groups: searchGroups(visibleSusuGroups(), groupQuery)
+      groups: searchDashboardGroups(visibleSusuGroups(), groupQuery)
     });
     box.querySelectorAll("[data-open-customer]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -5888,7 +5967,14 @@ function memberFormFields(editing, groupField, defaultGroupId) {
   const user = currentUser();
   const showPersonal = !isCollector() || collectorDoesPersonalSavings(user);
   const showSusu = !isCollector() || collectorDoesSusuGroup(user);
+  const businessLocationDefault = defaultBusinessLocationForCollector({
+    editingBusinessLocation: editing?.businessLocation || "",
+    isCollector: isCollector() && !isKBA(),
+    groupName: groupName(defaultGroupId),
+    branchName: group?.name || ""
+  });
   return `
+    <div class="section-title full"><h3>Personal details</h3></div>
     ${memberAccountField(editing, defaultGroupId)}
     <div class="field"><label>Full Name</label><input name="name" value="${escapeAttr(editing?.name || "")}" required /></div>
     <div class="field"><label>Phone</label><input name="phone" value="${escapeAttr(editing?.phone || "")}" placeholder="024 123 4567" required /></div>
@@ -5897,17 +5983,26 @@ function memberFormFields(editing, groupField, defaultGroupId) {
         ${CRM_STATUSES.map((status) => `<option value="${status}" ${(editing?.memberStatus || "Active") === status ? "selected" : ""}>${status}</option>`).join("")}
       </select>
     </div>
-    <div class="field"><label>Ghana Card</label><input name="ghanaCard" value="${escapeAttr(editing?.ghanaCard || "")}" placeholder="GHA-XXXXXXXXX-X" /></div>
-    <div class="field"><label>Gender</label><select name="gender" required>${["", "Male", "Female"].map((option) => `<option value="${option}" ${(editing?.gender || "") === option ? "selected" : ""}>${option || "Select gender"}</option>`).join("")}</select></div>
-    <div class="field"><label>Marital Status</label><select name="maritalStatus" required>${["", "Single", "Married", "Divorced", "Widowed"].map((option) => `<option value="${option}" ${(editing?.maritalStatus || "") === option ? "selected" : ""}>${option || "Select status"}</option>`).join("")}</select></div>
-    <div class="field"><label>Nationality</label><input name="nationality" value="${escapeAttr(editing?.nationality || "Ghanaian")}" required /></div>
-    <div class="field"><label>Business Type</label><input name="businessType" value="${escapeAttr(editing?.businessType || "")}" required /></div>
-    <div class="field full"><label>Home Address</label><textarea name="homeAddress" required>${escapeHtml(editing?.homeAddress || editing?.address || "")}</textarea></div>
-    <div class="field full"><label>Business Location</label><input name="businessLocation" value="${escapeAttr(editing?.businessLocation || "")}" required /></div>
+    <div class="field"><label>Ghana Card</label><input name="ghanaCard" value="${escapeAttr(editing?.ghanaCard || "")}" placeholder="GHA-XXXXXXXXX-X" required /></div>
+    <div class="field"><label>Gender</label><select name="gender">${["", "Male", "Female"].map((option) => `<option value="${option}" ${(editing?.gender || "") === option ? "selected" : ""}>${option || "Select gender (optional)"}</option>`).join("")}</select></div>
+    <div class="field"><label>Marital Status</label><select name="maritalStatus">${["", "Single", "Married", "Divorced", "Widowed"].map((option) => `<option value="${option}" ${(editing?.maritalStatus || "") === option ? "selected" : ""}>${option || "Select status (optional)"}</option>`).join("")}</select></div>
+    <div class="field"><label>Nationality</label><input name="nationality" value="${escapeAttr(editing?.nationality || "Ghanaian")}" /></div>
+    <div class="field"><label>Business Type</label><input name="businessType" value="${escapeAttr(editing?.businessType || "")}" /></div>
+    <div class="field full"><label>Home Address</label><textarea name="homeAddress">${escapeHtml(editing?.homeAddress || editing?.address || "")}</textarea></div>
+    <div class="field full"><label>Location of Business</label><input name="businessLocation" value="${escapeAttr(businessLocationDefault)}" required ${isCollector() && !isKBA() && businessLocationDefault ? "readonly" : ""} /></div>
+    <div class="section-title full"><h3>Next of kin</h3></div>
     <div class="field"><label>Next of Kin</label><input name="nextOfKin" value="${escapeAttr(editing?.nextOfKin || "")}" required /></div>
-    <div class="field"><label>Next of Kin Relationship</label><input name="nextOfKinRelationship" value="${escapeAttr(editing?.nextOfKinRelationship || "")}" placeholder="e.g. Spouse, Brother, Mother" required /></div>
+    <div class="field"><label>Next of Kin Relationship</label>
+      <select name="nextOfKinRelationship">
+        ${relationshipOptionsHtml(editing?.nextOfKinRelationship || "", escapeAttr)}
+      </select>
+    </div>
+    <div class="field"><label>Next of Kin Phone</label><input name="nextOfKinPhone" value="${escapeAttr(editing?.nextOfKinPhone || "")}" placeholder="024 123 4567" /></div>
+    <div class="field full"><label>Next of Kin Address</label><input name="nextOfKinAddress" value="${escapeAttr(editing?.nextOfKinAddress || "")}" /></div>
+    <div class="field"><label>Next of Kin Occupation</label><input name="nextOfKinOccupation" value="${escapeAttr(editing?.nextOfKinOccupation || "")}" /></div>
     ${renderCustomerKycExtras(editing)}
     ${renderCustomerCrmFormExtras(editing)}
+    <div class="section-title full"><h3>Account &amp; photo</h3></div>
     <div class="field"><label>Susu Location</label>${groupField}</div>
     ${memberAccountTypeField(editing, user)}
     ${showPersonal ? `
@@ -5936,11 +6031,12 @@ function syncMemberAccountTypeFields() {
   if (personalFields) personalFields.style.display = showPersonal ? "" : "none";
   if (susuFields) susuFields.style.display = showSusu ? "" : "none";
   susuFields?.querySelectorAll("input").forEach((input) => {
-    input.required = showSusu;
+    // Soft registration path: susu sitting/amount stay optional defaults
+    input.required = false;
     if (!showSusu && input.name === "dailyAmount") input.value = "0";
     if (!showSusu && input.name === "collectionDays") input.value = String(state.settings.collectionDays || 31);
   });
-  personalFields?.querySelector('select[name="savingsProductId"]')?.toggleAttribute("required", showPersonal);
+  personalFields?.querySelector('select[name="savingsProductId"]')?.toggleAttribute("required", false);
 }
 
 function renderCustomers() {
@@ -5949,18 +6045,34 @@ function renderCustomers() {
   const navFilter = sessionStorage.getItem("nav_filter") || "";
   const customers = applyCustomerNavFilter(visibleCustomers(), navFilter);
   const readOnly = isReadOnlyUser();
-  const editing = !readOnly ? state.customers.find((customer) => customer.id === sessionStorage.getItem("edit_customer_id") && (isKBA() || visibleGroupIds().includes(customer.groupId))) : null;
+  const editing = !readOnly ? state.customers.find((customer) => customer.id === sessionStorage.getItem(EDIT_CUSTOMER_ID_KEY) && (isKBA() || visibleGroupIds().includes(customer.groupId))) : null;
+  const createOpen = isCustomerCreateSessionOpen(sessionStorage);
+  const showRegForm = shouldShowCustomerRegistrationForm({
+    readOnly,
+    isMobile: isMobileLayout(),
+    editing: Boolean(editing),
+    createOpen
+  });
   const defaultGroupId = editing?.groupId || primaryGroup()?.id || visibleGroups()[0]?.id || "";
   const groupField = isCollector() && !isKBA() && visibleGroups().length === 1
     ? `<input readonly value="${escapeAttr(groupName(defaultGroupId))}" /><input type="hidden" name="groupId" value="${escapeAttr(defaultGroupId)}" />`
     : groupSelect("groupId", defaultGroupId);
+  const activeCount = customers.filter((c) => c.active).length;
+  const totalBalance = customers.reduce((sum, customer) => sum + customerBalance(customer.id), 0);
+  const showRegAnother = shouldShowRegisterAnotherControls({
+    readOnly,
+    isMobile: isMobileLayout(),
+    showRegForm,
+    canRegister: canManageMembers()
+  });
+  const showRegFab = showRegAnother && isMobileLayout();
   return `
-    ${readOnly ? "" : `
-    <div class="grid two">
-      <div class="panel">
+    ${showRegForm ? `
+    <div class="grid two customers-reg-grid">
+      <div class="panel member-reg-panel">
         <div class="section-title">
           <h2>${editing ? "Edit Member" : "Member Registration Form"}</h2>
-          ${editing ? `<button class="btn ghost" id="cancelCustomerEdit" type="button">Cancel</button>` : ""}
+          ${editing || (isMobileLayout() && createOpen) ? `<button class="btn ghost" id="cancelCustomerEdit" type="button">Cancel</button>` : ""}
         </div>
         ${isCollector() && !isKBA() ? `<div class="notice good">Register ${collectorDoesSusuGroup(currentUser()) && !collectorDoesPersonalSavings(currentUser()) ? "susu group" : collectorDoesPersonalSavings(currentUser()) && !collectorDoesSusuGroup(currentUser()) ? "personal savings" : "new"} members for ${escapeHtml(groupName(defaultGroupId))}.</div>` : ""}
         ${isKBA() ? `<div class="notice good">Owner view: register and manage members across all susu locations.</div>` : ""}
@@ -5970,33 +6082,35 @@ function renderCustomers() {
           <div class="form-actions full"><button class="btn" type="submit">${editing ? "Save member" : "Register member"}</button></div>
         </form>
       </div>
-      <div class="panel">
+      <div class="panel member-summary-panel">
         <div class="section-title"><h2>Member Summary</h2></div>
         <table>
-          <tr><td>Registered members</td><td><strong>${customers.filter((c) => c.active).length}</strong></td></tr>
-          <tr><td>Total susu balance</td><td><strong>${money(customers.reduce((sum, customer) => sum + customerBalance(customer.id), 0))}</strong></td></tr>
+          <tr><td>Registered members</td><td><strong>${activeCount}</strong></td></tr>
+          <tr><td>Total susu balance</td><td><strong>${money(totalBalance)}</strong></td></tr>
           <tr><td>Location</td><td><strong>${escapeHtml(groupName(defaultGroupId))}</strong></td></tr>
         </table>
       </div>
-    </div>`}
+    </div>` : ""}
     ${!isCollector() ? renderCustomerAnalyticsPanel(customerAnalytics(customers, {
       collections: visibleCollections(),
       users: state.users,
       groups: visibleGroups(),
       products: state.savingsProducts || []
     })) : ""}
-    <div class="panel" style="margin-top:18px">
+    <div class="panel members-list-panel" style="margin-top:18px">
       <div class="section-title">
-        <h2>Members</h2>
+        <h2>Members${isMobileLayout() && !readOnly ? ` <span class="pill">${activeCount} registered</span>` : ""}</h2>
         <div class="row-actions">
+          ${showRegAnother ? `<button class="btn collector-action-btn" id="openCustomerCreateBtn" type="button">Register</button>` : ""}
           ${navFilter ? `<span class="pill">${escapeHtml(navFilterLabel(navFilter))}</span><button class="btn ghost" type="button" data-clear-nav-filter>Clear filter</button>` : ""}
           <input id="customerSearch" class="${isMobileLayout() ? "mobile-search-bar" : ""}" placeholder="Name, number, phone, Ghana Card, account, branch, agent" />
-          ${renderCustomerFilters(state.users.filter((user) => user.role === "Collector"), visibleGroups())}
+          ${!isCollector() ? renderCustomerFilters(state.users.filter((user) => user.role === "Collector"), visibleGroups()) : ""}
         </div>
       </div>
       ${!isCollector() ? renderCustomerBulkBar(state.users.filter((user) => user.role === "Collector"), visibleGroups(), canHardDeleteCustomers(currentUser())) : ""}
       <div id="customerTable">${renderCustomerTable(customers)}</div>
     </div>
+    ${showRegFab ? `<button class="dash-fab collector-action-btn" id="openCustomerCreateFab" type="button" aria-label="Register member">+</button>` : ""}
   `;
 }
 
@@ -8193,7 +8307,7 @@ function bindJobEngineHandlers() {
         toast(gate.error);
         return;
       }
-      const result = replayDeadLetter(state, button.dataset.jobReplay, { user: currentUser(), uid, approved: false });
+      const result = replayJobDeadLetter(state, button.dataset.jobReplay, { user: currentUser(), uid, approved: false });
       if (!result.ok && !result.pending) {
         toast(result.error);
         return;
@@ -8584,7 +8698,7 @@ function bindRecordsEngineHandlers() {
     render();
   });
   document.querySelector("#recordsSearchDemoBtn")?.addEventListener("click", () => {
-    const result = searchRecords(state, {}, currentUser());
+    const result = searchDigitalRecords(state, {}, currentUser());
     saveState();
     toast(result.ok ? `Found ${result.rows?.length || 0} record(s)` : (result.error || "Search failed"));
     render();
@@ -9421,7 +9535,7 @@ function renderBiReportsBlock(range = reportDateRange()) {
     canCustom: canAction(user, "Reports.Custom"),
     canSchedule: canAction(user, "Reports.Schedule"),
     canExport: canAction(user, "Reports.Export"),
-    searchHits: searchQ ? searchRecords(state, searchQ, user) : null
+    searchHits: searchQ ? searchReportRecords(state, searchQ, user) : null
   });
 }
 
@@ -10232,14 +10346,14 @@ function renderStaffRoleFields(editing) {
       <div class="field"><label>Role</label><input readonly value="${escapeAttr(agencyRoleLabel("Collector"))}" /><input type="hidden" name="role" value="Collector" /></div>
       ${renderCollectorLocationFields(editing)}
       ${renderAgentStaffExtras(editing)}
-      ${renderAgentOpsFormExtras(editing, state.users.filter((user) => ["FieldSupervisor", "Admin", "OperationsManager"].includes(user.role)))}
+      ${renderAgentOpsFormExtras(editing || {}, listUsersForActor(state.users, currentUser()).filter((user) => ["FieldSupervisor", "Admin", "OperationsManager"].includes(user.role)))}
     `;
   }
   if (editing?.role && !isDefaultSystemAccount(editing) && editing.role !== "Developer") {
     return `
       <div class="field"><label>Role</label><input readonly value="${escapeAttr(agencyRoleLabel(editing.role))}" /><input type="hidden" name="role" value="${escapeAttr(editing.role)}" /></div>
       ${renderAdminStaffFields(editing)}
-      ${editing.role === "FieldSupervisor" || editing.role === "GroupCoordinator" ? `${renderAgentStaffExtras(editing)}${renderAgentOpsFormExtras(editing, state.users.filter((user) => ["FieldSupervisor", "Admin", "OperationsManager"].includes(user.role)))}` : ""}
+      ${editing.role === "FieldSupervisor" || editing.role === "GroupCoordinator" ? `${renderAgentStaffExtras(editing)}${renderAgentOpsFormExtras(editing || {}, listUsersForActor(state.users, currentUser()).filter((user) => ["FieldSupervisor", "Admin", "OperationsManager"].includes(user.role)))}` : ""}
     `;
   }
   return `
@@ -10251,7 +10365,7 @@ function renderStaffRoleFields(editing) {
     <div id="collectorStaffFields">
       ${renderCollectorLocationFields(null)}
       ${renderAgentStaffExtras(null)}
-      ${renderAgentOpsFormExtras(null, state.users.filter((user) => ["FieldSupervisor", "Admin", "OperationsManager"].includes(user.role)))}
+      ${renderAgentOpsFormExtras({}, listUsersForActor(state.users, currentUser()).filter((user) => ["FieldSupervisor", "Admin", "OperationsManager"].includes(user.role)))}
     </div>
     <div id="adminStaffFields" style="display:none">
       ${renderAdminStaffFields()}
@@ -10331,8 +10445,9 @@ function renderPermissionsSummaryTable() {
 }
 
 function visibleAgents() {
-  const agents = staffAgents(state.users);
-  if (isCollector()) return agents.filter((user) => user.id === currentUser()?.id);
+  const actor = currentUser();
+  const agents = staffAgents(listUsersForActor(state.users, actor));
+  if (isCollector()) return agents.filter((user) => user.id === actor?.id);
   if (isKBA() || roleIs("ManagingDirector") || roleIs("OperationsManager")) return agents;
   const branchIds = visibleGroupIds();
   return agents.filter((user) => branchIds.includes(user.groupId) || branchIds.includes(user.branchId));
@@ -10492,18 +10607,26 @@ function renderUsers() {
 function renderUsersTable() {
   const actor = currentUser();
   const visibleUsers = listUsersForActor(state.users, actor);
+  const showPasswords = visibleUsers.some((u) => canViewStaffLoginPassword(actor, u));
   return `
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Photo</th><th>Name</th><th>Phone</th><th>Ghana Card</th><th>Username</th><th>Code</th><th>Assigned Location</th><th>Role</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Photo</th><th>Name</th><th>Phone</th><th>Ghana Card</th><th>Username</th>${showPasswords ? "<th>Password</th>" : ""}<th>Code</th><th>Assigned Location</th><th>Role</th><th>Status</th><th></th></tr></thead>
         <tbody>
-          ${visibleUsers.map((u) => `
+          ${visibleUsers.map((u) => {
+            const passwordCell = showPasswords
+              ? `<td>${canViewStaffLoginPassword(actor, u)
+                ? escapeHtml(staffLoginPasswordDisplay(u) || "—")
+                : "—"}</td>`
+              : "";
+            return `
             <tr>
               <td>${u.passportPhoto && !isDefaultSystemAccount(u) && u.role !== "Developer" ? `<img class="passport-preview table-thumb" src="${escapeAttr(u.passportPhoto)}" alt="" />` : "-"}</td>
               <td>${escapeHtml(u.name)}</td>
               <td>${escapeHtml(formatGhanaPhoneDisplay(u.phone) || u.phone || "-")}</td>
               <td>${escapeHtml(u.ghanaCard || "-")}</td>
               <td>${escapeHtml(u.username)}</td>
+              ${passwordCell}
               <td>${escapeHtml(collectorCodeForGroup(u.groupId) || "-")}</td>
               <td>${escapeHtml(groupName(u.groupId) || u.requestedGroupName || "")}</td>
               <td>${escapeHtml(roleLabel(u.role))}</td>
@@ -10517,7 +10640,8 @@ function renderUsersTable() {
                 </div>
               `}</td>
             </tr>
-          `).join("")}
+          `;
+          }).join("")}
         </tbody>
       </table>
     </div>
@@ -11479,7 +11603,7 @@ function attachAgencyHandlers() {
   document.querySelectorAll("[data-replay-dlq]").forEach((button) => {
     button.addEventListener("click", () => {
       if (!canAction(currentUser(), "Audit.Integrity")) return;
-      const result = replayDeadLetter(state, button.dataset.replayDlq);
+      const result = replayAuditDeadLetter(state, button.dataset.replayDlq);
       saveState();
       toast(result.error || "Dead-letter replayed");
       render();
@@ -11528,13 +11652,30 @@ function attachHandlers() {
     if (groupPicker) {
       groupPicker.addEventListener("change", () => refreshMemberAccountPreview(groupPicker.value));
     }
+    bindRegionDistrictCascade(customerForm);
+    initMemberSignaturePad(customerForm);
   }
   attachPassportPhotoHandlers("member");
   attachPassportPhotoHandlers("staff");
   const cancelCustomerEdit = document.querySelector("#cancelCustomerEdit");
   if (cancelCustomerEdit) cancelCustomerEdit.addEventListener("click", () => {
-    sessionStorage.removeItem("edit_customer_id");
+    resetMemberRegistrationHardware();
+    closeCustomerRegistrationSession(sessionStorage, localStorage);
     render();
+  });
+  document.querySelector("#openCustomerCreateFab")?.addEventListener("click", () => {
+    resetMemberRegistrationHardware();
+    openCustomerRegistrationSession(sessionStorage, localStorage);
+    activeView = "customers";
+    render();
+    queueMicrotask(() => document.querySelector("#customerForm")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  });
+  document.querySelector("#openCustomerCreateBtn")?.addEventListener("click", () => {
+    resetMemberRegistrationHardware();
+    openCustomerRegistrationSession(sessionStorage, localStorage);
+    activeView = "customers";
+    render();
+    queueMicrotask(() => document.querySelector("#customerForm")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   });
 
   const groupForm = document.querySelector("#groupForm");
@@ -12313,6 +12454,8 @@ function attachToggleButtons() {
         return;
       }
       sessionStorage.setItem("edit_user_id", button.dataset.editUser);
+      // Agents table "Edit account" must open Staff & Collectors, not stay on agents.
+      if (canAccessView("users")) activeView = "users";
       render();
     });
   });
@@ -12449,6 +12592,7 @@ async function handleAdminRequest(event) {
       name: data.name,
       username: data.username,
       passwordHash: await hashPasswordForUser(data.password),
+      loginPasswordHint: String(data.password || "").trim(),
       role: "Admin",
       active: false,
       pending: true,
@@ -13308,24 +13452,32 @@ function handleGroup(event) {
   render();
 }
 
-function beneficiariesFromCustomerForm(form) {
-  const fd = new FormData(form);
-  return fd.getAll("benName").map((name, index) => ({
-    id: uid("ben"),
-    name: String(name || "").trim(),
-    relationship: String(fd.getAll("benRelationship")[index] || "").trim(),
-    sharePercent: Number(fd.getAll("benShare")[index] || 0),
-    phone: String(fd.getAll("benPhone")[index] || "").trim(),
-    address: String(fd.getAll("benAddress")[index] || "").trim()
-  })).filter((item) => item.name);
+function resetMemberRegistrationHardware() {
+  try { stopPassportCamera("member"); } catch { /* ignore */ }
+  try { stopPassportCamera("staff"); } catch { /* ignore */ }
+  try { document.body.classList.remove("member-wizard-open"); } catch { /* ignore */ }
+}
+
+function prepareNextMemberRegistration({ keepOpen = false } = {}) {
+  resetMemberRegistrationHardware();
+  if (keepOpen) {
+    openCustomerRegistrationSession(sessionStorage, localStorage);
+  } else {
+    closeCustomerRegistrationSession(sessionStorage, localStorage);
+  }
 }
 
 function handleCustomer(event) {
   event.preventDefault();
   const form = event.target;
+  syncMemberSignatureFromPad(form);
   const data = formData(form);
   if (!canManageMembers()) {
     toast("You do not have permission to register members");
+    return;
+  }
+  if (!data.groupId || !visibleGroupIds().includes(data.groupId)) {
+    toast("This location is not assigned to you");
     return;
   }
   if (!isValidGhanaPhone(data.phone)) {
@@ -13334,10 +13486,6 @@ function handleCustomer(event) {
   }
   const normalizedPhone = normalizeGhanaPhone(data.phone);
   const group = groupById(data.groupId);
-  if (!visibleGroupIds().includes(data.groupId)) {
-    toast("This location is not assigned to you");
-    return;
-  }
   if (isCollector()) {
     const collector = currentUser();
     const accountType = data.accountType || "personal";
@@ -13351,124 +13499,216 @@ function handleCustomer(event) {
     }
   }
   resolvePassportPhotoFromForm(form).then(async (uploadedPhoto) => {
-    const passportPhoto = uploadedPhoto || data.existingPassportPhoto || "";
-    if (!data.id && !passportPhoto) {
-      toast("Passport picture is required");
-      return;
-    }
-    const idFrontImage = await readOptionalCustomerFile(form.querySelector('[name="idFrontFile"]')?.files?.[0]);
-    const idBackImage = await readOptionalCustomerFile(form.querySelector('[name="idBackFile"]')?.files?.[0]);
-    const homeAddress = String(data.homeAddress || "").trim();
-    const payload = {
-      name: data.name,
-      phone: normalizedPhone,
-      memberStatus: data.memberStatus || "Active",
-      ghanaCard: data.ghanaCard || "",
-      gender: data.gender || "",
-      maritalStatus: data.maritalStatus || "",
-      nationality: data.nationality || "",
-      businessType: data.businessType || "",
-      homeAddress,
-      businessLocation: data.businessLocation || "",
-      nextOfKin: data.nextOfKin || "",
-      nextOfKinRelationship: data.nextOfKinRelationship || "",
-      passportPhoto,
-      address: homeAddress,
-      groupId: data.groupId,
-      savingsProductId: data.savingsProductId || "",
-      accountType: data.accountType || "personal",
-      dailyAmount: data.accountType === "personal" ? 0 : Number(data.dailyAmount || group?.defaultAmount || 0),
-      collectionDays: data.accountType === "personal" ? undefined : Number(data.collectionDays || group?.targetContributions || state.settings.collectionDays || 31),
-      nhis: 0,
-      updatedAt: new Date().toISOString()
-    };
-    const beneficiaries = beneficiariesFromCustomerForm(form);
-    applyCustomerKyc(payload, {
-      ...data,
-      nationalId: data.idNumber || data.ghanaCard,
-      customerNumber: data.customerNumber || nextCustomerNumber(state.customers),
-      beneficiaries
-    });
-    applyCustomerCrm(payload, { ...data, beneficiaries, idFrontImage: idFrontImage || data.idFrontImage, idBackImage: idBackImage || data.idBackImage });
-    ensureCustomerNumber(payload, state.customers);
-    payload.beneficiaries = beneficiaries;
-    const duplicates = findDuplicateCustomers(state.customers, { ...payload, accountNo: data.accountNo || payload.accountNo }, data.id);
-    if (duplicates.length && !confirm(`Possible duplicate of ${duplicates[0].name} (${duplicates[0].phone || duplicates[0].accountNo}). Continue anyway?`)) {
-      return;
-    }
-    if (data.id) {
-      const customer = state.customers.find((item) => item.id === data.id && visibleGroupIds().includes(item.groupId));
-      if (!customer) return;
-      const previousStatus = customer.memberStatus || (customer.active === false ? "Closed" : "Active");
-      if (!canChangeCustomerStatus(currentUser())) payload.memberStatus = previousStatus;
-      applyCustomerCrm(payload, { ...data, notes: customer.notes, statusHistory: customer.statusHistory, activityLog: customer.activityLog, beneficiaries, idFrontImage: idFrontImage || customer.idFrontImage, idBackImage: idBackImage || customer.idBackImage });
-      Object.assign(customer, payload);
-      if (payload.memberStatus && payload.memberStatus !== previousStatus) {
-        setCustomerStatus(customer, payload.memberStatus, currentUser(), uid);
+    try {
+      let passportPhoto = uploadedPhoto || data.existingPassportPhoto || "";
+      let signatureData = String(data.signatureData || form.querySelector("#memberSignatureData")?.value || "").trim();
+      const softError = validateMemberRegistrationPayload({
+        ...data,
+        phone: normalizedPhone,
+        passportPhoto,
+        signatureData,
+        businessLocation: data.businessLocation || defaultBusinessLocationForCollector({
+          editingBusinessLocation: data.businessLocation || "",
+          isCollector: isCollector() && !isKBA(),
+          groupName: groupName(data.groupId),
+          branchName: group?.name || ""
+        })
+      }, { isCreate: !data.id });
+      if (softError) {
+        toast(softError);
+        return;
       }
-      if (customer.savingsProductId) ensureSavingsAccount(state, customer, customer.savingsProductId, uid);
-      appendCustomerActivity(customer, { action: "Profile updated", detail: customer.name, userId: currentUser()?.id || "", uid });
-      sessionStorage.removeItem("edit_customer_id");
-      saveState();
-      logAudit("Member edited", data.name);
-      toast("Member saved");
+      let idFrontImage = await readOptionalCustomerFile(form.querySelector('[name="idFrontFile"]')?.files?.[0]);
+      let idBackImage = await readOptionalCustomerFile(form.querySelector('[name="idBackFile"]')?.files?.[0]);
+      const compressed = await compressMemberMediaBundle({
+        passportPhoto,
+        signatureData,
+        idFrontImage,
+        idBackImage
+      });
+      passportPhoto = compressed.passportPhoto || passportPhoto;
+      signatureData = compressed.signatureData || signatureData;
+      idFrontImage = compressed.idFrontImage || idFrontImage;
+      idBackImage = compressed.idBackImage || idBackImage;
+      const homeAddress = String(data.homeAddress || "").trim();
+      const businessLocation = String(data.businessLocation || "").trim() || defaultBusinessLocationForCollector({
+        isCollector: isCollector() && !isKBA(),
+        groupName: groupName(data.groupId),
+        branchName: group?.name || ""
+      });
+      const payload = {
+        name: String(data.name || "").trim(),
+        phone: normalizedPhone,
+        memberStatus: data.memberStatus || "Active",
+        ghanaCard: data.ghanaCard || "",
+        gender: data.gender || "",
+        maritalStatus: data.maritalStatus || "",
+        nationality: data.nationality || "",
+        businessType: data.businessType || "",
+        homeAddress,
+        businessLocation,
+        nextOfKin: data.nextOfKin || "",
+        nextOfKinRelationship: data.nextOfKinRelationship || "",
+        passportPhoto,
+        signatureData,
+        address: homeAddress,
+        groupId: data.groupId,
+        savingsProductId: data.savingsProductId || "",
+        accountType: data.accountType || "personal",
+        dailyAmount: data.accountType === "personal" ? 0 : Number(data.dailyAmount || group?.defaultAmount || 0),
+        collectionDays: data.accountType === "personal" ? undefined : Number(data.collectionDays || group?.targetContributions || state.settings.collectionDays || 31),
+        nhis: 0,
+        updatedAt: new Date().toISOString()
+      };
+      const beneficiaries = [];
+      applyCustomerKyc(payload, {
+        ...data,
+        signatureData,
+        nationalId: data.idNumber || data.ghanaCard,
+        customerNumber: data.customerNumber || nextCustomerNumber(state.customers),
+        beneficiaries,
+        phoneAlt: ""
+      });
+      applyCustomerCrm(payload, {
+        ...data,
+        beneficiaries,
+        whatsapp: normalizedPhone,
+        phoneSecondary: "",
+        idFrontImage: idFrontImage || data.idFrontImage,
+        idBackImage: idBackImage || data.idBackImage
+      });
+      ensureCustomerNumber(payload, state.customers);
+      payload.beneficiaries = beneficiaries;
+      payload.signatureData = signatureData;
+      payload.whatsapp = normalizedPhone;
+      payload.phoneSecondary = "";
+      payload.phoneAlt = "";
+      const duplicates = findDuplicateCustomers(state.customers, { ...payload, accountNo: data.accountNo || payload.accountNo }, data.id);
+      if (duplicates.length && !confirm(`Possible duplicate of ${duplicates[0].name} (${duplicates[0].phone || duplicates[0].accountNo}). Continue anyway?`)) {
+        toast("Registration cancelled — possible duplicate");
+        return;
+      }
+      if (data.id) {
+        const customer = state.customers.find((item) => item.id === data.id && visibleGroupIds().includes(item.groupId));
+        if (!customer) {
+          toast("Member not found or not assigned to you");
+          return;
+        }
+        const previousStatus = customer.memberStatus || (customer.active === false ? "Closed" : "Active");
+        if (!canChangeCustomerStatus(currentUser())) payload.memberStatus = previousStatus;
+        applyCustomerCrm(payload, {
+          ...data,
+          notes: customer.notes,
+          statusHistory: customer.statusHistory,
+          activityLog: customer.activityLog,
+          beneficiaries: customer.beneficiaries || [],
+          whatsapp: normalizedPhone || customer.whatsapp,
+          phoneSecondary: "",
+          idFrontImage: idFrontImage || customer.idFrontImage,
+          idBackImage: idBackImage || customer.idBackImage
+        });
+        Object.assign(customer, payload);
+        if (payload.memberStatus && payload.memberStatus !== previousStatus) {
+          setCustomerStatus(customer, payload.memberStatus, currentUser(), uid);
+        }
+        if (customer.savingsProductId) ensureSavingsAccount(state, customer, customer.savingsProductId, uid);
+        appendCustomerActivity(customer, { action: "Profile updated", detail: customer.name, userId: currentUser()?.id || "", uid });
+        prepareNextMemberRegistration({ keepOpen: false });
+        saveState({ keepCustomerId: customer.id });
+        logAudit("Member edited", data.name);
+        toast("Member saved");
+        render();
+        queueMicrotask(() => document.querySelector(".members-list-panel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+        return;
+      }
+      const accountNo = String(data.accountNo || "").trim() || nextAccountNo(data.groupId);
+      if (!isValidAccountNo(accountNo, data.groupId)) {
+        const code = collectorCodeForGroup(data.groupId);
+        toast(code ? `Account number must start with ${code} followed by digits (e.g. ${code}000001)` : "Account number must look like c13000001");
+        return;
+      }
+      if (state.customers.some((item) => String(item.accountNo || "").toLowerCase() === accountNo.toLowerCase())) {
+        toast("That account number is already in use");
+        return;
+      }
+      const online = typeof navigator === "undefined" || navigator.onLine !== false;
+      const gate = canPerformOffline(state, "customer.create", { online });
+      if (!gate.ok) {
+        toast(gate.error || "Cannot register member right now");
+        return;
+      }
+      const collectorId = resolveCollectorForRegistration(currentUser(), group, state.users);
+      if (!collectorId) {
+        toast("This location has no assigned collector. Create a collector for this branch first.");
+        return;
+      }
+      const collectorCode = collectorCodeForGroup(data.groupId);
+      if (!collectorCode) {
+        toast("This location has no collector code yet. Set one on Staff & Collectors first.");
+        return;
+      }
+      const created = {
+        id: uid("cust"),
+        accountNo,
+        collectorId,
+        createdAt: new Date().toISOString(),
+        ...payload
+      };
+      applyCustomerCrm(created, { ...data, whatsapp: normalizedPhone, phoneSecondary: "", beneficiaries: [] });
+      created.signatureData = signatureData;
+      created.whatsapp = normalizedPhone;
+      created.phoneSecondary = "";
+      created.phoneAlt = "";
+      created.beneficiaries = [];
+      ensureDefaultPortalCredentials(created);
+      appendCustomerActivity(created, { action: "Customer Registered", detail: created.name, userId: currentUser()?.id || "", uid });
+      if (created.savingsProductId) ensureSavingsAccount(state, created, created.savingsProductId, uid);
+      state.customers.push(created);
+      // Keep form open for continuous register-another (collectors); still wipe draft/media session.
+      prepareNextMemberRegistration({ keepOpen: isCollector() || isMobileLayout() });
+      if (!navigator.onLine) {
+        enqueueSyncItem(state, {
+          kind: "customer",
+          idempotencyKey: `customer:${created.id}`,
+          payload: { id: created.id, phone: created.phone || "" },
+          deviceId: (state.devices || []).find((item) => item.fingerprint === deviceFingerprint())?.id || deviceFingerprint(),
+          agentId: currentUser()?.id || ""
+        }, uid);
+      }
+      let smsToast = "";
+      try {
+        const smsResult = enqueueCustomerRegistrationSms(state, created, {
+          uid,
+          runtime: typeof window !== "undefined" ? window : {}
+        });
+        smsToast = smsResult?.toast ? ` ${smsResult.toast}` : "";
+        if (smsResult?.status === "error" || smsResult?.status === "invalid_phone") {
+          // non-blocking warning only
+        }
+      } catch {
+        smsToast = " SMS warning: could not queue message";
+      }
+      try {
+        const approx = JSON.stringify(state).length;
+        if (approx > 2_800_000) reclaimCustomerMediaSpace(state, { keepCustomerId: created.id });
+      } catch { /* ignore */ }
+      saveState({ keepCustomerId: created.id });
+      logAudit("Member registered", `${data.name} · ${groupName(data.groupId)}`);
+      const pinHint = created.portalPin || portalPinFromPhone(created.phone);
+      toast((navigator.onLine ? "Member registered" : "Member saved offline - will sync when online")
+        + ` · Login: ${created.accountNo} / PIN ${pinHint}`
+        + smsToast);
       render();
-      return;
+      queueMicrotask(() => {
+        const form = document.querySelector("#customerForm");
+        if (form) form.scrollIntoView({ behavior: "smooth", block: "start" });
+        else document.querySelector(".members-list-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    } catch (error) {
+      toast(error?.message || "Could not register member");
     }
-    const accountNo = String(data.accountNo || "").trim() || nextAccountNo(data.groupId);
-    if (!isValidAccountNo(accountNo, data.groupId)) {
-      const code = collectorCodeForGroup(data.groupId);
-      toast(code ? `Account number must start with ${code} followed by digits (e.g. ${code}000001)` : "Account number must look like c13000001");
-      return;
-    }
-    if (state.customers.some((item) => String(item.accountNo || "").toLowerCase() === accountNo.toLowerCase())) {
-      toast("That account number is already in use");
-      return;
-    }
-    const online = typeof navigator === "undefined" || navigator.onLine !== false;
-    const gate = canPerformOffline(state, "customer.create", { online });
-    if (!gate.ok) {
-      toast(gate.error);
-      return;
-    }
-    const group = groupById(data.groupId);
-    const collectorId = resolveCollectorForRegistration(currentUser(), group, state.users);
-    if (!collectorId) {
-      toast("This location has no assigned collector. Create a collector for this branch first.");
-      return;
-    }
-    const collectorCode = collectorCodeForGroup(data.groupId);
-    if (!collectorCode) {
-      toast("This location has no collector code yet. Set one on Staff & Collectors first.");
-      return;
-    }
-    const created = {
-      id: uid("cust"),
-      accountNo,
-      collectorId,
-      createdAt: new Date().toISOString(),
-      ...payload
-    };
-    applyCustomerCrm(created, data);
-    appendCustomerActivity(created, { action: "Customer Registered", detail: created.name, userId: currentUser()?.id || "", uid });
-    if (created.savingsProductId) ensureSavingsAccount(state, created, created.savingsProductId, uid);
-    state.customers.push(created);
-    try { localStorage.removeItem("customer_reg_draft"); } catch { /* ignore */ }
-    if (!navigator.onLine) {
-      enqueueSyncItem(state, {
-        kind: "customer",
-        idempotencyKey: `customer:${created.id}`,
-        payload: { id: created.id, phone: created.phone || "" },
-        deviceId: (state.devices || []).find((item) => item.fingerprint === deviceFingerprint())?.id || deviceFingerprint(),
-        agentId: currentUser()?.id || ""
-      }, uid);
-    }
-    saveState();
-    logAudit("Member registered", `${data.name} · ${groupName(data.groupId)}`);
-    toast(navigator.onLine ? "Member registered" : "Member saved offline - will sync when online");
-    render();
   }).catch((error) => {
-    toast(error.message || "Could not save passport picture");
+    toast(error?.message || "Could not save passport picture");
   });
 }
 
@@ -14583,7 +14823,10 @@ async function handleUser(event) {
       documents: user.documents,
       activityLog: user.activityLog
     });
-    if (data.password) user.passwordHash = await hashPasswordForUser(data.password);
+    if (data.password) {
+      user.passwordHash = await hashPasswordForUser(data.password);
+      setStaffLoginPasswordHint(user, data.password);
+    }
     if (staffRole === "Collector") {
       let group = groupById(user.groupId);
       if (data.groupId && data.groupId !== user.groupId) {
@@ -14687,6 +14930,7 @@ async function handleUser(event) {
     ghanaCard: String(data.ghanaCard || "").trim(),
     passportPhoto,
     passwordHash: await hashPasswordForUser(data.password),
+    loginPasswordHint: String(data.password || "").trim(),
     role: staffRole,
     groupId: "",
     screenPermissions: staffRole === "Collector" ? defaultCollectorScreenPermissions() : undefined,
@@ -16346,62 +16590,224 @@ function handleCustomerImport(event) {
   reader.readAsText(file);
 }
 
+function bindRegionDistrictCascade(form) {
+  if (!form) return;
+  const regionSelect = form.querySelector("#customerRegionSelect") || form.querySelector('select[name="region"]');
+  const districtSelect = form.querySelector("#customerDistrictSelect") || form.querySelector('select[name="district"]');
+  if (!regionSelect || !districtSelect || regionSelect.dataset.cascadeBound === "1") return;
+  regionSelect.dataset.cascadeBound = "1";
+  regionSelect.addEventListener("change", () => {
+    const previous = districtSelect.value;
+    districtSelect.innerHTML = districtSelectOptionsHtml(regionSelect.value, "", escapeAttr);
+    if (previous && [...districtSelect.options].some((opt) => opt.value === previous)) {
+      districtSelect.value = previous;
+    }
+  });
+}
+
+function syncMemberSignatureFromPad(form) {
+  const canvas = form?.querySelector?.("#memberSignaturePad");
+  const hidden = form?.querySelector?.("#memberSignatureData") || form?.querySelector?.('[name="signatureData"]');
+  if (!canvas || !hidden) return;
+  if (canvas.dataset.hasInk === "1") {
+    try {
+      hidden.value = canvas.toDataURL("image/png");
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function initMemberSignaturePad(form) {
+  if (!form) return;
+  const canvas = form.querySelector("#memberSignaturePad");
+  const hidden = form.querySelector("#memberSignatureData") || form.querySelector('[name="signatureData"]');
+  const clearBtn = form.querySelector("#clearMemberSignature");
+  const preview = form.querySelector("#memberSignaturePreview");
+  if (!canvas || !hidden || canvas.dataset.padReady === "1") return;
+  canvas.dataset.padReady = "1";
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  const resize = () => {
+    const wrap = canvas.parentElement;
+    const cssWidth = Math.max(280, Math.floor(wrap?.clientWidth || canvas.clientWidth || 640));
+    const cssHeight = 180;
+    const ratio = Math.min(window.devicePixelRatio || 1, 2);
+    const existing = hidden.value && String(hidden.value).startsWith("data:image/") ? hidden.value : "";
+    canvas.width = Math.floor(cssWidth * ratio);
+    canvas.height = Math.floor(cssHeight * ratio);
+    canvas.style.width = `${cssWidth}px`;
+    canvas.style.height = `${cssHeight}px`;
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "#102a43";
+    ctx.lineWidth = 2.25;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, cssWidth, cssHeight);
+    if (existing) {
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, cssWidth, cssHeight);
+        canvas.dataset.hasInk = "1";
+      };
+      img.src = existing;
+    } else {
+      canvas.dataset.hasInk = "0";
+    }
+  };
+
+  const pointFromEvent = (event) => {
+    const rect = canvas.getBoundingClientRect();
+    const source = event.touches?.[0] || event.changedTouches?.[0] || event;
+    return {
+      x: source.clientX - rect.left,
+      y: source.clientY - rect.top
+    };
+  };
+
+  let drawing = false;
+  const start = (event) => {
+    event.preventDefault();
+    drawing = true;
+    const point = pointFromEvent(event);
+    ctx.beginPath();
+    ctx.moveTo(point.x, point.y);
+  };
+  const move = (event) => {
+    if (!drawing) return;
+    event.preventDefault();
+    const point = pointFromEvent(event);
+    ctx.lineTo(point.x, point.y);
+    ctx.stroke();
+    canvas.dataset.hasInk = "1";
+  };
+  const end = (event) => {
+    if (!drawing) return;
+    event?.preventDefault?.();
+    drawing = false;
+    if (canvas.dataset.hasInk === "1") {
+      hidden.value = canvas.toDataURL("image/png");
+      if (preview) {
+        preview.src = hidden.value;
+        preview.hidden = false;
+        preview.removeAttribute("hidden");
+      }
+    }
+  };
+
+  canvas.addEventListener("pointerdown", start);
+  canvas.addEventListener("pointermove", move);
+  canvas.addEventListener("pointerup", end);
+  canvas.addEventListener("pointerleave", end);
+  canvas.addEventListener("pointercancel", end);
+  canvas.addEventListener("touchstart", start, { passive: false });
+  canvas.addEventListener("touchmove", move, { passive: false });
+  canvas.addEventListener("touchend", end, { passive: false });
+  canvas.addEventListener("mousedown", start);
+  canvas.addEventListener("mousemove", move);
+  canvas.addEventListener("mouseup", end);
+  canvas.addEventListener("mouseleave", end);
+
+  clearBtn?.addEventListener("click", () => {
+    const wrap = canvas.parentElement;
+    const cssWidth = Math.max(280, Math.floor(wrap?.clientWidth || 640));
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, cssWidth, 180);
+    canvas.dataset.hasInk = "0";
+    hidden.value = "";
+    if (preview) {
+      preview.removeAttribute("src");
+      preview.hidden = true;
+    }
+  });
+
+  resize();
+  window.addEventListener("resize", () => {
+    if (!document.body.contains(canvas)) return;
+    syncMemberSignatureFromPad(form);
+    resize();
+  });
+}
+
 function initCustomerWizard(form) {
   if (!form || form.dataset.wizardReady) return;
   const kids = [...form.children];
   if (kids.length < 8) return;
-  const steps = [];
-  let bucket = [];
-  kids.forEach((el) => {
-    if (el.classList.contains("section-title") && bucket.length) {
-      steps.push(bucket);
-      bucket = [el];
-    } else {
-      bucket.push(el);
-    }
-  });
-  if (bucket.length) steps.push(bucket);
+  const steps = bucketCrmWizardSteps(kids);
   if (steps.length < 2) return;
   form.dataset.wizardReady = "1";
+  form.dataset.wizardSteps = String(steps.length);
+  document.body.classList.add("member-wizard-open");
   const wraps = steps.map((nodes, index) => {
     const wrap = document.createElement("div");
-    wrap.className = "crm-wizard-step";
+    wrap.className = "crm-wizard-step full";
+    wrap.dataset.wizardIndex = String(index);
     wrap.hidden = index > 0;
     nodes.forEach((node) => wrap.appendChild(node));
     form.appendChild(wrap);
     return wrap;
   });
+  const progressTop = document.createElement("div");
+  progressTop.className = "crm-wizard-progress-top full";
+  progressTop.setAttribute("aria-live", "polite");
+  progressTop.innerHTML = `Step <b id="crmWizardStep">1</b> of <b id="crmWizardTotal">${wraps.length}</b>`;
+  form.insertBefore(progressTop, form.firstChild);
   const nav = document.createElement("div");
-  nav.className = "crm-wizard-nav full";
-  nav.innerHTML = `<div class="crm-wizard-progress"><span>Step <b id="crmWizardStep">1</b> of ${wraps.length}</span></div><button class="btn ghost" type="button" id="crmWizardPrev" hidden>Back</button><button class="btn" type="button" id="crmWizardNext">Next</button>`;
+  nav.className = "crm-wizard-nav full form-sticky-actions";
+  nav.innerHTML = `<button class="btn ghost" type="button" id="crmWizardPrev" hidden>Back</button><button class="btn collector-action-btn" type="button" id="crmWizardNext">Next</button>`;
   form.appendChild(nav);
   let current = 0;
-  const show = (index) => {
-    current = Math.min(Math.max(0, index), wraps.length - 1);
+  const progressStep = () => form.querySelector("#crmWizardStep");
+  const progressTotal = () => form.querySelector("#crmWizardTotal");
+  const show = (index, { validate = false } = {}) => {
+    const nextIndex = Math.min(Math.max(0, index), wraps.length - 1);
+    if (validate && nextIndex > current) {
+      const invalid = requiredFieldsInStep(wraps[current]).find((el) => !el.checkValidity());
+      if (invalid) {
+        invalid.reportValidity();
+        invalid.focus({ preventScroll: false });
+        invalid.scrollIntoView({ block: "center", behavior: "smooth" });
+        return false;
+      }
+    }
+    current = nextIndex;
     wraps.forEach((wrap, i) => { wrap.hidden = i !== current; });
-    form.querySelector("#crmWizardStep").textContent = String(current + 1);
-    form.querySelector("#crmWizardPrev").hidden = current === 0;
-    form.querySelector("#crmWizardNext").hidden = current === wraps.length - 1;
+    if (progressStep()) progressStep().textContent = String(current + 1);
+    if (progressTotal()) progressTotal().textContent = String(wraps.length);
+    const prev = form.querySelector("#crmWizardPrev");
+    const next = form.querySelector("#crmWizardNext");
+    if (prev) prev.hidden = current === 0;
+    if (next) next.hidden = current === wraps.length - 1;
+    const submitWrap = form.querySelector("[type=submit]")?.closest(".form-actions");
+    if (submitWrap) submitWrap.hidden = current !== wraps.length - 1;
     form.querySelector("[type=submit]")?.classList.toggle("crm-wizard-submit", current === wraps.length - 1);
+    progressTop.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    return true;
   };
-  form.querySelector("#crmWizardPrev").addEventListener("click", () => show(current - 1));
-  form.querySelector("#crmWizardNext").addEventListener("click", () => show(current + 1));
+  form.querySelector("#crmWizardPrev")?.addEventListener("click", () => show(current - 1));
+  form.querySelector("#crmWizardNext")?.addEventListener("click", () => show(current + 1, { validate: true }));
   show(0);
 }
 
 function bindCustomerDraft(form) {
   if (!form || form.querySelector('[name="id"]')) return;
   try {
-    const draft = JSON.parse(localStorage.getItem("customer_reg_draft") || "null");
-    if (draft?.name && !form.querySelector('[name="name"]').value) {
-      ["name", "phone", "ghanaCard", "email", "homeAddress", "occupation", "employer"].forEach((key) => {
+    const draft = JSON.parse(localStorage.getItem(CUSTOMER_REG_DRAFT_KEY) || "null");
+    if (draft?.name && !form.querySelector('[name="name"]')?.value) {
+      ["name", "phone", "ghanaCard", "email", "homeAddress", "occupation", "employer", "nextOfKin", "businessType", "town"].forEach((key) => {
         if (draft[key] && form.elements[key]) form.elements[key].value = draft[key];
       });
     }
   } catch { /* ignore */ }
   form.addEventListener("input", () => {
-    const data = Object.fromEntries(new FormData(form).entries());
-    try { localStorage.setItem("customer_reg_draft", JSON.stringify({ ...data, savedAt: Date.now() })); } catch { /* ignore */ }
+    try {
+      const draft = customerRegistrationDraftFromFormData(new FormData(form));
+      localStorage.setItem(CUSTOMER_REG_DRAFT_KEY, JSON.stringify({ ...draft, savedAt: Date.now() }));
+    } catch {
+      try { localStorage.removeItem(CUSTOMER_REG_DRAFT_KEY); } catch { /* ignore */ }
+    }
   });
 }
 

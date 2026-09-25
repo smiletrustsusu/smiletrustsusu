@@ -35,13 +35,31 @@ export function portalDashboard(state, customer) {
   };
 }
 
+/** Default member portal PIN = last 4 digits of Ghana phone. */
+export function portalPinFromPhone(phone) {
+  const digits = String(phone || "").replace(/\D/g, "");
+  return digits.slice(-4) || "0000";
+}
+
+/**
+ * Ensure registration sets login credentials: account number + last-4 phone PIN.
+ */
+export function ensureDefaultPortalCredentials(customer, { now = () => new Date().toISOString() } = {}) {
+  if (!customer) return customer;
+  const pin = portalPinFromPhone(customer.phone);
+  if (!customer.portalPin) {
+    customer.portalPin = pin;
+    customer.portalPinSetAt = now();
+    customer.portalPinSource = "phone_last4";
+  }
+  return customer;
+}
+
 export function verifyPortalPin(customer, pin) {
   const entered = String(pin || "").trim();
   if (!customer || !entered) return false;
   if (customer.portalPin) return customer.portalPin === entered;
-  const phoneDigits = String(customer.phone || "").replace(/\D/g, "");
-  const fallback = phoneDigits.slice(-4) || "0000";
-  return entered === fallback;
+  return entered === portalPinFromPhone(customer.phone);
 }
 
 export function setPortalPin(customer, pin) {
@@ -49,6 +67,7 @@ export function setPortalPin(customer, pin) {
   if (next.length < 4) return { error: "PIN must be at least 4 digits" };
   customer.portalPin = next;
   customer.portalPinSetAt = new Date().toISOString();
+  customer.portalPinSource = "manual";
   return { customer };
 }
 

@@ -12,6 +12,7 @@ import {
   CRM_MESSAGE_TEMPLATES
 } from "../core/customer-crm.js";
 import { KYC_DOC_TYPES } from "../core/customer-kyc.js";
+import { districtSelectOptionsHtml, regionSelectOptionsHtml } from "../core/ghana-geo.js";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -34,18 +35,22 @@ function optionList(values, selected) {
 }
 
 export function renderCustomerCrmFormExtras(editing = {}) {
-  const beneficiaries = editing.beneficiaries?.length ? editing.beneficiaries : [{ name: "", relationship: "", sharePercent: "", phone: "" }];
   return `
-    <div class="section-title full"><h3>Contact & Location</h3></div>
-    <div class="field"><label>Secondary Phone</label><input name="phoneSecondary" value="${escapeAttr(editing.phoneSecondary || "")}" /></div>
-    <div class="field"><label>WhatsApp Number</label><input name="whatsapp" value="${escapeAttr(editing.whatsapp || editing.phone || "")}" /></div>
+    <div class="section-title full"><h3>Contact &amp; identification</h3></div>
     <div class="field"><label>Email</label><input name="email" type="email" value="${escapeAttr(editing.email || "")}" /></div>
-    <div class="field"><label>Region</label><input name="region" value="${escapeAttr(editing.region || "")}" /></div>
-    <div class="field"><label>District</label><input name="district" value="${escapeAttr(editing.district || "")}" /></div>
+    <div class="field"><label>Region</label>
+      <select name="region" id="customerRegionSelect">
+        ${regionSelectOptionsHtml(editing.region || "", escapeAttr)}
+      </select>
+    </div>
+    <div class="field"><label>District</label>
+      <select name="district" id="customerDistrictSelect">
+        ${districtSelectOptionsHtml(editing.region || "", editing.district || "", escapeAttr)}
+      </select>
+    </div>
     <div class="field"><label>Town / Community</label><input name="town" value="${escapeAttr(editing.town || "")}" /></div>
     <div class="field full"><label>Postal Address</label><input name="postalAddress" value="${escapeAttr(editing.postalAddress || "")}" /></div>
     <div class="field full"><label>Employer Address</label><input name="employerAddress" value="${escapeAttr(editing.employerAddress || "")}" /></div>
-    <div class="section-title full"><h3>Identification</h3></div>
     <div class="field"><label>ID Type</label><select name="idType">${optionList(ID_TYPES, editing.idType || "Ghana Card")}</select></div>
     <div class="field"><label>ID Number</label><input name="idNumber" value="${escapeAttr(editing.idNumber || editing.ghanaCard || "")}" /></div>
     <div class="field"><label>ID Expiry</label><input name="idExpiry" type="date" value="${escapeAttr(editing.idExpiry || "")}" /></div>
@@ -55,20 +60,6 @@ export function renderCustomerCrmFormExtras(editing = {}) {
     <div class="field"><label>Collection Route</label><input name="collectionRoute" value="${escapeAttr(editing.collectionRoute || "")}" /></div>
     <div class="field"><label>Membership Number</label><input name="membershipNumber" value="${escapeAttr(editing.membershipNumber || editing.customerNumber || "")}" placeholder="Auto if blank" /></div>
     <div class="field"><label>KYC Status</label><select name="kycStatus">${optionList(KYC_VERIFICATION, editing.kycStatus || "Pending")}</select></div>
-    <div class="field"><label>Next of Kin Occupation</label><input name="nextOfKinOccupation" value="${escapeAttr(editing.nextOfKinOccupation || "")}" /></div>
-    <div class="section-title full"><h3>Beneficiaries</h3></div>
-    <div id="beneficiaryRows" class="full">
-      ${beneficiaries.map((item) => `
-        <div class="crm-ben-row">
-          <input name="benName" placeholder="Name" value="${escapeAttr(item.name || "")}" />
-          <input name="benRelationship" placeholder="Relationship" value="${escapeAttr(item.relationship || "")}" />
-          <input name="benShare" type="number" min="0" max="100" placeholder="%" value="${escapeAttr(item.sharePercent || "")}" />
-          <input name="benPhone" placeholder="Phone" value="${escapeAttr(item.phone || "")}" />
-          <input name="benAddress" placeholder="Address" value="${escapeAttr(item.address || "")}" />
-        </div>
-      `).join("")}
-    </div>
-    <div class="form-actions full"><button class="btn ghost" type="button" id="addBeneficiaryRow">Add beneficiary</button></div>
   `;
 }
 
