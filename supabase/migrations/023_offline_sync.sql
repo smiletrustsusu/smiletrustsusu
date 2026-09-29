@@ -56,6 +56,16 @@ create table if not exists sync_queue (
   created_at timestamptz default now()
 );
 
+-- compat: table may already exist from an earlier migration (001_financial_core.sql).
+alter table public.sync_queue
+  add column if not exists kind text,
+  add column if not exists local_sequence integer,
+  add column if not exists server_sequence integer,
+  add column if not exists correlation_id text,
+  add column if not exists aggregate_id text,
+  add column if not exists agent_id text,
+  add column if not exists last_error text;
+
 create table if not exists sync_queue_items (
   id text primary key,
   queue_id text,

@@ -77,10 +77,10 @@ test("open/close registration session always clears draft", () => {
   assert.equal(local.getItem(CUSTOMER_REG_DRAFT_KEY), null);
 });
 
-test("app wires continuous register reset helpers", () => {
+test("app customers screen resets create session on login and navigation", () => {
   const app = readFileSync(join(root, "app.js"), "utf8");
-  assert.match(app, /prepareNextMemberRegistration/);
-  assert.match(app, /customerRegistrationDraftFromFormData/);
-  assert.match(app, /resetMemberRegistrationHardware/);
-  assert.doesNotMatch(app, /beneficiariesFromCustomerForm/);
+  assert.match(app, /resetCustomersUiForNavigation/);
+  assert.match(app, /prepareNextMemberRegistration\(\{ keepOpen: false \}\)/);
+  assert.match(app, /activeView !== "customers".*dash-fab|dash-fab[\s\S]*activeView !== "customers"/);
+  assert.match(app, /closeCustomerRegistrationSession\(sessionStorage, localStorage\)/);
 });

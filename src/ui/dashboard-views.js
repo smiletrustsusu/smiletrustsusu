@@ -27,7 +27,7 @@ function lineChart(rows, key = "collections") {
   const width = 640;
   const height = 200;
   const pad = { top: 16, right: 12, bottom: 28, left: 44 };
-  const max = Math.max(1, ...rows.map((row) => Number(row[key] ?? row.amount || 0)));
+  const max = Math.max(1, ...rows.map((row) => Number(row[key] ?? row.amount ?? 0)));
   const innerW = width - pad.left - pad.right;
   const innerH = height - pad.top - pad.bottom;
   const point = (index, value) => ({

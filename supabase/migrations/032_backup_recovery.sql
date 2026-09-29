@@ -89,6 +89,13 @@ create table if not exists retention_policies (
   annual integer
 );
 
+-- compat: table may already exist from an earlier migration (022_system_config.sql).
+alter table public.retention_policies
+  add column if not exists daily integer,
+  add column if not exists weekly integer,
+  add column if not exists monthly integer,
+  add column if not exists annual integer;
+
 create table if not exists backup_storage (
   id text primary key,
   business_id text,

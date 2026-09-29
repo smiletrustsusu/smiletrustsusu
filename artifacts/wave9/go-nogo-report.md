@@ -1,6 +1,6 @@
 # Wave 9 — Pilot Completion / Go-No-Go Report (Draft)
 
-**Generated:** 2026-09-16T20:52:11.164Z
+**Generated:** 2026-09-29T09:34:14.330Z
 **Run:** PILOT-SYNTH-001 (synthetic)
 **Decision:** Conditional
 **Ready for Wave 10:** conditional
@@ -48,5 +48,5 @@ Pilot/UAT framework is ready for executive review. Conditions remaining: busines
 1. Execute business UAT scenarios and record pass/fail + evidence.
 2. Complete training attendance and competency checklists.
 3. Perform pilot financial reconciliation and obtain Finance/PO sign-off.
-4. Executive Sponsor sets HA-EXEC to Approved (never auto-assumed).
-5. Proceed to Wave 10 only when conditions are cleared or formally accepted.
+4. Executive Sponsor records HA-EXEC / HA-W9-EXEC Full Go, Conditional Go, or No-Go (never auto-assumed) via docs/governance/wave9-executive-sponsor-execution-guide.md.
+5. Proceed to Wave 10 only when conditions are cleared or formally accepted — cutover remains blocked until real human approvals.

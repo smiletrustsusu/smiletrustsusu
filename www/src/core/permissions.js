@@ -11,39 +11,83 @@ export function customerAssignedToCollector(customer, collectorUserId) {
 
 const HQ_ROLES = ["SystemOwner", "KBA", "Developer", "ManagingDirector", "OperationsManager", "Accountant"];
 
+function customerInUserBranch(customer, user, groupIds = []) {
+  if (!customer || !user) return false;
+  if (groupIds.length && groupIds.includes(customer.groupId)) return true;
+  if (customer.branchId && user.branchId && customer.branchId === user.branchId) return true;
+  if (customer.groupId && user.groupId && customer.groupId === user.groupId) return true;
+  if (customer.branchId && user.groupId && customer.branchId === user.groupId) return true;
+  return false;
+}
+
+/** Collector / coordinator: own assigned members only (never other collectors’ books). */
+export function isCollectorScopedRole(user) {
+  return user?.role === "Collector" || user?.role === "GroupCoordinator";
+}
+
 export function filterCustomersForUser(customers = [], user, { groupIds = [] } = {}) {
   if (!user) return [];
   if (HQ_ROLES.includes(user.role)) return customers;
-  let scoped = customers.filter((customer) =>
-    groupIds.includes(customer.groupId)
-    || Boolean(customer.branchId && user.branchId && customer.branchId === user.branchId)
-  );
-  if (user.role === "Auditor" || user.role === "CustomerService" || user.role === "Cashier") return scoped;
-  if (user.role === "Collector" || user.role === "GroupCoordinator") {
-    scoped = scoped.filter((customer) => customerAssignedToCollector(customer, user.id));
+  if (isCollectorScopedRole(user)) {
+    const branchKeys = groupIds.length ? groupIds : [user.groupId, user.branchId].filter(Boolean);
+    return customers.filter((customer) => {
+      if (!customerAssignedToCollector(customer, user.id)) return false;
+      if (!branchKeys.length) return true;
+      return customerInUserBranch(customer, user, branchKeys);
+    });
   }
+  let scoped = customers.filter((customer) => customerInUserBranch(customer, user, groupIds));
+  if (user.role === "Auditor" || user.role === "CustomerService" || user.role === "Cashier") return scoped;
   return scoped;
+}
+
+export function filterCollectionsForUser(collections = [], user, { customers = [], groupIds = [] } = {}) {
+  if (!user) return [];
+  if (HQ_ROLES.includes(user.role)) return collections;
+  const visibleCustomerIds = new Set(
+    filterCustomersForUser(customers, user, { groupIds }).map((customer) => customer.id)
+  );
+  if (isCollectorScopedRole(user)) {
+    return collections.filter((item) => {
+      if (visibleCustomerIds.has(item.customerId)) return true;
+      return item.userId === user.id || item.collectorId === user.id;
+    }).filter((item) => {
+      if (!groupIds.length) return true;
+      return !item.groupId || groupIds.includes(item.groupId);
+    });
+  }
+  if (!groupIds.length) return collections;
+  return collections.filter((item) =>
+    visibleCustomerIds.has(item.customerId) || (item.groupId && groupIds.includes(item.groupId))
+  );
 }
 
 export function canAccessCustomer(customer, user, { groupIds = [] } = {}) {
   if (!customer || !user) return false;
   if (HQ_ROLES.includes(user.role)) return true;
-  const inGroup = groupIds.includes(customer.groupId);
-  const inBranch = Boolean(customer.branchId && user.branchId && customer.branchId === user.branchId);
-  if (!inGroup && !inBranch) return false;
+  if (!customerInUserBranch(customer, user, groupIds)) return false;
   if (["Admin", "Auditor", "Cashier", "CustomerService", "FieldSupervisor"].includes(user.role)) return true;
-  if (user.role === "Collector" || user.role === "GroupCoordinator") return customerAssignedToCollector(customer, user.id);
+  if (isCollectorScopedRole(user)) return customerAssignedToCollector(customer, user.id);
   return false;
 }
 
 export function canVerifyHandover(user, handover, state = {}) {
   if (!user || !handover) return false;
-  if (user.role === "SystemOwner" || user.role === "KBA" || user.role === "ManagingDirector") return true;
-  if (user.role === "Admin" || user.role === "OperationsManager" || user.role === "Cashier") {
-    if (handover.collectorId === user.id) return false;
-    if (user.role === "Cashier") return true;
-    if (state.settings?.assistantCanVerifyHandover === true) return true;
-    return false;
+  if (handover.collectorId === user.id) return false;
+  if (handover.status === "Received" || handover.status === "Verified") return false;
+
+  const receiverId = String(handover.receiverId || "").trim();
+  if (receiverId) {
+    if (user.id === receiverId) return true;
+    // Owners can still confirm if the assigned receiver is unavailable.
+    return ["SystemOwner", "KBA", "ManagingDirector"].includes(user.role);
+  }
+
+  // Legacy handovers with no assigned receiver.
+  if (["SystemOwner", "KBA", "ManagingDirector", "Accountant", "Cashier"].includes(user.role)) return true;
+  if (user.role === "Admin" || user.role === "OperationsManager") {
+    if (state.settings?.assistantCanVerifyHandover === false) return false;
+    return true;
   }
   return false;
 }

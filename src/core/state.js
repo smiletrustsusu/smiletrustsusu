@@ -172,12 +172,14 @@ function normalizeStateForMerge(data) {
 
 function applyUserTombstones(users = [], tombstones = []) {
   return users.filter((user) => {
-    if (user.role === "SystemOwner" || user.role === "KBA" || user.systemOwner === true) return true;
+    if (user.id === "u-owner" || user.id === "u-developer" || user.id === "u-superadmin") return true;
+    // Privileged roles only ignore name-based tombstones; deleting that exact account must stick.
+    const privileged = user.role === "SystemOwner" || user.role === "KBA" || user.systemOwner === true;
     const userTime = Date.parse(user.updatedAt || user.createdAt || 0);
     const tombstone = tombstones.find((item) => {
       const sameId = item.userId && item.userId === user.id;
       const sameName = item.username && String(item.username).toLowerCase() === String(user.username || "").toLowerCase();
-      return sameId || sameName;
+      return privileged ? sameId : sameId || sameName;
     });
     if (!tombstone) return true;
     const deletedTime = Date.parse(tombstone.deletedAt || tombstone.createdAt || 0);
@@ -203,9 +205,19 @@ function mergeUsers(localUsers = [], remoteUsers = []) {
     if (!user) return;
     const key = user.username ? `username:${String(user.username).toLowerCase()}` : `id:${user.id}`;
     const existing = merged.get(key);
-    merged.set(key, chooseUserRecord(existing, user));
+    const chosen = chooseUserRecord(existing, user);
+    if (existing && isPlaceholderHash(chosen.passwordHash)) {
+      const other = chosen === user ? existing : user;
+      const real = [user.passwordHash, existing.passwordHash, other.passwordHash].find((hash) => !isPlaceholderHash(hash));
+      if (real) chosen.passwordHash = real;
+    }
+    merged.set(key, chosen);
   });
   return Array.from(merged.values());
+}
+
+function isPlaceholderHash(hash) {
+  return !hash || hash === "[protected]" || hash === "[local-only]";
 }
 
 function chooseUserRecord(a, b) {

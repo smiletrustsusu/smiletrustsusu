@@ -1,14 +1,14 @@
 {
   "schemaVersion": "smile-trust-prod-readiness/1.1",
-  "generatedAtUtc": "2026-09-20T20:59:23.214Z",
-  "runTests": true,
+  "generatedAtUtc": "2026-09-29T09:34:23.673Z",
+  "runTests": false,
   "runTestsDefault": false,
   "runTestsHint": "Default skips npm test (Partial). Pass --run-tests to execute the suite for a Ready tests row.",
   "note": "Read-only dashboard. Does not flip HA-* gates, invent certs, or deploy.",
   "checks": {
     "tests": {
-      "status": "Ready",
-      "detail": "npm test exit 0"
+      "status": "Partial",
+      "detail": "113 test files present (default skips execution; pass --run-tests to execute npm test)"
     },
     "rc1Evidence": {
       "status": "Ready",
@@ -45,12 +45,12 @@
       "detail": "debug present (android/app/build/outputs/apk/debug/app-debug.apk); release APK absent (org keystore)"
     },
     "signingEnv": {
-      "status": "Blocked",
-      "detail": "No SMILE_ANDROID_* / CSC_* / SMILE_UPDATE_FEED_URL (do not invent certs)"
+      "status": "Partial",
+      "detail": "Android signing path available; CSC_* missing; SMILE_UPDATE_FEED_URL unset"
     },
     "gitRemote": {
-      "status": "Blocked",
-      "detail": "not a git repo / .git missing"
+      "status": "Partial",
+      "detail": "origin\thttps://github.com/smiletrustsusu/smiletrustsusu.git (fetch)"
     },
     "migrationsDoc": {
       "status": "Ready",
@@ -78,8 +78,8 @@
     }
   },
   "counts": {
-    "ready": 7,
-    "partial": 2,
-    "blocked": 3
+    "ready": 6,
+    "partial": 5,
+    "blocked": 1
   }
 }

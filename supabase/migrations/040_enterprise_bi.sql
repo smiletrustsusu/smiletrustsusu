@@ -56,6 +56,23 @@ create table if not exists kpi_definitions (
   created_at timestamptz default now()
 );
 
+-- compat: table may already exist from an earlier migration (016_report_ops.sql).
+alter table public.kpi_definitions
+  add column if not exists kpi_id text,
+  add column if not exists kpi_code text,
+  add column if not exists kpi_name text,
+  add column if not exists purpose text,
+  add column if not exists input_metrics jsonb,
+  add column if not exists aggregation_period text,
+  add column if not exists unit_of_measure text,
+  add column if not exists rounding_rule text,
+  add column if not exists missing_data_policy text,
+  add column if not exists owner_module text,
+  add column if not exists version text,
+  add column if not exists status text,
+  add column if not exists effective_from timestamptz,
+  add column if not exists created_at timestamptz default now();
+
 create table if not exists kpi_definition_history (
   id text primary key,
   business_id text,

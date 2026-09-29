@@ -135,6 +135,37 @@ export function canDeleteUserAccount(actor, target) {
   return isSystemOwnerUser(actor) || isSuperAdminUser(actor);
 }
 
+/**
+ * Who may see a staff/collector login password hint on the Staff list (without Edit).
+ * System Owner (JOHN) and Super Admin / KBA only — never collectors viewing peers.
+ * KBA developer row stays hidden from JOHN via canActorSeeUserAccount.
+ */
+export function canViewStaffLoginPassword(actor, target) {
+  if (!actor || !target) return false;
+  if (!canActorSeeUserAccount(actor, target)) return false;
+  if (isSystemDeveloperAccount(target) && isSystemOwnerUser(actor)) return false;
+  if (isSystemOwnerUser(actor)) return true;
+  if (isSuperAdminUser(actor)) return true;
+  return false;
+}
+
+/** Prefer displayable hint / demo plaintext; never invent hashes as passwords. */
+export function staffLoginPasswordDisplay(user) {
+  if (!user) return "";
+  const hint = String(user.loginPasswordHint || "").trim();
+  if (hint) return hint;
+  const plain = String(user.password || "").trim();
+  if (plain && !plain.startsWith("$") && !plain.startsWith("kba-")) return plain;
+  return "";
+}
+
+export function setStaffLoginPasswordHint(user, plainPassword) {
+  if (!user) return user;
+  const value = String(plainPassword || "").trim();
+  if (value) user.loginPasswordHint = value;
+  return user;
+}
+
 export function canTransferOwnership(actor) {
   return isSystemOwnerUser(actor);
 }

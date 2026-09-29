@@ -10,8 +10,8 @@
     "enterpriseFeaturesNote": "Notifications/monitoring/AI/BCDR catalogs remain Phase 12–18 SoT; Wave 9 executes pilot/UAT/ops readiness over Waves 1–8 + RC1",
     "productionCertNote": "Full CERT-001 / live production promote remains WAVE-10"
   },
-  "startedAt": "2026-09-16T20:52:11.139Z",
-  "finishedAt": "2026-09-16T20:52:11.164Z",
+  "startedAt": "2026-09-29T09:34:14.248Z",
+  "finishedAt": "2026-09-29T09:34:14.330Z",
   "claim": {
     "frameworkReady": true,
     "livePilotExecuted": false,
@@ -162,7 +162,7 @@
         "passFail": "pass",
         "evidence": "docs/release-evidence/rc1-evidence.json",
         "executedBy": "wave9-synthetic-seeder",
-        "executedAt": "2026-09-16T20:52:11.139Z",
+        "executedAt": "2026-09-29T09:34:14.248Z",
         "approver": null,
         "approverStatus": "PendingHumanSignOff",
         "notes": "Technical auto-pass only; business UAT sign-off still required",
@@ -366,7 +366,7 @@
         "passFail": "pass",
         "evidence": "docs/release-evidence/rc1-evidence.json",
         "executedBy": "wave9-synthetic-seeder",
-        "executedAt": "2026-09-16T20:52:11.139Z",
+        "executedAt": "2026-09-29T09:34:14.248Z",
         "approver": null,
         "approverStatus": "PendingHumanSignOff",
         "notes": "Technical auto-pass only; business UAT sign-off still required",
@@ -383,7 +383,7 @@
         "passFail": "pass",
         "evidence": "docs/release-evidence/rc1-evidence.json",
         "executedBy": "wave9-synthetic-seeder",
-        "executedAt": "2026-09-16T20:52:11.139Z",
+        "executedAt": "2026-09-29T09:34:14.248Z",
         "approver": null,
         "approverStatus": "PendingHumanSignOff",
         "notes": "Technical auto-pass only; business UAT sign-off still required",
@@ -434,7 +434,7 @@
         "passFail": "pass",
         "evidence": "docs/release-evidence/rc1-evidence.json",
         "executedBy": "wave9-synthetic-seeder",
-        "executedAt": "2026-09-16T20:52:11.139Z",
+        "executedAt": "2026-09-29T09:34:14.248Z",
         "approver": null,
         "approverStatus": "PendingHumanSignOff",
         "notes": "Technical auto-pass only; business UAT sign-off still required",
@@ -451,7 +451,7 @@
         "passFail": "pass",
         "evidence": "docs/release-evidence/rc1-evidence.json",
         "executedBy": "wave9-synthetic-seeder",
-        "executedAt": "2026-09-16T20:52:11.139Z",
+        "executedAt": "2026-09-29T09:34:14.248Z",
         "approver": null,
         "approverStatus": "PendingHumanSignOff",
         "notes": "Technical auto-pass only; business UAT sign-off still required",
@@ -468,7 +468,7 @@
         "passFail": "pass",
         "evidence": "docs/release-evidence/rc1-evidence.json",
         "executedBy": "wave9-synthetic-seeder",
-        "executedAt": "2026-09-16T20:52:11.139Z",
+        "executedAt": "2026-09-29T09:34:14.248Z",
         "approver": null,
         "approverStatus": "PendingHumanSignOff",
         "notes": "Technical auto-pass only; business UAT sign-off still required",
@@ -485,7 +485,7 @@
         "passFail": "pass",
         "evidence": "docs/release-evidence/rc1-evidence.json",
         "executedBy": "wave9-synthetic-seeder",
-        "executedAt": "2026-09-16T20:52:11.139Z",
+        "executedAt": "2026-09-29T09:34:14.248Z",
         "approver": null,
         "approverStatus": "PendingHumanSignOff",
         "notes": "Technical auto-pass only; business UAT sign-off still required",
@@ -920,7 +920,7 @@
       "severity": "Enhancement",
       "title": "Add printable pilot attendance sheet",
       "status": "open",
-      "createdAt": "2026-09-16T20:52:11.139Z"
+      "createdAt": "2026-09-29T09:34:14.248Z"
     }
   ],
   "issueRegister": [
@@ -930,7 +930,7 @@
       "title": "Live branch UAT not yet executed",
       "status": "open",
       "blocking": false,
-      "createdAt": "2026-09-16T20:52:11.139Z",
+      "createdAt": "2026-09-29T09:34:14.248Z",
       "note": "Expected — framework delivery only"
     }
   ],
@@ -1157,6 +1157,8 @@
     "mandatoryUatCount": 21,
     "opsCheckCount": 10,
     "trainingTrackCount": 6,
+    "reconChecklistCount": 8,
+    "securityChecklistCount": 9,
     "envCheckCount": 10,
     "goLiveDimensionCount": 10
   },
@@ -1165,6 +1167,12 @@
     "pilotDoc": "docs/wave9-pilot-uat.md",
     "uatPack": "docs/wave9-uat-pack.md",
     "training": "docs/wave9-training-package.md",
+    "reconGuide": "docs/reconciliation/wave9-financial-recon-execution-guide.md",
+    "reconRunSheet": "docs/release-evidence/wave9-recon-run-sheet.json",
+    "securityGuide": "docs/security/wave9-security-acceptance-execution-guide.md",
+    "securityRunSheet": "docs/release-evidence/wave9-security-run-sheet.json",
+    "executiveGuide": "docs/governance/wave9-executive-sponsor-execution-guide.md",
+    "executiveRunSheet": "docs/release-evidence/wave9-executive-run-sheet.json",
     "goNoGoReport": "docs/wave9-go-nogo-report.md"
   }
 }

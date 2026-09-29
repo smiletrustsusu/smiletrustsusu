@@ -37,6 +37,8 @@
     "android:ensure": "node scripts/ensure-android-platform.js",
     "precap:sync": "npm run prepare:web",
     "cap:sync": "cap sync android",
+    "postcap:sync": "node scripts/downlevel-android-assets.js",
+    "downlevel:android": "node scripts/downlevel-android-assets.js",
     "android:open": "cap open android",
     "prebuild:apk": "npm run prepare:web && npm run cap:sync",
     "build:apk": "node scripts/build-apk.js",
@@ -48,6 +50,7 @@
     "prebuild:apk:release": "npm run prepare:web && npm run cap:sync && npm run setup:android-signing",
     "build:apk:release": "node scripts/build-apk.js release"
   },
+
   "build": {
     "appId": "com.smiletrust.susu",
     "productName": "SMILE TRUST SUSU MANAGEMENT SYSTEM",
@@ -123,6 +126,7 @@
   "devDependencies": {
     "electron": "^37.2.6",
     "electron-builder": "^26.0.12",
+    "esbuild": "^0.25.0",
     "rcedit": "^5.0.2",
     "to-ico": "^1.1.5"
   }

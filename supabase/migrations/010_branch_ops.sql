@@ -26,8 +26,8 @@ alter table if exists branches
 
 create table if not exists branch_targets (
   id text primary key,
-  business_id text,
-  branch_id text not null references branches(id) on delete cascade,
+  business_id uuid references public.businesses(id) on delete cascade,
+  branch_id uuid not null references public.branches(id) on delete cascade,
   monthly_collection numeric,
   loan_recovery numeric,
   customer_acquisition numeric,
@@ -74,8 +74,8 @@ create table if not exists branch_calendar (
 
 create table if not exists branch_documents (
   id text primary key,
-  business_id text,
-  branch_id text not null references branches(id) on delete cascade,
+  business_id uuid references public.businesses(id) on delete cascade,
+  branch_id uuid not null references public.branches(id) on delete cascade,
   doc_type text,
   reference text,
   file_name text,

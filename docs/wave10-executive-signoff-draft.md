@@ -1,6 +1,6 @@
 # Wave 10 — Executive Sign-Off Package (Draft)
 
-**Generated:** 2026-09-16T21:27:41.535Z
+**Generated:** 2026-09-29T09:35:07.372Z
 **Decision:** FrameworkReady
 
 > Automated draft. Executive Sign-Off remains **PendingHumanSignOff** until Accountable Authority records approval. Framework ≠ production live.

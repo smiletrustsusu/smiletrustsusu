@@ -57,6 +57,13 @@ function main() {
   status = runNode("scripts/ensure-android-platform.js");
   if (status !== 0) process.exit(status);
 
+  // Brand launcher icons (mipmap + PWA) after android/ exists so mipmaps land in res/
+  status = runNpm(["run", "generate:icons"]);
+  if (status !== 0) process.exit(status);
+
+  status = runNpm(["run", "prepare:web"]);
+  if (status !== 0) process.exit(status);
+
   status = runNpm(["run", "cap:sync"]);
   if (status !== 0) process.exit(status);
 

@@ -69,9 +69,19 @@ function findReleaseApk() {
   return null;
 }
 
+// Only the storeFile key is read; passwords in keystore.properties are never loaded here.
+function configuredKeystoreRel() {
+  const fallback = "android/smile-trust-release.keystore";
+  if (!exists("android/keystore.properties")) return fallback;
+  const text = fs.readFileSync(path.join(root, "android/keystore.properties"), "utf8");
+  const line = text.split(/\r?\n/).find((item) => /^\s*storeFile\s*=/.test(item));
+  const storeFile = line ? line.slice(line.indexOf("=") + 1).trim() : "";
+  return storeFile ? path.posix.join("android", storeFile.replace(/\\/g, "/")) : fallback;
+}
+
 function assessReleaseSigning() {
   const props = exists("android/keystore.properties");
-  const keystore = exists("android/smile-trust-release.keystore");
+  const keystore = exists(configuredKeystoreRel());
   const storePassword = Boolean(process.env.SMILE_ANDROID_STORE_PASSWORD);
   const allowLocal = process.env.SMILE_ANDROID_ALLOW_LOCAL_KEYSTORE === "1";
   const external = process.env.SMILE_ANDROID_KEYSTORE_FILE || "";
@@ -102,6 +112,8 @@ for (const script of [
   "prepare:web",
   "cap:add:android",
   "cap:sync",
+  "postcap:sync",
+  "downlevel:android",
   "build:apk",
   "build:apk:release",
   "setup:android-signing",
@@ -117,6 +129,7 @@ for (const script of [
 if (!exists("android/README.md")) errors.push("Missing android/README.md");
 if (!exists("scripts/ensure-android-platform.js")) errors.push("Missing scripts/ensure-android-platform.js");
 if (!exists("scripts/pilot-android.js")) errors.push("Missing scripts/pilot-android.js");
+if (!exists("scripts/downlevel-android-assets.js")) errors.push("Missing scripts/downlevel-android-assets.js");
 notes.push("plugins-src optional stubs present=" + exists("android/plugins-src"));
 
 const sdk = resolveSdkRoot();

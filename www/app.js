@@ -148,7 +148,11 @@ import {
   verifyHandover,
   expectedCashForCollector,
   channelTotalsForCollector,
-  handoverExceptions
+  handoverExceptions,
+  listHandoverReceivers,
+  pendingHandoversForReceiver,
+  handoverStatusLabel,
+  handoverIsConfirmed
 } from "./src/core/handover.js";
 import { buildExceptionReport, recordException } from "./src/core/exceptions.js";
 import { pendingQueueItems } from "./src/sync/offline-queue.js";
@@ -395,7 +399,7 @@ import {
   validateMemberRegistrationPayload
 } from "./src/core/customer-wizard.js";
 import { enqueueCustomerRegistrationSms } from "./src/core/customer-registration-notify.js";
-import { compressMemberMediaBundle, isStorageQuotaError, reclaimCustomerMediaSpace } from "./src/core/media-compress.js";
+import { compressMemberMediaBundle, isStorageQuotaError, reclaimCustomerMediaSpace, shrinkStateMedia } from "./src/core/media-compress.js";
 import { districtSelectOptionsHtml } from "./src/core/ghana-geo.js";
 import {
   createWithdrawalRequest,
@@ -933,7 +937,7 @@ import {
   recordMeetingLine,
   finalizeMeetingTotals
 } from "./src/core/group-meetings.js";
-import { findPortalCustomer, verifyPortalPin, canCustomerRequestWithdrawal, ensureDefaultPortalCredentials, portalPinFromPhone } from "./src/core/customer-portal.js";
+import { findPortalCustomer, verifyPortalPin, canCustomerRequestWithdrawal, ensureDefaultPortalCredentials, portalPinFromPhone, setPortalPin, portalAccountBalance } from "./src/core/customer-portal.js";
 import { qrSvg, barcodeSvg } from "./src/core/receipt-codes.js";
 import {
   renderExpenses,
@@ -1350,7 +1354,8 @@ async function findLoginUser(username, password) {
   if (user.role === "Developer" && !developerLoginAllowed(state)) return null;
   if (user.passwordHash?.startsWith("kba-")) {
     user.passwordHash = await hashPassword(password);
-    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    user.updatedAt = new Date().toISOString();
+    saveState();
   }
   if (isDefaultSystemAccount(user) && [DEFAULT_SYSTEM_OWNER.password, DEFAULT_SUPER_ADMIN.password, getDefaultKbaPassword(), getDefaultDeveloperPassword()].includes(password)) {
     user.mustChangePassword = true;
@@ -1518,8 +1523,24 @@ function normalizeState(data) {
   normalized.transactions = applyRecordTombstones(normalized.transactions || [], normalized.deletedRecords, "transactions");
   normalized.messages = applyRecordTombstones(normalized.messages || [], normalized.deletedRecords, "messages");
   normalized.susuGroups = applyRecordTombstones(normalized.susuGroups, normalized.deletedRecords, "susuGroups");
-  localStorage.setItem(STORE_KEY, JSON.stringify(normalized));
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(normalized));
+  } catch (error) {
+    // Callers persist again after shrinking media; a full quota must not discard merged data.
+    if (!isStorageQuotaError(error)) throw error;
+  }
   return normalized;
+}
+
+async function persistStateWithMediaShrink({ keepCustomerId = "" } = {}) {
+  await shrinkStateMedia(state);
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  } catch (error) {
+    if (!isStorageQuotaError(error)) throw error;
+    reclaimCustomerMediaSpace(state, { keepCustomerId });
+    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  }
 }
 
 function saveState(options = {}) {
@@ -1529,13 +1550,10 @@ function saveState(options = {}) {
     write();
   } catch (error) {
     if (!isStorageQuotaError(error)) throw error;
-    reclaimCustomerMediaSpace(state, { keepCustomerId: options.keepCustomerId || "" });
-    try {
-      write();
-    } catch (retryError) {
-      if (!isStorageQuotaError(retryError)) throw retryError;
-      throw new Error("Device storage is full. Free space or remove old member photos, then try again.");
-    }
+    const keepCustomerId = options.keepCustomerId || "";
+    persistStateWithMediaShrink({ keepCustomerId }).catch(() => {
+      toast("Could not save on this device. Tap Sync now so your changes reach the cloud.");
+    });
   }
   localSavePending = true;
   queueCloudBackup();
@@ -1919,9 +1937,9 @@ function renderMobileHandoverCards(rows = (state.handovers || []).slice().revers
           <div class="mobile-data-card-head">
             <div>
               <strong>${escapeHtml(userName(row.collectorId))}</strong>
-              <div class="muted">${row.date}</div>
+              <div class="muted">${row.date} · to ${escapeHtml(row.receiverName || userName(row.receiverId) || "—")}</div>
             </div>
-            <span class="pill ${row.status === "Verified" ? "" : "warn"}">${escapeHtml(row.status)}</span>
+            <span class="pill ${handoverIsConfirmed(row) ? "" : "warn"}">${escapeHtml(handoverStatusLabel(row.status))}</span>
           </div>
           <div class="mobile-data-card-meta">
             <div class="mobile-data-card-row"><span>Expected</span><span>${money(row.expectedCash)}</span></div>
@@ -1929,6 +1947,11 @@ function renderMobileHandoverCards(rows = (state.handovers || []).slice().revers
             <div class="mobile-data-card-row"><span>Counted</span><span>${money(row.countedCash ?? 0)}</span></div>
             <div class="mobile-data-card-row"><span>MoMo</span><span>${money(row.momoTotal || 0)}</span></div>
           </div>
+          ${canVerifyHandover(currentUser(), row, state) && row.status === "Submitted" ? `
+            <div class="mobile-data-card-actions">
+              <button class="btn collector-action-btn" type="button" data-focus-handover="${row.id}">Confirm received</button>
+            </div>
+          ` : ""}
         </article>
       `).join("")}
     </div>
@@ -2177,6 +2200,7 @@ function attachMobileNavHandlers() {
         return;
       }
       mobileMoreOpen = false;
+      resetCustomersUiForNavigation(key);
       activeView = key;
       render();
     });
@@ -2500,12 +2524,13 @@ function normalizeStateForMerge(data) {
 function applyUserTombstones(users = [], tombstones = []) {
   return users.filter((user) => {
     if (user.id === "u-owner" || user.id === "u-developer" || user.id === SUPER_ADMIN_ID) return true;
-    if (user.role === "SystemOwner" || user.role === "KBA" || user.role === "Developer" || user.systemOwner) return true;
+    // Privileged roles only ignore name-based tombstones; deleting that exact account must stick.
+    const privileged = user.role === "SystemOwner" || user.role === "KBA" || user.role === "Developer" || user.systemOwner;
     const userTime = Date.parse(user.updatedAt || user.createdAt || 0);
     const tombstone = tombstones.find((item) => {
       const sameId = item.userId && item.userId === user.id;
       const sameName = item.username && String(item.username).toLowerCase() === String(user.username || "").toLowerCase();
-      return sameId || sameName;
+      return privileged ? sameId : sameId || sameName;
     });
     if (!tombstone) return true;
     const deletedTime = Date.parse(tombstone.deletedAt || tombstone.createdAt || 0);
@@ -2864,6 +2889,24 @@ function clearSensitiveOfflineCache() {
   sessionStorage.removeItem("edit_loan_id");
   sessionStorage.removeItem("edit_user_id");
   sessionStorage.removeItem("permissions_user_id");
+  try {
+    closeCustomerRegistrationSession(sessionStorage, localStorage);
+  } catch { /* ignore */ }
+  resetMemberRegistrationHardware();
+}
+
+function resetCustomersUiForNavigation(nextView = "") {
+  const leavingCustomers = activeView === "customers" || activeView === "memberDetail";
+  const stayingOnCustomers = nextView === "customers" || nextView === "memberDetail";
+  if (leavingCustomers && !stayingOnCustomers) {
+    closeCustomerRegistrationSession(sessionStorage, localStorage);
+    resetMemberRegistrationHardware();
+  }
+  if (nextView === "customers" && activeView !== "customers") {
+    // Opening Customers after login / other screens: always land on the member list.
+    closeCustomerRegistrationSession(sessionStorage, localStorage);
+    resetMemberRegistrationHardware();
+  }
 }
 
 function currentUser() {
@@ -3510,6 +3553,7 @@ function resolvedColorMode() {
 }
 
 function render() {
+  syncToApp();
   const colorMode = resolvedColorMode();
   const collectorMode = isCollector() ? " collector-mode" : "";
   const mobileLayout = isMobileLayout() ? " layout-mobile" : "";
@@ -3532,6 +3576,7 @@ function render() {
         renderPortalShell(customer);
         return;
       }
+      sessionStorage.removeItem(PORTAL_CUSTOMER_KEY);
     }
     renderLogin();
     return;
@@ -3593,10 +3638,10 @@ function renderLogin() {
         </div>
         <div data-auth-panel="portal" style="display:none">
           <h2>Member portal</h2>
-          <p class="muted">Sign in with your account number and PIN. Default PIN is the last 4 digits of your phone number.</p>
+          <p class="muted">Sign in with your <strong>account number</strong> and <strong>PIN</strong>. Default PIN = last 4 digits of your phone (example: phone 0241234567 → PIN 4567).</p>
           <form id="portalLoginForm">
-            <div class="field"><label>Account number</label><input id="portalAccountNo" required autocomplete="username" /></div>
-            <div class="field"><label>PIN</label><input id="portalPin" type="password" required inputmode="numeric" /></div>
+            <div class="field"><label>Account number or phone</label><input id="portalAccountNo" required autocomplete="username" autocapitalize="none" placeholder="c13000001 or 0241234567" /></div>
+            <div class="field"><label>PIN</label><input id="portalPin" type="password" required inputmode="numeric" maxlength="6" placeholder="Last 4 of phone" /></div>
             <div class="form-actions" style="margin-top:18px"><button class="btn" type="submit">Open portal</button></div>
             <div id="portalLoginError"></div>
           </form>
@@ -3718,6 +3763,10 @@ function renderLogin() {
       localStorage.removeItem(REMEMBER_LOGIN_KEY);
     }
     activeView = "dashboard";
+    try {
+      closeCustomerRegistrationSession(sessionStorage, localStorage);
+      resetMemberRegistrationHardware();
+    } catch { /* ignore */ }
     render();
   });
   document.querySelector("#adminRequestForm").addEventListener("submit", handleAdminRequest);
@@ -3918,7 +3967,7 @@ function renderApp() {
     </div>
     ${renderMobileBottomNav()}
     ${renderMobileMoreSheet()}
-    ${canAccessView("collections") ? `<button class="dash-fab" type="button" data-view-jump="collections" aria-label="Collect savings">＋</button>` : ""}
+    ${canAccessView("collections") && activeView !== "customers" ? `<button class="dash-fab" type="button" data-view-jump="collections" aria-label="Collect savings">＋</button>` : ""}
     <div class="dash-notify-drawer" id="dashNotifyDrawer" hidden>
       <div class="section-title"><h2>Notifications</h2><button class="btn ghost" type="button" data-view-jump="notifications">View all</button></div>
       <div id="dashNotifyList">${renderNotificationDrawer((state.notifications || []).filter((item) => !item.deleted).slice().reverse())}</div>
@@ -3929,7 +3978,9 @@ function renderApp() {
     button.addEventListener("click", () => {
       mobileMoreOpen = false;
       mobileDrawerOpen = false;
-      activeView = button.dataset.view;
+      const nextView = button.dataset.view;
+      resetCustomersUiForNavigation(nextView);
+      activeView = nextView;
       render();
     });
   });
@@ -5730,6 +5781,9 @@ function setPassportPhotoPreview(scope, src) {
 }
 
 function attachPassportPhotoHandlers(scope = "member") {
+  const root = document.querySelector(`[data-passport-scope="${scope}"]`);
+  if (!root || root.dataset.passportHandlersBound === "1") return;
+  root.dataset.passportHandlersBound = "1";
   const input = document.querySelector(`#${scope}PassportPhotoInput`);
   const panel = document.querySelector(`#${scope}PassportCameraPanel`);
   const video = document.querySelector(`#${scope}PassportCameraVideo`);
@@ -9719,31 +9773,87 @@ function renderDailyInputLogTable(rows = dailyInputLogRows()) {
   return mobileTableWrap(renderMobileDailyInputLogCards(rows), tableHtml);
 }
 
+function handoverReceiverSelect(name, selectedId = "", { collectorId = "", groupId = "" } = {}) {
+  const receivers = listHandoverReceivers(state.users || [], {
+    excludeUserId: collectorId || currentUser()?.id || "",
+    groupId: groupId || primaryGroup()?.id || ""
+  });
+  if (!receivers.length) {
+    return `<select name="${name}" required disabled><option value="">No Manager / Accountant available — ask owner to create one</option></select>`;
+  }
+  return `<select name="${name}" required>
+    <option value="">Select who receives the cash</option>
+    ${receivers.map((user) => `<option value="${escapeAttr(user.id)}" ${user.id === selectedId ? "selected" : ""}>${escapeHtml(user.name)} · ${escapeHtml(roleLabel(user.role))}</option>`).join("")}
+  </select>`;
+}
+
 function renderHandover() {
   const date = sessionStorage.getItem("handover_date") || today();
   const user = currentUser();
-  const collectorId = isCollector() ? user.id : sessionStorage.getItem("handover_collector_id") || state.users.find((item) => item.role === "Collector" && item.active)?.id || "";
-  const groupId = isCollector() ? user.groupId : state.users.find((item) => item.id === collectorId)?.groupId || "";
+  const focusId = sessionStorage.getItem("handover_focus_id") || "";
+  const collectorId = isCollector()
+    ? user.id
+    : sessionStorage.getItem("handover_collector_id") || state.users.find((item) => item.role === "Collector" && item.active)?.id || "";
+  const groupId = isCollector()
+    ? (user.groupId || primaryGroup()?.id || "")
+    : (state.users.find((item) => item.id === collectorId)?.groupId || primaryGroup()?.id || "");
   const channels = channelTotalsForCollector(state, collectorId, date, { collections: visibleCollections() });
   const expected = expectedCashForCollector(state, collectorId, date, {
     collections: visibleCollections(),
     verificationStatus: (item) => collectionVerificationStatus(item)
   });
   const existing = (state.handovers || []).find((item) => item.collectorId === collectorId && item.date === date);
-  const canSubmit = isCollector() && user.id === collectorId;
-  const canVerify = existing && canVerifyHandover(user, existing, state);
+  const canSubmit = isCollector() && user.id === collectorId && (!existing || !handoverIsConfirmed(existing));
+  const pendingForMe = pendingHandoversForReceiver(state.handovers || [], user.id);
+  const verifyTarget = focusId
+    ? (state.handovers || []).find((item) => item.id === focusId)
+    : (pendingForMe[0] || (existing && canVerifyHandover(user, existing, state) ? existing : null));
+  const canVerify = verifyTarget && canVerifyHandover(user, verifyTarget, state) && verifyTarget.status === "Submitted";
+  const receivers = listHandoverReceivers(state.users || [], { excludeUserId: collectorId, groupId });
   return `
+    ${!isCollector() && pendingForMe.length ? `
+    <div class="panel notice good" style="margin-bottom:18px">
+      <div class="section-title"><h2>Pending cash to confirm (${pendingForMe.length})</h2></div>
+      <p class="muted">Collectors handed cash to you. Confirm the amount you received.</p>
+      <div class="mobile-card-list">
+        ${pendingForMe.map((row) => `
+          <article class="mobile-data-card">
+            <div class="mobile-data-card-head">
+              <div>
+                <strong>${escapeHtml(userName(row.collectorId))}</strong>
+                <div class="muted">${row.date}</div>
+              </div>
+              <strong>${money(row.declaredCash)}</strong>
+            </div>
+            <div class="mobile-data-card-actions">
+              <button class="btn collector-action-btn" type="button" data-focus-handover="${row.id}">Confirm received</button>
+            </div>
+          </article>
+        `).join("")}
+      </div>
+    </div>` : ""}
     <div class="grid two">
       <div class="panel">
         <div class="section-title"><h2>Daily Cash Handover</h2></div>
-        <p class="muted">Submit the cash physically handed to the Manager at end of day. Electronic channels are reconciled separately.</p>
+        <p class="muted">${isCollector()
+          ? "Choose the Manager, Operations Manager, Accountant, or Cashier who is receiving your cash, then submit the amount."
+          : "Collectors submit cash to a responsible receiver. Confirm receipt when the cash reaches you."}</p>
+        ${!receivers.length && isCollector() ? `<div class="notice warn">No handover receiver is set up yet. Ask the owner to create a Branch Manager, Operations Manager, Accountant, or Cashier account.</div>` : ""}
         <form id="handoverForm" class="form-grid">
           <div class="field"><label>Date</label><input name="date" type="date" value="${date}" required ${canSubmit ? "" : "readonly"} /></div>
           ${!isCollector() ? `<div class="field full"><label>Collector</label>${collectorSelect("collectorId", collectorId)}</div>` : `<input type="hidden" name="collectorId" value="${escapeAttr(collectorId)}" />`}
+          <div class="field full"><label>Hand over to</label>
+            ${canSubmit
+              ? handoverReceiverSelect("receiverId", existing?.receiverId || "", { collectorId, groupId })
+              : `<input readonly value="${escapeAttr(existing?.receiverName || userName(existing?.receiverId) || "—")}" />`}
+          </div>
           <div class="field"><label>Expected Cash (Verified)</label><input readonly value="${expected.toFixed(2)}" /></div>
           <div class="field"><label>Cash Declared / Handed Over</label><input name="declaredCash" type="number" min="0" step="0.01" value="${existing?.declaredCash ?? ""}" required ${canSubmit ? "" : "readonly"} /></div>
           <div class="field full"><label>Note</label><textarea name="note" ${canSubmit ? "" : "readonly"}>${escapeHtml(existing?.note || "")}</textarea></div>
-          ${canSubmit ? `<div class="form-actions full ${isMobileLayout() ? "collection-sticky-actions" : ""}"><button class="btn collector-action-btn" type="submit">${existing ? "Update handover" : "Submit handover"}</button></div>` : ""}
+          ${canSubmit ? `<div class="form-actions full ${isMobileLayout() ? "collection-sticky-actions" : ""}"><button class="btn collector-action-btn" type="submit" ${receivers.length ? "" : "disabled"}>${existing ? "Update handover" : "Submit handover"}</button></div>` : ""}
+          ${existing && isCollector() ? `<div class="notice ${handoverIsConfirmed(existing) ? "good" : "warn"}">${handoverIsConfirmed(existing)
+            ? `Confirmed received by ${escapeHtml(userName(existing.verifiedBy) || existing.receiverName || "receiver")} · ${money(existing.countedCash ?? existing.declaredCash)}`
+            : `Awaiting confirmation from ${escapeHtml(existing.receiverName || userName(existing.receiverId) || "receiver")}`}</div>` : ""}
         </form>
       </div>
       <div class="panel">
@@ -9754,23 +9864,24 @@ function renderHandover() {
           <div><span>Bank Transfer</span><strong>${money(channels["Bank Transfer"] || 0)}</strong></div>
           <div><span>POS / Card</span><strong>${money(channels["POS/Card"] || 0)}</strong></div>
         </div>
-        ${existing ? `
-          <div class="section-title" style="margin-top:16px"><h3>Manager Verification</h3></div>
+        ${verifyTarget ? `
+          <div class="section-title" style="margin-top:16px"><h3>Confirm cash received</h3></div>
           <div class="calc-list">
-            <div><span>Status</span><strong>${escapeHtml(existing.status)}</strong></div>
-            <div><span>Declared cash</span><strong>${money(existing.declaredCash)}</strong></div>
-            <div><span>Counted cash</span><strong>${money(existing.countedCash ?? 0)}</strong></div>
-            <div><span>Difference</span><strong>${money(Number(existing.countedCash ?? existing.declaredCash ?? 0) - expected)}</strong></div>
+            <div><span>Collector</span><strong>${escapeHtml(userName(verifyTarget.collectorId))}</strong></div>
+            <div><span>Handed to</span><strong>${escapeHtml(verifyTarget.receiverName || userName(verifyTarget.receiverId) || "—")}</strong></div>
+            <div><span>Status</span><strong>${escapeHtml(handoverStatusLabel(verifyTarget.status))}</strong></div>
+            <div><span>Declared cash</span><strong>${money(verifyTarget.declaredCash)}</strong></div>
+            <div><span>Counted cash</span><strong>${money(verifyTarget.countedCash ?? 0)}</strong></div>
           </div>
-          ${canVerify && existing.status === "Submitted" ? `
+          ${canVerify ? `
             <form id="verifyHandoverForm" class="form-grid" style="margin-top:16px">
-              <input type="hidden" name="handoverId" value="${existing.id}" />
-              <div class="field"><label>Counted Cash Received</label><input name="countedCash" type="number" min="0" step="0.01" required /></div>
-              <div class="field full"><label>Shortage / surplus reason</label><textarea name="shortageReason"></textarea></div>
-              <div class="form-actions full"><button class="btn" type="submit">Verify physical cash received</button></div>
+              <input type="hidden" name="handoverId" value="${verifyTarget.id}" />
+              <div class="field"><label>Counted cash you received</label><input name="countedCash" type="number" min="0" step="0.01" value="${Number(verifyTarget.declaredCash || 0).toFixed(2)}" required /></div>
+              <div class="field full"><label>Shortage / surplus reason (if any)</label><textarea name="shortageReason">${escapeHtml(verifyTarget.shortageReason || "")}</textarea></div>
+              <div class="form-actions full"><button class="btn collector-action-btn" type="submit">Confirm I received this cash</button></div>
             </form>
-          ` : ""}
-        ` : `<div class="empty">No handover submitted for this date yet.</div>`}
+          ` : handoverIsConfirmed(verifyTarget) ? `<div class="notice good" style="margin-top:12px">Already confirmed by ${escapeHtml(userName(verifyTarget.verifiedBy))}.</div>` : ""}
+        ` : `<div class="empty" style="margin-top:16px">${isCollector() ? "After you submit, your selected receiver will confirm the cash." : "No handover selected for confirmation."}</div>`}
       </div>
     </div>
     <div class="panel" style="margin-top:18px">
@@ -9786,17 +9897,17 @@ function renderHandoverTable() {
   const tableHtml = `
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Date</th><th>Collector</th><th>Expected</th><th>Declared</th><th>Counted</th><th>MoMo</th><th>Status</th></tr></thead>
+        <thead><tr><th>Date</th><th>Collector</th><th>Handed to</th><th>Expected</th><th>Declared</th><th>Counted</th><th>Status</th></tr></thead>
         <tbody>
           ${rows.map((row) => `
             <tr>
               <td>${row.date}</td>
               <td>${escapeHtml(userName(row.collectorId))}</td>
+              <td>${escapeHtml(row.receiverName || userName(row.receiverId) || "—")}</td>
               <td>${money(row.expectedCash)}</td>
               <td>${money(row.declaredCash)}</td>
               <td>${money(row.countedCash ?? 0)}</td>
-              <td>${money(row.momoTotal || 0)}</td>
-              <td><span class="pill ${row.status === "Verified" ? "" : "warn"}">${escapeHtml(row.status)}</span></td>
+              <td><span class="pill ${handoverIsConfirmed(row) ? "" : "warn"}">${escapeHtml(handoverStatusLabel(row.status))}</span></td>
             </tr>
           `).join("")}
         </tbody>
@@ -9815,7 +9926,17 @@ function handleHandover(event) {
     toast("Collector and branch are required");
     return;
   }
+  const receiverId = String(data.receiverId || "").trim();
+  const receiver = (state.users || []).find((item) => item.id === receiverId);
+  if (!receiverId || !receiver) {
+    toast("Select who you are handing the cash to (Manager, Accountant, or Cashier)");
+    return;
+  }
   let handover = (state.handovers || []).find((item) => item.collectorId === collectorId && item.date === data.date);
+  if (handover && handoverIsConfirmed(handover)) {
+    toast("This handover was already confirmed. Start a new day or ask the receiver to review.");
+    return;
+  }
   if (!handover) {
     handover = buildHandoverRecord(state, {
       id: uid("hand"),
@@ -9824,14 +9945,21 @@ function handleHandover(event) {
       date: data.date,
       declaredCash: data.declaredCash,
       note: data.note,
-      userId: currentUser().id
+      userId: currentUser().id,
+      receiverId,
+      receiverName: `${receiver.name} · ${roleLabel(receiver.role)}`
     });
     state.handovers.push(handover);
   } else {
     handover.declaredCash = Number(data.declaredCash || 0);
     handover.note = data.note || "";
+    handover.receiverId = receiverId;
+    handover.receiverName = `${receiver.name} · ${roleLabel(receiver.role)}`;
     handover.status = "Submitted";
     handover.submittedAt = new Date().toISOString();
+    handover.verifiedAt = "";
+    handover.verifiedBy = "";
+    handover.countedCash = null;
   }
   const diff = Number(handover.declaredCash) - Number(handover.expectedCash || 0);
   if (diff < 0) {
@@ -9845,9 +9973,10 @@ function handleHandover(event) {
       reason: `Declared cash short by ${money(Math.abs(diff))} on ${handover.date}`
     });
   }
+  sessionStorage.setItem("handover_date", data.date);
   saveState();
-  logAudit("Cash handover submitted", `${userName(collectorId)} · ${handover.date} · ${money(handover.declaredCash)}`);
-  toast("Cash handover submitted");
+  logAudit("Cash handover submitted", `${userName(collectorId)} → ${handover.receiverName} · ${handover.date} · ${money(handover.declaredCash)}`);
+  toast(`Handover submitted to ${receiver.name}. They must confirm receipt.`);
   render();
 }
 
@@ -9856,7 +9985,7 @@ function handleVerifyHandover(event) {
   const data = formData(event.target);
   const handover = (state.handovers || []).find((item) => item.id === data.handoverId);
   if (!handover || !canVerifyHandover(currentUser(), handover, state)) {
-    toast("You cannot verify this handover");
+    toast("You cannot confirm this handover");
     return;
   }
   verifyHandover(handover, {
@@ -9875,9 +10004,10 @@ function handleVerifyHandover(event) {
       reason: `${ex.type} on ${handover.date}`
     });
   });
+  sessionStorage.removeItem("handover_focus_id");
   saveState();
-  logAudit("Cash handover verified", `${userName(handover.collectorId)} · ${handover.date} · counted ${money(handover.countedCash)}`);
-  toast("Handover verified");
+  logAudit("Cash handover received", `${userName(handover.collectorId)} · confirmed by ${currentUser().name} · ${money(handover.countedCash)}`);
+  toast(`Confirmed: received ${money(handover.countedCash)} from ${userName(handover.collectorId)}`);
   render();
 }
 
@@ -10690,7 +10820,8 @@ function handleReassignCustomer(customerId) {
 }
 
 function renderPortalShell(customer) {
-  document.body.className = `theme-${state.settings.theme || "emerald"} color-mode-${state.settings.colorMode || "light"}`;
+  syncToApp();
+  document.body.className = `theme-${state.settings.theme || "emerald"} color-mode-${state.settings.colorMode || "light"} layout-mobile`;
   app.innerHTML = `<div class="app portal-app"><main class="main" style="margin:0"><section class="content">${renderCustomerPortal(customer)}</section></main></div>`;
   document.querySelector("#portalLogoutBtn")?.addEventListener("click", () => {
     sessionStorage.removeItem(PORTAL_CUSTOMER_KEY);
@@ -10700,20 +10831,61 @@ function renderPortalShell(customer) {
     event.preventDefault();
     handlePortalWithdrawal(customer, formData(event.target));
   });
+  document.querySelector("#portalChangePinForm")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    handlePortalChangePin(customer, formData(event.target));
+  });
   document.querySelector("#portalPrintStatement")?.addEventListener("click", () => printMemberStatement(customer.id));
 }
 
-function handlePortalLogin(event) {
+async function handlePortalLogin(event) {
   event.preventDefault();
+  syncToApp();
   const accountNo = document.querySelector("#portalAccountNo")?.value || "";
   const pin = document.querySelector("#portalPin")?.value || "";
-  const customer = findPortalCustomer(state, accountNo);
   const errorBox = document.querySelector("#portalLoginError");
-  if (!customer || !verifyPortalPin(customer, pin)) {
-    if (errorBox) errorBox.innerHTML = `<div class="notice">Invalid account number or PIN.</div>`;
+  const submitBtn = event.target?.querySelector?.('button[type="submit"]');
+  let customer = findPortalCustomer(state, accountNo);
+  if (!customer) {
+    if (errorBox) errorBox.innerHTML = `<div class="notice">Checking your account...</div>`;
+    if (submitBtn) submitBtn.disabled = true;
+    try {
+      await loadUnifiedBusinessData();
+      syncToApp();
+    } catch {
+      // Offline or cloud unavailable: fall through to the not-found message.
+    }
+    if (submitBtn) submitBtn.disabled = false;
+    customer = findPortalCustomer(state, accountNo);
+  }
+  if (!customer) {
+    if (errorBox) errorBox.innerHTML = `<div class="notice">Account not found. Use your account number (e.g. c13000001) or registered phone.</div>`;
+    return;
+  }
+  ensureDefaultPortalCredentials(customer);
+  if (!verifyPortalPin(customer, pin)) {
+    if (errorBox) {
+      errorBox.innerHTML = `<div class="notice">Wrong PIN. Default PIN is the last 4 digits of the member phone number.</div>`;
+    }
     return;
   }
   sessionStorage.setItem(PORTAL_CUSTOMER_KEY, customer.id);
+  saveState();
+  render();
+}
+
+function handlePortalChangePin(customer, data) {
+  if (!verifyPortalPin(customer, data.currentPin)) {
+    toast("Current PIN is incorrect");
+    return;
+  }
+  const result = setPortalPin(customer, data.newPin);
+  if (result.error) {
+    toast(result.error);
+    return;
+  }
+  saveState();
+  toast("PIN updated");
   render();
 }
 
@@ -10726,7 +10898,7 @@ function handlePortalWithdrawal(customer, data) {
     customerId: customer.id,
     groupId: customer.groupId,
     amount: Number(data.amount),
-    availableBalance: customerBalance(customer.id),
+    availableBalance: portalAccountBalance(state, customer.id),
     reason: data.reason,
     requestedBy: customer.id,
     date: today()
@@ -11623,7 +11795,9 @@ function attachHandlers() {
       if (button.dataset.panelFocus) {
         sessionStorage.setItem("panel_focus", button.dataset.panelFocus);
       }
-      activeView = button.dataset.viewJump;
+      const nextView = button.dataset.viewJump;
+      resetCustomersUiForNavigation(nextView);
+      activeView = nextView;
       render();
     });
   });
@@ -11637,6 +11811,7 @@ function attachHandlers() {
     row.addEventListener("click", (event) => {
       if (event.target.closest("button, a, input, select, textarea, label")) return;
       sessionStorage.setItem("detail_customer_id", row.dataset.rowMemberDetail);
+      resetCustomersUiForNavigation("memberDetail");
       activeView = "memberDetail";
       render();
     });
@@ -11848,6 +12023,17 @@ function attachHandlers() {
   }
   const verifyHandoverForm = document.querySelector("#verifyHandoverForm");
   if (verifyHandoverForm) verifyHandoverForm.addEventListener("submit", handleVerifyHandover);
+  document.querySelectorAll("[data-focus-handover]").forEach((button) => {
+    button.addEventListener("click", () => {
+      sessionStorage.setItem("handover_focus_id", button.dataset.focusHandover || "");
+      const row = (state.handovers || []).find((item) => item.id === button.dataset.focusHandover);
+      if (row?.date) sessionStorage.setItem("handover_date", row.date);
+      if (row?.collectorId) sessionStorage.setItem("handover_collector_id", row.collectorId);
+      activeView = "handover";
+      render();
+      queueMicrotask(() => document.querySelector("#verifyHandoverForm")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    });
+  });
   const printClosingBtn = document.querySelector("#printClosingBtn");
   if (printClosingBtn) printClosingBtn.addEventListener("click", () => printClosing(sessionStorage.getItem("closing_date") || today()));
 
@@ -12359,7 +12545,9 @@ function attachHandlers() {
   });
   document.querySelectorAll("[data-back-view]").forEach((button) => {
     button.addEventListener("click", () => {
-      activeView = button.dataset.backView;
+      const nextView = button.dataset.backView;
+      resetCustomersUiForNavigation(nextView);
+      activeView = nextView;
       render();
     });
   });
@@ -12382,21 +12570,34 @@ function attachToggleButtons() {
     });
   });
   document.querySelectorAll("[data-edit-customer]").forEach((button) => {
-    button.addEventListener("click", () => {
-      sessionStorage.setItem("edit_customer_id", button.dataset.editCustomer);
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      resetMemberRegistrationHardware();
+      try { localStorage.removeItem(CUSTOMER_REG_DRAFT_KEY); } catch { /* ignore */ }
+      sessionStorage.setItem(EDIT_CUSTOMER_ID_KEY, button.dataset.editCustomer);
+      sessionStorage.setItem(CUSTOMER_CREATE_OPEN_KEY, "0");
       activeView = "customers";
       render();
+      queueMicrotask(() => document.querySelector("#customerForm")?.scrollIntoView({ behavior: "smooth", block: "start" }));
     });
   });
   document.querySelectorAll("[data-delete-customer]").forEach((button) => {
-    button.addEventListener("click", () => deleteCustomer(button.dataset.deleteCustomer));
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      deleteCustomer(button.dataset.deleteCustomer);
+    });
   });
   document.querySelectorAll("[data-reassign-customer]").forEach((button) => {
-    button.addEventListener("click", () => handleReassignCustomer(button.dataset.reassignCustomer));
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      handleReassignCustomer(button.dataset.reassignCustomer);
+    });
   });
   document.querySelectorAll("[data-member-detail]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
       sessionStorage.setItem("detail_customer_id", button.dataset.memberDetail);
+      resetCustomersUiForNavigation("memberDetail");
       activeView = "memberDetail";
       render();
     });
@@ -13258,7 +13459,14 @@ function deleteUser(userId) {
 
 function deleteCustomer(customerId) {
   const customer = state.customers.find((item) => item.id === customerId);
-  if (!customer || !canManageMembers() || !visibleGroupIds().includes(customer.groupId)) return;
+  if (!customer) return;
+  const canReach = visibleGroupIds().includes(customer.groupId)
+    || canHardDeleteCustomers(currentUser())
+    || visibleCustomers().some((item) => item.id === customerId);
+  if (!canManageMembers() || !canReach) {
+    toast("You cannot delete this member");
+    return;
+  }
   if (!canHardDeleteCustomers(currentUser())) {
     if (!confirm(`Close member "${customer.name}" and retain history?`)) return;
     const result = setCustomerStatus(customer, "Closed", currentUser(), uid);
@@ -13498,6 +13706,9 @@ function handleCustomer(event) {
       return;
     }
   }
+  // Media compression is async; a second tap on Save must not register the member twice.
+  if (form.dataset.submitting === "1") return;
+  form.dataset.submitting = "1";
   resolvePassportPhotoFromForm(form).then(async (uploadedPhoto) => {
     try {
       let passportPhoto = uploadedPhoto || data.existingPassportPhoto || "";
@@ -13664,8 +13875,8 @@ function handleCustomer(event) {
       appendCustomerActivity(created, { action: "Customer Registered", detail: created.name, userId: currentUser()?.id || "", uid });
       if (created.savingsProductId) ensureSavingsAccount(state, created, created.savingsProductId, uid);
       state.customers.push(created);
-      // Keep form open for continuous register-another (collectors); still wipe draft/media session.
-      prepareNextMemberRegistration({ keepOpen: isCollector() || isMobileLayout() });
+      // Always return to the member list after save so Customers stays usable for N registrations.
+      prepareNextMemberRegistration({ keepOpen: false });
       if (!navigator.onLine) {
         enqueueSyncItem(state, {
           kind: "customer",
@@ -13697,18 +13908,19 @@ function handleCustomer(event) {
       const pinHint = created.portalPin || portalPinFromPhone(created.phone);
       toast((navigator.onLine ? "Member registered" : "Member saved offline - will sync when online")
         + ` · Login: ${created.accountNo} / PIN ${pinHint}`
+        + (isMobileLayout() ? " · Tap + to register another" : "")
         + smsToast);
       render();
       queueMicrotask(() => {
-        const form = document.querySelector("#customerForm");
-        if (form) form.scrollIntoView({ behavior: "smooth", block: "start" });
-        else document.querySelector(".members-list-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        document.querySelector(".members-list-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     } catch (error) {
       toast(error?.message || "Could not register member");
     }
   }).catch((error) => {
     toast(error?.message || "Could not save passport picture");
+  }).finally(() => {
+    delete form.dataset.submitting;
   });
 }
 
@@ -14788,7 +15000,8 @@ async function handleUser(event) {
   }
   try {
   const form = event.target;
-  const passportPhoto = await resolvePassportPhotoFromForm(form);
+  const rawPassportPhoto = await resolvePassportPhotoFromForm(form);
+  const passportPhoto = (await compressMemberMediaBundle({ passportPhoto: rawPassportPhoto })).passportPhoto || rawPassportPhoto;
   if (!data.id && !passportPhoto) {
     toast("Passport picture is required for staff accounts");
     return;
@@ -16538,6 +16751,7 @@ function handleBulkCustomerDelete() {
     state.customers = state.customers.filter((item) => item.id !== id);
   });
   saveState();
+  pushCloudBackup(false);
   toast("Selected customers deleted");
   render();
 }
@@ -16724,11 +16938,14 @@ function initMemberSignaturePad(form) {
   });
 
   resize();
-  window.addEventListener("resize", () => {
-    if (!document.body.contains(canvas)) return;
-    syncMemberSignatureFromPad(form);
-    resize();
-  });
+  if (!canvas.dataset.resizeBound) {
+    canvas.dataset.resizeBound = "1";
+    window.addEventListener("resize", () => {
+      if (!document.body.contains(canvas)) return;
+      syncMemberSignatureFromPad(form);
+      resize();
+    });
+  }
 }
 
 function initCustomerWizard(form) {
@@ -17257,7 +17474,20 @@ function restoreBackup(event) {
   reader.readAsText(file);
 }
 
+let cloudPushInFlight = false;
+let cloudPushQueued = false;
+
 async function pushCloudBackup(silent = false) {
+  if (cloudPushInFlight || syncBusy) {
+    cloudPushQueued = true;
+    if (!cloudPushInFlight) queueCloudBackup();
+    return;
+  }
+  cloudPushInFlight = true;
+  // The push swaps in a merged copy of state; edits made while it is uploading
+  // land on this object and must be merged back or they are silently lost.
+  const localState = state;
+  const localStamp = localState.updatedAt;
   syncToApp();
   try {
     await pushRemoteBackup(silent);
@@ -17269,6 +17499,19 @@ async function pushCloudBackup(silent = false) {
   } catch (error) {
     syncFromApp();
     if (!silent) toast(`Cloud backup failed: ${error.message}`);
+  } finally {
+    cloudPushInFlight = false;
+    const editedDuringPush = localState !== state && localState.updatedAt !== localStamp;
+    if (editedDuringPush) {
+      const merged = mergeStates(localState, state);
+      merged.users = restoreUsersFromCloud(localState.users, merged.users);
+      state = normalizeState(merged);
+      saveState();
+      syncToApp();
+    } else if (cloudPushQueued) {
+      queueCloudBackup();
+    }
+    cloudPushQueued = false;
   }
 }
 
@@ -17386,8 +17629,10 @@ async function loadUnifiedBusinessData() {
     }
   }
   applyUnifiedCloudDefaults(state, getAppConfig());
-  localStorage.setItem(STORE_KEY, JSON.stringify(state));
-  localSavePending = false;
+  const shrunk = await shrinkStateMedia(state);
+  await persistStateWithMediaShrink();
+  localSavePending = shrunk > 0;
+  if (shrunk) queueCloudBackup();
   const after = JSON.stringify({
     customers: state.customers?.length || 0,
     collections: state.collections?.length || 0,
@@ -17397,7 +17642,7 @@ async function loadUnifiedBusinessData() {
 }
 
 async function autoCloudMerge() {
-  if (syncBusy || isFormInteractionActive()) return;
+  if (syncBusy || cloudPushInFlight || isFormInteractionActive()) return;
   if (localSavePending) {
     await pushCloudBackup(true);
     return;
@@ -17507,7 +17752,7 @@ async function bootstrapFromCloud() {
 async function finishStartupTasks() {
   try {
     applyUnifiedCloudDefaults(state, getAppConfig());
-    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    await persistStateWithMediaShrink();
     const unified = unifiedCloudEnabled(state, getAppConfig());
     if (!unified) {
       await seedFromPackagedBackup();
@@ -17551,7 +17796,7 @@ async function initializeApp() {
     applyOwnerLoginDefaults();
     await upgradeDefaultAccountHashes();
     applyUnifiedCloudDefaults(state, getAppConfig());
-    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    await persistStateWithMediaShrink();
     App.root = document.querySelector("#app") || app;
     syncToApp();
     render();

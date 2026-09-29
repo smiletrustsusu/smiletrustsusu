@@ -2,12 +2,18 @@ export function isProtectedPasswordHash(hash) {
   return !hash || hash === "[protected]" || hash === "[local-only]";
 }
 
+/** Only salted PBKDF2 hashes may leave the device; legacy fast hashes stay local. */
+export function isCloudSafePasswordHash(hash) {
+  return typeof hash === "string" && hash.startsWith("pbkdf2:");
+}
+
 export function sanitizeStateForCloud(state) {
   const copy = structuredClone(state);
   copy.users = (copy.users || []).map((user) => {
     const safe = { ...user };
     delete safe.password;
-    safe.passwordHash = "[protected]";
+    delete safe.loginPasswordHint;
+    if (!isCloudSafePasswordHash(safe.passwordHash)) safe.passwordHash = "[protected]";
     return safe;
   });
   return copy;
@@ -22,7 +28,12 @@ export function restoreUsersFromCloud(localUsers = [], remoteUsers = []) {
     const passwordHash = isProtectedPasswordHash(remote.passwordHash)
       ? local?.passwordHash || remote.passwordHash
       : remote.passwordHash || local?.passwordHash;
-    return { ...remote, passwordHash };
+    const restored = { ...remote, passwordHash };
+    // Hints never travel through the cloud; keep this device's copy only while it matches the hash.
+    const localHint = local?.passwordHash === passwordHash ? local?.loginPasswordHint : "";
+    if (localHint) restored.loginPasswordHint = localHint;
+    else delete restored.loginPasswordHint;
+    return restored;
   });
 }
 

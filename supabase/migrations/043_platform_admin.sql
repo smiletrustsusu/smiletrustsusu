@@ -65,6 +65,14 @@ create table if not exists feature_flags (
   constraint feature_flags_flag_uq unique (flag_id)
 );
 
+-- compat: table may already exist from an earlier migration (022_system_config.sql).
+alter table public.feature_flags
+  add column if not exists flag_id text,
+  add column if not exists kill_switch boolean default false,
+  add column if not exists scheduled_activate_at timestamptz,
+  add column if not exists scheduled_retire_at timestamptz,
+  add column if not exists updated_at timestamptz default now();
+
 create table if not exists feature_flag_rules (
   id text primary key,
   business_id text,

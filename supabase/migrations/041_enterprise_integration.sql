@@ -14,6 +14,10 @@ create table if not exists api_clients (
   constraint api_clients_status_chk check (status in ('active', 'suspended', 'retired'))
 );
 
+-- compat: table may already exist from an earlier migration (031_api_gateway.sql).
+alter table public.api_clients
+  add column if not exists partner_code text;
+
 create table if not exists api_keys (
   id text primary key,
   business_id text,
@@ -25,6 +29,11 @@ create table if not exists api_keys (
   constraint api_keys_status_chk check (status in ('active', 'revoked', 'expired')),
   constraint api_keys_hash_uq unique (key_hash)
 );
+
+-- compat: table may already exist from an earlier migration (031_api_gateway.sql).
+alter table public.api_keys
+  add column if not exists key_hash text,
+  add column if not exists rotated_at timestamptz;
 
 create table if not exists oauth_clients (
   id text primary key,
@@ -105,6 +114,14 @@ create table if not exists webhook_deliveries (
   delivered_at timestamptz
 );
 
+-- compat: table may already exist from an earlier migration (031_api_gateway.sql).
+alter table public.webhook_deliveries
+  add column if not exists webhook_id text,
+  add column if not exists direction text,
+  add column if not exists payload jsonb,
+  add column if not exists signature text,
+  add column if not exists delivered_at timestamptz;
+
 create table if not exists api_requests (
   id text primary key,
   business_id text,
@@ -114,6 +131,11 @@ create table if not exists api_requests (
   version text,
   created_at timestamptz default now()
 );
+
+-- compat: table may already exist from an earlier migration (031_api_gateway.sql).
+alter table public.api_requests
+  add column if not exists provider_code text,
+  add column if not exists operation text;
 
 create table if not exists api_responses (
   id text primary key,
@@ -176,6 +198,10 @@ create table if not exists api_rate_limits (
   constraint api_rate_limits_scope_uq unique (business_id, scope)
 );
 
+-- compat: table may already exist from an earlier migration (031_api_gateway.sql).
+alter table public.api_rate_limits
+  add column if not exists enabled boolean default true;
+
 create table if not exists api_usage_statistics (
   id text primary key,
   business_id text,
@@ -185,6 +211,14 @@ create table if not exists api_usage_statistics (
   transform_id text,
   at timestamptz default now()
 );
+
+-- compat: table may already exist from an earlier migration (031_api_gateway.sql).
+alter table public.api_usage_statistics
+  add column if not exists kind text,
+  add column if not exists provider_code text,
+  add column if not exists operation text,
+  add column if not exists transform_id text,
+  add column if not exists at timestamptz default now();
 
 create table if not exists integration_deliverables (
   id text primary key,

@@ -29,6 +29,45 @@ create table if not exists idempotency_keys (
   unique (business_id, idempotency_key, operation_type)
 );
 
+-- 019 already creates idempotency_keys with (key, request_hash, response_body), which makes the
+-- create above a no-op; add the 021 columns to that table instead.
+alter table public.idempotency_keys
+  add column if not exists idempotency_key text,
+  add column if not exists operation_type text not null default 'generic',
+  add column if not exists request_fingerprint text,
+  add column if not exists correlation_id text,
+  add column if not exists request_id text,
+  add column if not exists request_status text not null default 'processing',
+  add column if not exists response_status text,
+  add column if not exists response_payload jsonb,
+  add column if not exists transaction_id text,
+  add column if not exists journal_id text,
+  add column if not exists receipt_number text,
+  add column if not exists source text,
+  add column if not exists client_id text,
+  add column if not exists failure_class text,
+  add column if not exists error_message text,
+  add column if not exists updated_at timestamptz default now(),
+  add column if not exists expires_at timestamptz,
+  add column if not exists processing_started_at timestamptz,
+  add column if not exists processing_completed_at timestamptz,
+  add column if not exists lock_until timestamptz,
+  add column if not exists version_number integer default 1;
+
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'idempotency_keys' and column_name = 'key'
+  ) then
+    execute 'update public.idempotency_keys set idempotency_key = key where idempotency_key is null';
+  end if;
+end $$;
+
+create unique index if not exists idempotency_keys_business_key_op_uq
+  on public.idempotency_keys (business_id, idempotency_key, operation_type)
+  where idempotency_key is not null;
+
 create index if not exists idempotency_keys_key_idx on public.idempotency_keys (idempotency_key);
 create index if not exists idempotency_keys_corr_idx on public.idempotency_keys (correlation_id);
 create index if not exists idempotency_keys_op_idx on public.idempotency_keys (operation_type);

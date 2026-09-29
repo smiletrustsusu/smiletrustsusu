@@ -8,6 +8,11 @@ create table if not exists system_settings (
   updated_at timestamptz default now()
 );
 
+-- compat: table may already exist from an earlier migration (019_canonical_schema.sql).
+alter table public.system_settings
+  add column if not exists key text,
+  add column if not exists value jsonb;
+
 create table if not exists company_profile (
   id text primary key,
   business_id text,

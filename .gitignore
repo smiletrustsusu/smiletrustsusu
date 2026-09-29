@@ -3,23 +3,25 @@ node_modules/
 dist/
 backup/
 .gradle-home/
-# Capacitor Android: prefer generating Gradle locally (GAP-004). Keep README + plugins-src.
-android/app/
+# Capacitor Android: track project source/config; ignore build output and cap-sync generated files.
+.gradle/
 android/.gradle/
 android/build/
+android/app/build/
 android/local.properties
-android/gradle/
-android/gradlew
-android/gradlew.bat
 android/capacitor.settings.gradle
-android/settings.gradle
-android/build.gradle
-android/variables.gradle
-android/gradle.properties
+android/app/capacitor.build.gradle
 android/capacitor-cordova-android-plugins/
-android/keystore.properties
-android/smile-trust-release.keystore
 android/.idea/
+
+# Signing material - never commit
+*.jks
+*.keystore
+android/keystore.properties
+android/smile-trust-release.jks
+android/smile-trust-release.keystore
+androidsmile-trust-release.jks.txt
+*.jks.txt
 *.log
 verification-*.png
 .DS_Store

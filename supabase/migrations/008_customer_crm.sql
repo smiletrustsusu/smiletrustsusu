@@ -23,8 +23,8 @@ alter table if exists customers
 
 create table if not exists customer_notes (
   id text primary key,
-  business_id text,
-  customer_id text not null references customers(id) on delete cascade,
+  business_id uuid references public.businesses(id) on delete cascade,
+  customer_id uuid not null references public.customers(id) on delete cascade,
   note_type text,
   body text not null,
   user_id text,
@@ -34,8 +34,8 @@ create table if not exists customer_notes (
 
 create table if not exists customer_documents (
   id text primary key,
-  business_id text,
-  customer_id text not null references customers(id) on delete cascade,
+  business_id uuid references public.businesses(id) on delete cascade,
+  customer_id uuid not null references public.customers(id) on delete cascade,
   doc_type text,
   reference text,
   file_name text,
@@ -44,8 +44,8 @@ create table if not exists customer_documents (
 
 create table if not exists customer_status_history (
   id text primary key,
-  business_id text,
-  customer_id text not null references customers(id) on delete cascade,
+  business_id uuid references public.businesses(id) on delete cascade,
+  customer_id uuid not null references public.customers(id) on delete cascade,
   from_status text,
   to_status text,
   user_id text,
@@ -54,8 +54,8 @@ create table if not exists customer_status_history (
 
 create table if not exists customer_activity_log (
   id text primary key,
-  business_id text,
-  customer_id text not null references customers(id) on delete cascade,
+  business_id uuid references public.businesses(id) on delete cascade,
+  customer_id uuid not null references public.customers(id) on delete cascade,
   action text,
   detail text,
   user_id text,
@@ -67,8 +67,8 @@ create index if not exists idx_customers_number on customers (business_id, custo
 create index if not exists idx_customers_kyc on customers (business_id, kyc_status);
 create table if not exists customer_qr_codes (
   id text primary key,
-  business_id text,
-  customer_id text not null references customers(id) on delete cascade,
+  business_id uuid references public.businesses(id) on delete cascade,
+  customer_id uuid not null references public.customers(id) on delete cascade,
   qr_value text not null,
   created_at timestamptz default now()
 );

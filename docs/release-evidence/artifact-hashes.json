@@ -2,7 +2,7 @@
   "schemaVersion": "smile-trust-artifact-hashes/1.1",
   "gapId": "GAP-012",
   "backlogId": "TASK-000187",
-  "generatedAtUtc": "2026-09-20T16:14:21.668Z",
+  "generatedAtUtc": "2026-09-29T09:34:16.353Z",
   "status": "partial",
   "notes": [
     "Hashes are recorded only for files present on disk.",
@@ -18,7 +18,7 @@
     "hashesWritten": true
   },
   "signingHints": {
-    "androidKeystorePropertiesPresent": false,
+    "androidKeystorePropertiesPresent": true,
     "androidKeystoreFilePresent": false,
     "electronCscEnvPresent": false,
     "electronCscPathExists": null,
@@ -31,9 +31,9 @@
       "channel": "android",
       "kind": "debug",
       "path": "android/app/build/outputs/apk/debug/app-debug.apk",
-      "bytes": 11773626,
-      "mtimeUtc": "2026-09-18T22:07:57.958Z",
-      "sha256": "b14030b1e425329da2e9f4e376deeecc11b154a8c6bb1fb380bd54e2f0dc9c89"
+      "bytes": 12501192,
+      "mtimeUtc": "2026-09-28T21:46:48.404Z",
+      "sha256": "f80b8278e7f2140901f86d6a9d516b6a7572818c4d4ea5f542a7011e04009c17"
     }
   ]
 }

@@ -73,6 +73,40 @@ export async function compressMemberMediaBundle(media = {}) {
   return { passportPhoto, signatureData, idFrontImage, idBackImage };
 }
 
+const MEDIA_FIELD_OPTIONS = {
+  passportPhoto: { maxEdge: 640, quality: 0.7, maxBytes: 140_000 },
+  signatureData: { maxEdge: 520, quality: 0.82, mime: "image/png", maxBytes: 90_000 },
+  idFrontImage: { maxEdge: 900, quality: 0.68, maxBytes: 160_000 },
+  idBackImage: { maxEdge: 900, quality: 0.68, maxBytes: 160_000 }
+};
+
+/**
+ * Re-compress oversized images already stored on users and customers (e.g. staff photos saved
+ * before compression existed). Touched records get a new updatedAt so the smaller copy wins in sync.
+ */
+export async function shrinkStateMedia(appState, { now = () => new Date().toISOString() } = {}) {
+  let changed = 0;
+  for (const key of ["users", "customers"]) {
+    for (const record of appState?.[key] || []) {
+      let touched = false;
+      for (const [field, options] of Object.entries(MEDIA_FIELD_OPTIONS)) {
+        const value = record[field];
+        if (!isDataUrlImage(value) || value.length <= options.maxBytes * 1.5) continue;
+        const smaller = await compressDataUrl(value, options);
+        if (smaller && smaller.length < value.length) {
+          record[field] = smaller;
+          touched = true;
+        }
+      }
+      if (touched) {
+        record.updatedAt = now();
+        changed += 1;
+      }
+    }
+  }
+  return changed;
+}
+
 /**
  * Drop bulky ID scans from oldest customers first so a new registration can save.
  * Returns true if any field was cleared.

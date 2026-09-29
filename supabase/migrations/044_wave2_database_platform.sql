@@ -10,6 +10,20 @@
 -- for optional cloud SoT / sync — they do NOT add balance-update triggers that
 -- would double-post against JS.
 
+-- Columns normally added by 003; repeated so this runs on databases where 003 was skipped.
+alter table public.businesses add column if not exists legacy_code text;
+create unique index if not exists businesses_legacy_code_uq
+  on public.businesses (legacy_code) where legacy_code is not null;
+alter table public.branches add column if not exists client_id text;
+alter table public.app_users add column if not exists client_id text;
+alter table public.customers add column if not exists client_id text;
+alter table public.devices add column if not exists client_id text;
+alter table public.collections add column if not exists client_id text;
+alter table public.sync_queue add column if not exists business_code text;
+create unique index if not exists branches_client_uq on public.branches (business_id, client_id) where client_id is not null;
+create unique index if not exists app_users_client_uq on public.app_users (business_id, client_id) where client_id is not null;
+create unique index if not exists customers_client_uq on public.customers (business_id, client_id) where client_id is not null;
+
 create extension if not exists "pgcrypto";
 
 -- ---------------------------------------------------------------------------

@@ -27,13 +27,21 @@ const defaultKeystoreName = "smile-trust-release.keystore";
 const keystorePath = path.join(androidDir, defaultKeystoreName);
 const checkOnly = process.argv.includes("--check-only");
 
+// Only the storeFile key is read; passwords in keystore.properties are never loaded here.
+function configuredKeystorePath() {
+  if (!fs.existsSync(propsPath)) return keystorePath;
+  const line = fs.readFileSync(propsPath, "utf8").split(/\r?\n/).find((item) => /^\s*storeFile\s*=/.test(item));
+  const storeFile = line ? line.slice(line.indexOf("=") + 1).trim() : "";
+  return storeFile ? path.resolve(androidDir, storeFile) : keystorePath;
+}
+
 function assessSigningReadiness() {
   const storePassword = Boolean(process.env.SMILE_ANDROID_STORE_PASSWORD);
   const allowLocal = process.env.SMILE_ANDROID_ALLOW_LOCAL_KEYSTORE === "1";
   const externalKeystore = process.env.SMILE_ANDROID_KEYSTORE_FILE || "";
   const externalExists = externalKeystore ? fs.existsSync(externalKeystore) : false;
   const propsExist = fs.existsSync(propsPath);
-  const keystoreExist = fs.existsSync(keystorePath);
+  const keystoreExist = fs.existsSync(configuredKeystorePath());
   const ready =
     (propsExist && keystoreExist) ||
     storePassword ||
@@ -96,9 +104,16 @@ function main() {
     process.exit(assessment.readyForReleaseBuild ? 0 : 1);
   }
 
-  if (fs.existsSync(propsPath) && fs.existsSync(keystorePath)) {
+  if (fs.existsSync(propsPath) && fs.existsSync(configuredKeystorePath())) {
     console.log("Android signing already configured (keystore.properties + keystore present).");
     process.exit(0);
+  }
+  if (fs.existsSync(propsPath)) {
+    console.error(
+      "android/keystore.properties exists but its storeFile keystore is missing.\n" +
+        "Restore the original keystore; refusing to generate a new key or overwrite the signing config."
+    );
+    process.exit(1);
   }
 
   const alias = process.env.SMILE_ANDROID_KEY_ALIAS || "smiletrust";

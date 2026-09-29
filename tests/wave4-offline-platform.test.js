@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { webcrypto } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -62,6 +63,7 @@ if (!globalThis.crypto) globalThis.crypto = webcrypto;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
+const require = createRequire(import.meta.url);
 const uid = (prefix) => `${prefix}-${Math.random().toString(36).slice(2, 7)}`;
 const now = "2026-09-15T12:00:00.000Z";
 
@@ -335,6 +337,18 @@ test("docs and android scaffolding exist", () => {
   assert.ok(fs.existsSync(path.join(ROOT, "android/README.md")));
   assert.ok(fs.existsSync(path.join(ROOT, "android/plugins-src/SmileTrustSecure/SmileTrustSecurePlugin.kt")));
   assert.ok(fs.existsSync(path.join(ROOT, "src/sync/offline-sync-engine.js")));
+  assert.ok(fs.existsSync(path.join(ROOT, "scripts/downlevel-android-assets.js")));
+});
+
+test("app.js and dashboard-views parse as ESM (WebView SyntaxError guard)", () => {
+  const esbuild = require("esbuild");
+  for (const rel of ["app.js", "src/ui/dashboard-views.js"]) {
+    const source = fs.readFileSync(path.join(ROOT, rel), "utf8");
+    const result = esbuild.transformSync(source, { loader: "js", format: "esm", target: "es2018" });
+    assert.ok(result.code.length > 0, rel);
+  }
+  assert.match(fs.readFileSync(path.join(ROOT, "app.js"), "utf8"), /replayDeadLetter as replayJobDeadLetter/);
+  assert.match(fs.readFileSync(path.join(ROOT, "src/ui/dashboard-views.js"), "utf8"), /row\[key\] \?\? row\.amount \?\? 0/);
 });
 
 test("WAVE-04 registry notes reference wave4 delivery", () => {

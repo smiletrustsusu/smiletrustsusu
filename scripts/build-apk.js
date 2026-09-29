@@ -87,6 +87,18 @@ if (!fs.existsSync(gradlew)) {
 
 const task = process.argv[2] === "release" ? "assembleRelease" : "assembleDebug";
 
+// Ensure Android WebView assets are ES2018-safe even if Gradle was invoked
+// without going through `npm run cap:sync` (postcap:sync downlevel).
+{
+  const downlevel = spawnSync(process.execPath, [path.join(root, "scripts", "downlevel-android-assets.js")], {
+    cwd: root,
+    env,
+    stdio: "inherit",
+    windowsHide: true
+  });
+  if ((downlevel.status ?? 1) !== 0) process.exit(downlevel.status ?? 1);
+}
+
 if (task === "assembleRelease") {
   const propsPath = path.join(androidDir, "keystore.properties");
   const keystorePath = path.join(androidDir, "smile-trust-release.keystore");

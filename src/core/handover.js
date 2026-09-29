@@ -1,6 +1,49 @@
 /**
  * Daily collector handover / remittance workflow.
+ * Collector submits cash to a chosen responsible receiver (Manager / Ops / Accountant / Cashier);
+ * that person confirms receipt at their end.
  */
+
+export const HANDOVER_RECEIVER_ROLES = Object.freeze([
+  "SystemOwner",
+  "KBA",
+  "ManagingDirector",
+  "Admin",
+  "OperationsManager",
+  "Accountant",
+  "Cashier"
+]);
+
+export function isHandoverReceiverRole(role) {
+  return HANDOVER_RECEIVER_ROLES.includes(String(role || ""));
+}
+
+/**
+ * Active staff who can receive physical cash handovers.
+ * Prefers same-branch staff when groupId is known, then HQ/finance roles.
+ */
+export function listHandoverReceivers(users = [], { excludeUserId = "", groupId = "" } = {}) {
+  const active = (users || []).filter((user) =>
+    user
+    && user.active !== false
+    && user.id !== excludeUserId
+    && isHandoverReceiverRole(user.role)
+  );
+  const branchMatched = groupId
+    ? active.filter((user) => !user.groupId || user.groupId === groupId)
+    : active;
+  const list = branchMatched.length ? branchMatched : active;
+  return list.slice().sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+}
+
+export function pendingHandoversForReceiver(handovers = [], receiverId = "") {
+  if (!receiverId) return [];
+  return (handovers || []).filter((item) =>
+    item
+    && item.receiverId === receiverId
+    && item.status === "Submitted"
+  );
+}
 
 export function expectedCashForCollector(state, collectorId, date, helpers = {}) {
   const {
@@ -38,7 +81,9 @@ export function buildHandoverRecord(state, {
   date,
   declaredCash,
   note = "",
-  userId
+  userId,
+  receiverId = "",
+  receiverName = ""
 }) {
   const channels = channelTotalsForCollector(state, collectorId, date, {
     collections: state.collections || []
@@ -59,6 +104,8 @@ export function buildHandoverRecord(state, {
     bankTotal: channels["Bank Transfer"] || 0,
     posTotal: channels["POS/Card"] || 0,
     cashTotal: channels.Cash || 0,
+    receiverId: String(receiverId || "").trim(),
+    receiverName: String(receiverName || "").trim(),
     status: "Submitted",
     submittedAt: new Date().toISOString(),
     verifiedAt: "",
@@ -75,10 +122,20 @@ export function verifyHandover(handover, { countedCash, verifiedBy, shortageReas
   handover.verifiedBy = verifiedBy;
   handover.verifiedAt = new Date().toISOString();
   handover.shortageReason = String(shortageReason || "").trim();
-  handover.status = "Verified";
+  handover.status = "Received";
   handover.difference = handover.countedCash - Number(handover.expectedCash || 0);
   handover.declaredDifference = handover.declaredCash - Number(handover.expectedCash || 0);
   return handover;
+}
+
+export function handoverStatusLabel(status) {
+  if (status === "Received" || status === "Verified") return "Received";
+  if (status === "Submitted") return "Awaiting confirmation";
+  return String(status || "");
+}
+
+export function handoverIsConfirmed(handover) {
+  return handover?.status === "Received" || handover?.status === "Verified";
 }
 
 export function handoverExceptions(handover) {

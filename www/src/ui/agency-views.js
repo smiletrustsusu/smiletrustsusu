@@ -27,7 +27,15 @@ import { barcodeSvg, qrSvg, receiptShareMessage } from "../core/receipt-codes.js
 import { roleLabel } from "../core/roles.js";
 
 function state() {
-  return App.state;
+  return App.state || {
+    customers: [],
+    collections: [],
+    transactions: [],
+    loans: [],
+    notifications: [],
+    withdrawalRequests: [],
+    ledgerEntries: []
+  };
 }
 
 function money(amount) {
@@ -477,16 +485,19 @@ export function renderCustomerPortal(customer) {
   const dash = portalDashboard(state(), customer);
   if (!dash) return `<div class="notice">Unable to load member portal.</div>`;
   const statement = portalStatement(state(), customer).slice(-20).reverse();
+  const phonePin = String(customer.phone || "").replace(/\D/g, "").slice(-4) || "****";
   return `
     <div class="dash-header panel">
       <div>
         <h2>Member Portal</h2>
-        <div class="muted">${escapeHtml(customer.name)} · ${escapeHtml(customer.accountNo || customer.customerNumber || "")}</div>
+        <div class="muted">${escapeHtml(customer.name)} · Account ${escapeHtml(customer.accountNo || customer.customerNumber || "")}</div>
+        <div class="muted">Login: account number · PIN ${customer.portalPinSource === "manual" ? "(your PIN)" : `default last 4 of phone (e.g. ${escapeHtml(phonePin)})`}</div>
       </div>
       <button class="btn secondary" id="portalLogoutBtn" type="button">Sign out</button>
     </div>
     <div class="kpi-grid">
-      <div class="stat"><small>Savings Balance</small><strong>${money(dash.savingsBalance)}</strong></div>
+      <div class="stat"><small>Account Balance</small><strong>${money(dash.accountBalance || dash.savingsBalance)}</strong></div>
+      <div class="stat"><small>Contributions</small><strong>${money(dash.contributionTotal)}</strong></div>
       <div class="stat"><small>Loan Balance</small><strong>${money(dash.loanBalance)}</strong></div>
       <div class="stat"><small>Open Withdrawals</small><strong>${dash.withdrawals.filter((w) => w.status !== "Paid" && w.status !== "Rejected").length}</strong></div>
     </div>
@@ -500,17 +511,34 @@ export function renderCustomerPortal(customer) {
         </form>
       </div>
       <div class="panel">
-        <div class="section-title"><h2>Notifications</h2></div>
-        ${dash.notifications.length ? dash.notifications.slice(0, 8).map((item) => `<div class="notice">${escapeHtml(item.title)} — ${escapeHtml(item.body)}</div>`).join("") : `<div class="empty">No alerts yet.</div>`}
+        <div class="section-title"><h2>Change PIN</h2></div>
+        <form id="portalChangePinForm" class="form-grid">
+          <div class="field"><label>Current PIN</label><input name="currentPin" type="password" inputmode="numeric" required /></div>
+          <div class="field"><label>New PIN (4–6 digits)</label><input name="newPin" type="password" inputmode="numeric" pattern="[0-9]{4,6}" required /></div>
+          <div class="form-actions full"><button class="btn secondary" type="submit">Update PIN</button></div>
+        </form>
+        <div class="section-title" style="margin-top:16px"><h2>Notifications</h2></div>
+        ${dash.notifications.length ? dash.notifications.slice(0, 8).map((item) => `<div class="notice">${escapeHtml(item.title || "")} — ${escapeHtml(item.body || "")}</div>`).join("") : `<div class="empty">No alerts yet.</div>`}
       </div>
     </div>
     <div class="panel" style="margin-top:18px">
-      <div class="section-title"><h2>Transaction History</h2><button class="btn ghost" id="portalPrintStatement">Download statement</button></div>
+      <div class="section-title"><h2>Recent collections</h2></div>
+      ${dash.collections.length ? `
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Date</th><th>Amount</th><th>Method</th></tr></thead>
+            <tbody>${dash.collections.slice(0, 15).map((item) => `<tr><td>${escapeHtml(item.date)}</td><td>${money(item.amount)}</td><td>${escapeHtml(item.paymentMethod || "Cash")}</td></tr>`).join("")}</tbody>
+          </table>
+        </div>
+      ` : `<div class="empty">No collections recorded yet.</div>`}
+    </div>
+    <div class="panel" style="margin-top:18px">
+      <div class="section-title"><h2>Statement</h2><button class="btn ghost" id="portalPrintStatement" type="button">Download statement</button></div>
       ${statement.length ? `
         <div class="table-wrap">
           <table>
             <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Balance</th></tr></thead>
-            <tbody>${statement.map((tx) => `<tr><td>${tx.date}</td><td>${escapeHtml(tx.type)}</td><td>${money(tx.amount)}</td><td>${money(tx.runningBalance)}</td></tr>`).join("")}</tbody>
+            <tbody>${statement.map((tx) => `<tr><td>${escapeHtml(tx.date)}</td><td>${escapeHtml(tx.type)}</td><td>${money(tx.amount)}</td><td>${money(tx.runningBalance)}</td></tr>`).join("")}</tbody>
           </table>
         </div>
       ` : `<div class="empty">No transactions yet.</div>`}
@@ -521,7 +549,7 @@ export function renderCustomerPortal(customer) {
         <div class="table-wrap">
           <table>
             <thead><tr><th>Date</th><th>Principal</th><th>Outstanding</th><th>Status</th></tr></thead>
-            <tbody>${dash.loans.map((loan) => `<tr><td>${loan.date}</td><td>${money(loan.principal)}</td><td>${money(outstandingLoanBalance(loan))}</td><td>${escapeHtml(loan.status)}</td></tr>`).join("")}</tbody>
+            <tbody>${dash.loans.map((loan) => `<tr><td>${escapeHtml(loan.date || "")}</td><td>${money(loan.principal)}</td><td>${money(outstandingLoanBalance(loan))}</td><td>${escapeHtml(loan.status)}</td></tr>`).join("")}</tbody>
           </table>
         </div>
       ` : `<div class="empty">No loans.</div>`}

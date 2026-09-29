@@ -233,6 +233,41 @@ button {
   margin-bottom: 8px;
 }
 
+.signature-pad-field .signature-pad-wrap {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.signature-pad {
+  display: block;
+  width: 100%;
+  height: 180px;
+  cursor: crosshair;
+  touch-action: none;
+  background: #fff;
+}
+
+.signature-pad-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.signature-preview {
+  max-width: 160px;
+  max-height: 64px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  object-fit: contain;
+}
+
 .passport-file-input {
   position: absolute;
   width: 1px;
@@ -1924,9 +1959,45 @@ th {
   margin-top: 12px;
 }
 
-.crm-wizard-progress {
+.crm-wizard-progress,
+.crm-wizard-progress-top {
   flex: 1;
   font-size: 0.9rem;
+}
+
+.crm-wizard-progress-top {
+  grid-column: 1 / -1;
+  margin: 0 0 8px;
+  font-weight: 700;
+}
+
+.crm-wizard-step {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  gap: inherit;
+}
+
+.crm-wizard-step[hidden] {
+  display: none !important;
+}
+
+@supports not (grid-template-columns: subgrid) {
+  .crm-wizard-step:not([hidden]) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 14px;
+  }
+}
+
+.crm-wizard-heading {
+  grid-column: 1 / -1;
+  margin: 12px 0 6px;
+}
+
+.crm-wizard-heading h3 {
+  margin: 0;
+  font-size: 1rem;
 }
 
 .crm-bulk,

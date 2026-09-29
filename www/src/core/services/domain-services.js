@@ -20,6 +20,7 @@ import {
   getUserForActor,
   listUsersForActor
 } from "../system-accounts.js";
+import { filterCollectionsForUser, filterCustomersForUser } from "../permissions.js";
 import { reportDashboard, runReport, analyticsSeries } from "../report-ops.js";
 import {
   branchTrialBalance,
@@ -146,7 +147,11 @@ export function createDomainServices(state, repos, baseCtx = {}) {
       },
       list: (query = {}, ctx = {}) => {
         let rows = local.customers.list();
-        if (ctx.authz?.scope === "branch" && ctx.authz.branchId) {
+        const scope = ctx.authz?.scope || dataScope(ctx.user);
+        const groupIds = [ctx.authz?.branchId, ctx.user?.branchId, ctx.user?.groupId].filter(Boolean);
+        if (scope === "assigned" || scope === "branch" || scope === "self") {
+          rows = filterCustomersForUser(rows, ctx.user, { groupIds });
+        } else if (ctx.authz?.scope === "branch" && ctx.authz.branchId) {
           rows = filterByBranch(rows, ctx.authz.branchId, "branchId");
           rows = rows.filter((r) => !r.groupId || r.groupId === ctx.authz.branchId || r.branchId === ctx.authz.branchId);
         }
@@ -154,10 +159,15 @@ export function createDomainServices(state, repos, baseCtx = {}) {
         rows = applySort(rows, query, { defaultField: "name", defaultDirection: "asc" });
         return { ok: true, ...paginateRows(rows, query) };
       },
-      search: (query = {}) => ({
-        ok: true,
-        ...paginateRows(applySort(local.customers.search(query.q || query.search || ""), query), query)
-      })
+      search: (query = {}, ctx = {}) => {
+        let rows = local.customers.search(query.q || query.search || "");
+        const scope = ctx.authz?.scope || dataScope(ctx.user);
+        const groupIds = [ctx.authz?.branchId, ctx.user?.branchId, ctx.user?.groupId].filter(Boolean);
+        if (scope === "assigned" || scope === "branch" || scope === "self") {
+          rows = filterCustomersForUser(rows, ctx.user, { groupIds });
+        }
+        return { ok: true, ...paginateRows(applySort(rows, query), query) };
+      }
     },
 
     savings: {
@@ -192,7 +202,14 @@ export function createDomainServices(state, repos, baseCtx = {}) {
       },
       list: (query = {}, ctx = {}) => {
         let rows = local.collections.list();
-        if (ctx.authz?.scope === "branch" && ctx.authz.branchId) {
+        const scope = ctx.authz?.scope || dataScope(ctx.user);
+        const groupIds = [ctx.authz?.branchId, ctx.user?.branchId, ctx.user?.groupId].filter(Boolean);
+        if (scope === "assigned" || scope === "branch" || scope === "self") {
+          rows = filterCollectionsForUser(rows, ctx.user, {
+            customers: state.customers || [],
+            groupIds
+          });
+        } else if (ctx.authz?.scope === "branch" && ctx.authz.branchId) {
           rows = filterByBranch(rows, ctx.authz.branchId, "branchId");
         }
         rows = applyFilters(rows, query);

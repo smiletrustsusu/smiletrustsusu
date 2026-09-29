@@ -42,39 +42,41 @@ function toneForStatus(status) {
 }
 
 export function renderAgentOpsFormExtras(editing = {}, supervisors = []) {
-  const perms = editing.productPermissions || {};
+  // Explicit null (create-staff form) must not throw — default params do not apply to null.
+  const profile = editing && typeof editing === "object" ? editing : {};
+  const perms = profile.productPermissions || {};
   return `
     <div class="section-title full"><h3>Agent Identity & Contact</h3></div>
-    <div class="field"><label>Employee Number</label><input name="employeeNumber" value="${escapeAttr(editing.employeeNumber || editing.agentCode || "")}" placeholder="Auto if blank" /></div>
-    <div class="field"><label>Gender</label><select name="gender">${optionList(["", "Male", "Female"], editing.gender || "")}</select></div>
-    <div class="field"><label>Date of Birth</label><input name="dateOfBirth" type="date" value="${escapeAttr(editing.dateOfBirth || "")}" /></div>
-    <div class="field"><label>Nationality</label><input name="nationality" value="${escapeAttr(editing.nationality || "Ghanaian")}" /></div>
-    <div class="field"><label>Marital Status</label><select name="maritalStatus">${optionList(["", "Single", "Married", "Divorced", "Widowed"], editing.maritalStatus || "")}</select></div>
-    <div class="field"><label>Secondary Phone</label><input name="phoneSecondary" value="${escapeAttr(editing.phoneSecondary || "")}" /></div>
-    <div class="field"><label>WhatsApp</label><input name="whatsapp" value="${escapeAttr(editing.whatsapp || editing.phone || "")}" /></div>
-    <div class="field"><label>Email</label><input name="email" type="email" value="${escapeAttr(editing.email || "")}" /></div>
-    <div class="field"><label>GPS Address</label><input name="gpsAddress" value="${escapeAttr(editing.gpsAddress || "")}" placeholder="GA-123-4567" /></div>
-    <div class="field"><label>Region</label><input name="region" value="${escapeAttr(editing.region || "")}" /></div>
-    <div class="field"><label>District</label><input name="district" value="${escapeAttr(editing.district || "")}" /></div>
-    <div class="field"><label>Town</label><input name="town" value="${escapeAttr(editing.town || "")}" /></div>
+    <div class="field"><label>Employee Number</label><input name="employeeNumber" value="${escapeAttr(profile.employeeNumber || profile.agentCode || "")}" placeholder="Auto if blank" /></div>
+    <div class="field"><label>Gender</label><select name="gender">${optionList(["", "Male", "Female"], profile.gender || "")}</select></div>
+    <div class="field"><label>Date of Birth</label><input name="dateOfBirth" type="date" value="${escapeAttr(profile.dateOfBirth || "")}" /></div>
+    <div class="field"><label>Nationality</label><input name="nationality" value="${escapeAttr(profile.nationality || "Ghanaian")}" /></div>
+    <div class="field"><label>Marital Status</label><select name="maritalStatus">${optionList(["", "Single", "Married", "Divorced", "Widowed"], profile.maritalStatus || "")}</select></div>
+    <div class="field"><label>Secondary Phone</label><input name="phoneSecondary" value="${escapeAttr(profile.phoneSecondary || "")}" /></div>
+    <div class="field"><label>WhatsApp</label><input name="whatsapp" value="${escapeAttr(profile.whatsapp || profile.phone || "")}" /></div>
+    <div class="field"><label>Email</label><input name="email" type="email" value="${escapeAttr(profile.email || "")}" /></div>
+    <div class="field"><label>GPS Address</label><input name="gpsAddress" value="${escapeAttr(profile.gpsAddress || "")}" placeholder="GA-123-4567" /></div>
+    <div class="field"><label>Region</label><input name="region" value="${escapeAttr(profile.region || "")}" /></div>
+    <div class="field"><label>District</label><input name="district" value="${escapeAttr(profile.district || "")}" /></div>
+    <div class="field"><label>Town</label><input name="town" value="${escapeAttr(profile.town || "")}" /></div>
     <div class="section-title full"><h3>Identification</h3></div>
-    <div class="field"><label>ID Type</label><select name="idType">${optionList(ID_TYPES, editing.idType || "Ghana Card")}</select></div>
-    <div class="field"><label>ID Number</label><input name="idNumber" value="${escapeAttr(editing.idNumber || editing.ghanaCard || "")}" /></div>
-    <div class="field"><label>ID Expiry</label><input name="idExpiry" type="date" value="${escapeAttr(editing.idExpiry || "")}" /></div>
+    <div class="field"><label>ID Type</label><select name="idType">${optionList(ID_TYPES, profile.idType || "Ghana Card")}</select></div>
+    <div class="field"><label>ID Number</label><input name="idNumber" value="${escapeAttr(profile.idNumber || profile.ghanaCard || "")}" /></div>
+    <div class="field"><label>ID Expiry</label><input name="idExpiry" type="date" value="${escapeAttr(profile.idExpiry || "")}" /></div>
     <div class="field"><label>ID Front</label><input name="idFrontFile" type="file" accept="image/jpeg,image/png,application/pdf" /></div>
     <div class="field"><label>ID Back</label><input name="idBackFile" type="file" accept="image/jpeg,image/png,application/pdf" /></div>
     <div class="section-title full"><h3>Employment</h3></div>
-    <div class="field"><label>Date Employed</label><input name="dateEmployed" type="date" value="${escapeAttr(editing.dateEmployed || "")}" /></div>
-    <div class="field"><label>Job Title</label><select name="jobTitle">${optionList(JOB_TITLES, editing.jobTitle || "Field Collector")}</select></div>
-    <div class="field"><label>Employment Type</label><select name="employmentType">${optionList(EMPLOYMENT_TYPES, editing.employmentType || "Permanent")}</select></div>
-    <div class="field"><label>Employment Status</label><select name="employmentStatus">${optionList(AGENT_STATUSES, editing.employmentStatus || "Active")}</select></div>
+    <div class="field"><label>Date Employed</label><input name="dateEmployed" type="date" value="${escapeAttr(profile.dateEmployed || "")}" /></div>
+    <div class="field"><label>Job Title</label><select name="jobTitle">${optionList(JOB_TITLES, profile.jobTitle || "Field Collector")}</select></div>
+    <div class="field"><label>Employment Type</label><select name="employmentType">${optionList(EMPLOYMENT_TYPES, profile.employmentType || "Permanent")}</select></div>
+    <div class="field"><label>Employment Status</label><select name="employmentStatus">${optionList(AGENT_STATUSES, profile.employmentStatus || "Active")}</select></div>
     <div class="field"><label>Supervisor</label>
       <select name="supervisorId">
         <option value="">None</option>
-        ${supervisors.map((user) => `<option value="${escapeAttr(user.id)}" ${user.id === editing.supervisorId ? "selected" : ""}>${escapeHtml(user.name)}</option>`).join("")}
+        ${supervisors.map((user) => `<option value="${escapeAttr(user.id)}" ${user.id === profile.supervisorId ? "selected" : ""}>${escapeHtml(user.name)}</option>`).join("")}
       </select>
     </div>
-    <div class="field"><label>GPS tracking</label><label class="permission-item"><input type="checkbox" name="gpsEnabled" ${editing.gpsEnabled ? "checked" : ""} /> Enable optional GPS</label></div>
+    <div class="field"><label>GPS tracking</label><label class="permission-item"><input type="checkbox" name="gpsEnabled" ${profile.gpsEnabled ? "checked" : ""} /> Enable optional GPS</label></div>
     <div class="section-title full"><h3>Product Collection Permissions</h3></div>
     <div class="field full permission-grid">
       ${PRODUCT_PERMISSIONS.map(([key, label]) => `

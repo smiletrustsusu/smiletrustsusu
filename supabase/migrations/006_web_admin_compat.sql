@@ -2,6 +2,10 @@
 -- Fixes: branches.code missing, direct app_users select under RLS
 
 alter table public.branches add column if not exists code text;
+-- Normally added by 003/005; repeated so this migration runs even if those were skipped.
+alter table public.branches add column if not exists client_id text;
+alter table public.app_users add column if not exists client_id text;
+alter table public.app_users add column if not exists auth_email text;
 
 update public.branches
 set code = coalesce(

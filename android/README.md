@@ -25,7 +25,7 @@ Do **not** rewrite the product in Kotlin / Jetpack Compose / Hilt / Room / Retro
 npm run pilot:android
 ```
 
-This runs `prepare:web` → `android:ensure` (Capacitor Gradle generate, preserving README/plugins-src) → `cap:sync` → debug APK.  
+This runs `prepare:web` → `android:ensure` (Capacitor Gradle generate, preserving README/plugins-src) → `cap:sync` → **downlevel Android assets to ES2018** → debug APK.  
 Expected artifact: `android/app/build/outputs/apk/debug/app-debug.apk`
 
 **Step-by-step:**
@@ -38,6 +38,7 @@ npm run cap:sync
 npm run build:apk
 ```
 
+> `postcap:sync` / `build:apk` rewrite `android/app/src/main/assets/public` JS to **ES2018** so older System WebViews do not throw `Uncaught SyntaxError` on optional chaining (`?.`) / nullish coalescing (`??`) / numeric separators. Source of truth (`src/`, `www/`) stays modern — do **not** hand-edit the downleveled Android copies.
 > Note: `npm run cap:add:android` alone fails while `android/README.md` + `plugins-src/` exist (Capacitor sees the folder as a platform). Use `android:ensure` instead.
 
 `precap:add:android` / `precap:sync` / `prebuild:apk` already run `prepare:web` where wired in `package.json`.
@@ -112,6 +113,7 @@ Copy Kotlin stubs from `plugins-src/` into the generated Capacitor Android modul
 | `check:android` fails | Fix `capacitor.config.json` / package scripts |
 | Java version errors | `build-apk.js` prefers Android Studio JBR 17–21 (system JDK 25+ will fail) |
 | Blank WebView | `npm run prepare:web` then `npm run cap:sync` |
+| Uncaught SyntaxError on launch | Fixed duplicate ESM imports in `app.js` and illegal `??`/`||` mix in `dashboard-views.js`. Rebuild with `prepare:web` + `cap:sync` (also ES2018-downlevels Android assets). Update System WebView from Play Store on very old devices. |
 | Sync not draining | Check device not revoked; open Backup → Offline sync platform |
 | Signing refused | Set store password env or `SMILE_ANDROID_ALLOW_LOCAL_KEYSTORE=1` |
 | SDK not found | Install Android Studio; or set `ANDROID_HOME` — then `npm run check:android -- --strict-sdk` |

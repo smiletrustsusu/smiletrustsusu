@@ -11,8 +11,8 @@
     "wavesCompleteNote": "Implementation waves 1–10 framework is complete; remaining work is human execution of pilot sign-offs + real production cutover under Wave 10 runbooks",
     "certNote": "CERT-001 full production promote requires human Accountable Authority approvals — never auto-assumed"
   },
-  "startedAt": "2026-09-16T21:27:41.500Z",
-  "finishedAt": "2026-09-16T21:27:41.535Z",
+  "startedAt": "2026-09-29T09:35:07.344Z",
+  "finishedAt": "2026-09-29T09:35:07.372Z",
   "claim": {
     "frameworkReady": true,
     "liveProductionCutover": false,
@@ -968,8 +968,8 @@
     "schemaVersion": "wave10-project-closure/1.0",
     "wave": "WAVE-10",
     "title": "SMILE TRUST SUSU — Implementation Waves 1–10 Closure (Framework)",
-    "startedAt": "2026-09-16T21:27:41.500Z",
-    "finishedAt": "2026-09-16T21:27:41.535Z",
+    "startedAt": "2026-09-29T09:35:07.344Z",
+    "finishedAt": "2026-09-29T09:35:07.372Z",
     "frameworkWavesComplete": true,
     "productionLive": false,
     "decision": "FrameworkReady",

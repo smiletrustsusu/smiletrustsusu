@@ -12,6 +12,7 @@ import { CLOUD_SNAPSHOT_TABLE, SESSION_USER_KEY } from "../constants.js";
 import { sanitizeStateForCloud, restoreUsersFromCloud } from "./snapshot-security.js";
 import { currentUser } from "../core/auth.js";
 import { mergeStates, normalizeState, saveStateToStorage } from "../core/state.js";
+import { shrinkStateMedia, isStorageQuotaError } from "../core/media-compress.js";
 
 function businessId() {
   return resolveBusinessId(App.state);
@@ -126,7 +127,7 @@ async function latestSupabaseSnapshot() {
   const response = await fetchWithTimeout(`${url}/rest/v1/${CLOUD_SNAPSHOT_TABLE}?${query}`, {
     cache: "no-store",
     headers: cloudHeaders({ "Cache-Control": "no-cache", Pragma: "no-cache" })
-  }, 12000);
+  }, 60000);
   if (!response.ok) throw await responseError(response, "Cloud read failed");
   const rows = await response.json();
   return rows?.[0] || null;
@@ -152,22 +153,29 @@ async function saveSupabaseSnapshot(savedAt) {
     saved_by: currentUser()?.username || "system",
     saved_at: savedAt
   });
-  const updateUrl = `${url}/rest/v1/${CLOUD_SNAPSHOT_TABLE}?business_id=eq.${encodeURIComponent(businessId())}&access_key=eq.${encodeURIComponent(accessKey)}`;
+  const updateUrl = `${url}/rest/v1/${CLOUD_SNAPSHOT_TABLE}?business_id=eq.${encodeURIComponent(businessId())}&access_key=eq.${encodeURIComponent(accessKey)}&select=id`;
   const updateResponse = await fetchWithTimeout(updateUrl, {
     method: "PATCH",
     cache: "no-store",
-    headers: cloudHeaders({ Prefer: "return=minimal", "Cache-Control": "no-cache", Pragma: "no-cache" }),
+    headers: cloudHeaders({ Prefer: "return=representation", "Cache-Control": "no-cache", Pragma: "no-cache" }),
     body: updateBody
-  }, 15000);
-  if (updateResponse.ok) return;
-  const updateError = await responseError(updateResponse, "Cloud update failed");
+  }, 60000);
+  // PostgREST answers 200 even when no row matched, so only stop if a row was actually updated.
+  let updateError;
+  if (updateResponse.ok) {
+    const updatedRows = await updateResponse.json().catch(() => []);
+    if (Array.isArray(updatedRows) && updatedRows.length) return;
+    updateError = new Error("Cloud update matched no snapshot row");
+  } else {
+    updateError = await responseError(updateResponse, "Cloud update failed");
+  }
   const insertUrl = `${url}/rest/v1/${CLOUD_SNAPSHOT_TABLE}?on_conflict=business_id`;
   const insertResponse = await fetchWithTimeout(insertUrl, {
     method: "POST",
     cache: "no-store",
     headers: cloudHeaders({ Prefer: "resolution=merge-duplicates,return=minimal", "Cache-Control": "no-cache", Pragma: "no-cache" }),
     body: insertBody
-  }, 15000);
+  }, 60000);
   if (!insertResponse.ok) {
     const insertError = await responseError(insertResponse, "Cloud insert failed");
     throw new Error(`${updateError.message}; ${insertError.message}`);
@@ -217,11 +225,17 @@ export async function pushCloudBackup(silent = false) {
       merged.users = restoreUsersFromCloud(App.state.users, merged.users);
       App.state = normalizeState(merged);
     }
+    await shrinkStateMedia(App.state);
     const savedAt = new Date().toISOString();
     await saveCloudSnapshot(savedAt);
     App.state.settings.lastSyncedAt = savedAt;
     App.state.settings.lastBackupAt = savedAt;
-    saveStateToStorage(App.state);
+    try {
+      saveStateToStorage(App.state);
+    } catch (error) {
+      // Upload already succeeded; the next local save retries with media shrinking.
+      if (!isStorageQuotaError(error)) throw error;
+    }
     App.localSavePending = false;
     return savedAt;
   } finally {

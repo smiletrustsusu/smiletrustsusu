@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Smile Trust Susu</string>
+    <string name="title_activity_main">Smile Trust Susu</string>
+    <string name="package_name">com.kba.susu</string>
+    <string name="custom_url_scheme">com.kba.susu</string>
+</resources>
