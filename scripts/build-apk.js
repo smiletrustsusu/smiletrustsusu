@@ -101,9 +101,14 @@ const task = process.argv[2] === "release" ? "assembleRelease" : "assembleDebug"
 
 if (task === "assembleRelease") {
   const propsPath = path.join(androidDir, "keystore.properties");
-  const keystorePath = path.join(androidDir, "smile-trust-release.keystore");
+  // Only the storeFile key is read; passwords in keystore.properties are never loaded here.
+  const storeLine = fs.existsSync(propsPath)
+    ? fs.readFileSync(propsPath, "utf8").split(/\r?\n/).find((item) => /^\s*storeFile\s*=/.test(item))
+    : "";
+  const storeFile = storeLine ? storeLine.slice(storeLine.indexOf("=") + 1).trim() : "smile-trust-release.keystore";
+  const keystorePath = path.resolve(androidDir, storeFile);
   if (!fs.existsSync(propsPath) || !fs.existsSync(keystorePath)) {
-    console.error("Release APK requires android/keystore.properties + smile-trust-release.keystore.");
+    console.error("Release APK requires android/keystore.properties and the keystore named by its storeFile.");
     console.error(
       "Configure with org secrets (never invent certs):\n" +
         "  $env:SMILE_ANDROID_STORE_PASSWORD = '<vault>'\n" +
