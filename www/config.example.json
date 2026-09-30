@@ -1,6 +1,6 @@
 {
   "supabaseUrl": "https://your-project.supabase.co",
-  "supabaseAnonKey": "your-anon-key",
+  "supabaseAnonKey": "sb_publishable_your-project-key",
   "businessId": "your-business-id",
   "localBackupUrl": "http://localhost:8787",
   "allowDeveloperLogin": false,

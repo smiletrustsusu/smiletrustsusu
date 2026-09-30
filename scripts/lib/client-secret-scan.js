@@ -39,13 +39,31 @@ const PRIVILEGED_JWT_ROLES = new Set(["service_role", "supabase_admin", "postgre
 
 const sha256 = (value) => crypto.createHash("sha256").update(value).digest("hex");
 
-function jwtRole(token) {
+const SUPABASE_PROJECT_URL = /https?:\/\/([a-z]{20})\.supabase\.co/g;
+
+function jwtClaims(token) {
   try {
     const part = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-    return JSON.parse(Buffer.from(part, "base64").toString("utf8"))?.role || "";
+    return JSON.parse(Buffer.from(part, "base64").toString("utf8")) || {};
   } catch {
-    return "";
+    return {};
   }
+}
+
+function jwtRole(token) {
+  return jwtClaims(token).role || "";
+}
+
+/** Supabase project refs a file points at: project URLs plus the ref claim of legacy API keys. */
+function backendRefsInBuffer(buffer) {
+  const text = buffer.toString("latin1");
+  const refs = new Set();
+  for (const match of text.matchAll(SUPABASE_PROJECT_URL)) refs.add(match[1]);
+  for (const match of text.matchAll(JWT)) {
+    const ref = jwtClaims(match[0]).ref;
+    if (typeof ref === "string" && /^[a-z]{20}$/.test(ref)) refs.add(ref);
+  }
+  return refs;
 }
 
 /**
@@ -122,20 +140,54 @@ function* walk(dir) {
   }
 }
 
+/**
+ * `expectBackend`: the only Supabase project ref the artifact may reference. Any other ref is a
+ * finding, and so is an app config.json that does not point at the expected project.
+ */
 function scanDirectory(dir, options = {}) {
   const findings = [];
+  const backends = new Map();
   let files = 0;
+  let expectedInConfig = false;
   for (const full of walk(dir)) {
     files += 1;
     const rel = path.relative(dir, full).split(path.sep).join("/");
-    findings.push(...scanBuffer(rel, fs.readFileSync(full), options));
+    const buffer = fs.readFileSync(full);
+    findings.push(...scanBuffer(rel, buffer, options));
+    for (const ref of backendRefsInBuffer(buffer)) {
+      if (!backends.has(ref)) backends.set(ref, []);
+      backends.get(ref).push(rel);
+    }
+    if (options.expectBackend && path.basename(rel) === "config.json") {
+      try {
+        const url = String(JSON.parse(buffer.toString("utf8"))?.supabaseUrl || "");
+        if (url === `https://${options.expectBackend}.supabase.co`) expectedInConfig = true;
+      } catch {
+        // Not a JSON object.
+      }
+    }
   }
-  return { files, findings };
+  if (options.expectBackend) {
+    for (const [ref, where] of backends) {
+      if (ref !== options.expectBackend) {
+        for (const file of where) findings.push({ file, rule: "unexpected-backend", detail: `references Supabase project ${ref}` });
+      }
+    }
+    if (!expectedInConfig) {
+      findings.push({ file: "config.json", rule: "expected-backend-missing", detail: `no app config.json points at ${options.expectBackend}` });
+    }
+  }
+  return {
+    files,
+    findings,
+    backends: [...backends].map(([ref, where]) => ({ ref, files: where.length, examples: where.slice(0, 3) }))
+  };
 }
 
 module.exports = {
   FORBIDDEN_CONFIG_KEYS,
   LEGACY_DEFAULT_PASSWORD_DIGESTS,
+  backendRefsInBuffer,
   localSecretValues,
   scanBuffer,
   scanDirectory

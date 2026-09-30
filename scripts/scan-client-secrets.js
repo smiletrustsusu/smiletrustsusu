@@ -7,6 +7,7 @@
  *   node scripts/scan-client-secrets.js --exe path/setup.exe   # unpack NSIS installer / portable EXE
  *   node scripts/scan-client-secrets.js --dir dist/win-unpacked
  *   --report out.json                                          # write a redacted JSON report
+ *   --expect-backend <project-ref>                             # fail on any other Supabase project
  *
  * Exits 1 (BLOCKED) when any finding remains.
  */
@@ -21,9 +22,14 @@ const root = path.join(__dirname, "..");
 function parseArgs(argv) {
   const targets = [];
   let report = "";
+  let expectBackend = "";
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
     if (flag === "--report") report = argv[++i];
+    else if (flag === "--expect-backend") {
+      expectBackend = String(argv[++i] || "");
+      if (!/^[a-z]{20}$/.test(expectBackend)) throw new Error("--expect-backend needs a 20-letter Supabase project ref");
+    }
     else if (flag === "--apk" || flag === "--exe" || flag === "--dir") targets.push({ kind: flag.slice(2), path: argv[++i] });
     else throw new Error(`Unknown argument: ${flag}`);
   }
@@ -32,7 +38,7 @@ function parseArgs(argv) {
     const capacitorCopy = "android/app/src/main/assets/public";
     if (fs.existsSync(path.join(root, capacitorCopy))) targets.push({ kind: "dir", path: capacitorCopy });
   }
-  return { targets, report };
+  return { targets, report, expectBackend };
 }
 
 function sevenZip() {
@@ -97,16 +103,18 @@ function prepareTarget(target) {
 }
 
 function main() {
-  const { targets, report } = parseArgs(process.argv.slice(2));
+  const { targets, report, expectBackend } = parseArgs(process.argv.slice(2));
   const secretValues = localSecretValues(root);
   console.log(`Checking for ${secretValues.length} locally configured secret value(s) plus built-in rules (values never printed).`);
+  if (expectBackend) console.log(`Expected Supabase project: ${expectBackend}`);
   const results = [];
   for (const target of targets) {
     const prepared = prepareTarget(target);
     try {
-      const { files, findings } = scanDirectory(prepared.dir, { secretValues });
-      results.push({ target: `${target.kind}:${target.path}`, files, findings });
+      const { files, findings, backends } = scanDirectory(prepared.dir, { secretValues, expectBackend });
+      results.push({ target: `${target.kind}:${target.path}`, files, backends, findings });
       console.log(`\n${target.kind} ${target.path}: ${files} files scanned, ${findings.length} finding(s)`);
+      console.log(`  Supabase projects referenced: ${backends.map((item) => `${item.ref} (${item.files} file(s))`).join(", ") || "none"}`);
       for (const finding of findings) console.log(`  [${finding.rule}] ${finding.file} - ${finding.detail}`);
     } finally {
       prepared.cleanup();
@@ -117,6 +125,7 @@ function main() {
     fs.mkdirSync(path.dirname(path.resolve(root, report)), { recursive: true });
     fs.writeFileSync(path.resolve(root, report), `${JSON.stringify({
       scannedAt: new Date().toISOString(),
+      expectBackend: expectBackend || null,
       secretValuesChecked: secretValues.map((item) => item.label),
       results,
       status: total ? "BLOCKED" : "CLEAN"

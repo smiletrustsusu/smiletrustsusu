@@ -33,7 +33,7 @@ async function writeClientConfig() {
     fs.rmSync(dest, { force: true });
     return;
   }
-  const { pickClientConfig } = await import(pathToFileURL(path.join(root, "src", "config.js")).href);
+  const { pickClientConfig, clientBackendConfigProblems } = await import(pathToFileURL(path.join(root, "src", "config.js")).href);
   const { forbiddenClientConfigKeys } = await import(pathToFileURL(path.join(root, "src", "core", "production-guards.js")).href);
   const raw = JSON.parse(fs.readFileSync(configPath, "utf8"));
   const dropped = Object.keys(raw).filter((key) => !(key in pickClientConfig(raw)));
@@ -41,6 +41,9 @@ async function writeClientConfig() {
   const clientConfig = pickClientConfig(raw);
   const leaked = forbiddenClientConfigKeys(clientConfig);
   if (leaked.length) throw new Error(`Refusing to ship secrets in www/config.json: ${leaked.join(", ")}`);
+  const backend = clientBackendConfigProblems(clientConfig);
+  if (backend.problems.length) throw new Error(`Refusing to build with this backend config: ${backend.problems.join("; ")}`);
+  backend.warnings.forEach((warning) => console.warn(`config.json: ${warning}`));
   fs.writeFileSync(dest, `${JSON.stringify(clientConfig, null, 2)}\n`);
   console.log("Wrote www/config.json (public client settings only)");
 }

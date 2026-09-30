@@ -3,7 +3,9 @@
  * Protected calls carry the signed-in staff member's JWT; the server authorizes by its claims.
  */
 import { resolvedSupabaseKey, resolvedSupabaseUrl } from "../config.js";
+import { backendSyncHeld } from "../core/backend-guard.js";
 import { ensureFreshAccessToken, getAccessToken } from "./supabase-auth.js";
+import { supabaseKeyHeaders } from "./supabase-headers.js";
 
 export function supabaseConfigured(state) {
   const url = resolvedSupabaseUrl(state);
@@ -14,12 +16,7 @@ export function supabaseConfigured(state) {
 export function restHeaders(state, { prefer = "", useUserToken = true } = {}) {
   const key = resolvedSupabaseKey(state);
   const userToken = useUserToken ? getAccessToken() : "";
-  const bearer = userToken || key;
-  const headers = {
-    apikey: key,
-    Authorization: `Bearer ${bearer}`,
-    "Content-Type": "application/json"
-  };
+  const headers = supabaseKeyHeaders(key, { bearer: userToken });
   if (prefer) headers.Prefer = prefer;
   return headers;
 }
@@ -27,6 +24,9 @@ export function restHeaders(state, { prefer = "", useUserToken = true } = {}) {
 export async function restFetch(state, path, { method = "GET", body, prefer = "" } = {}) {
   const url = `${resolvedSupabaseUrl(state)}/rest/v1/${path}`;
   await ensureFreshAccessToken(state).catch(() => "");
+  if (!getAccessToken() && backendSyncHeld(typeof localStorage !== "undefined" ? localStorage : null)) {
+    throw new Error("Sign in online to start syncing with this server");
+  }
   const response = await fetch(url, {
     method,
     headers: restHeaders(state, { prefer }),

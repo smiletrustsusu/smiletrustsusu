@@ -76,7 +76,7 @@ Money is stored as **integer pesewas**. Posted collections are **append-only** (
 
 Run in Supabase SQL editor (backup first):
 
-1. `supabase/rls.sql`
+1. `supabase/rls.sql` (optional: migration 046 creates the snapshot table if it is missing)
 2. `001_financial_core.sql` … `006_web_admin_compat.sql`
 3. `007_agency_platform.sql` — branches extras, withdrawals, expenses, meetings, notifications, KYC
 

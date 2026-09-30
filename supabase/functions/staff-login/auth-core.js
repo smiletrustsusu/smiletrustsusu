@@ -4,11 +4,73 @@
  */
 
 export const MFA_REQUIRED_ROLES = ["SystemOwner", "KBA", "Admin", "ManagingDirector", "Accountant"];
+export const PBKDF2_ITERATIONS = 120000;
+export const MIN_STAFF_PASSWORD_LENGTH = 8;
 const BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
 function hexToBytes(hex) {
   const pairs = String(hex || "").match(/.{1,2}/g) || [];
   return Uint8Array.from(pairs.map((part) => parseInt(part, 16)));
+}
+
+function bytesToHex(bytes) {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+/** Same format as the app's hashPassword (src/password.js): pbkdf2:<iterations>:<salt>:<hash>. */
+export async function hashPasswordPbkdf2(password, iterations = PBKDF2_ITERATIONS) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const keyMaterial = await crypto.subtle.importKey("raw", new TextEncoder().encode(String(password)), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt, iterations, hash: "SHA-256" }, keyMaterial, 256);
+  return `pbkdf2:${iterations}:${bytesToHex(salt)}:${bytesToHex(new Uint8Array(bits))}`;
+}
+
+/** True when the value is a password hash staff-login can verify (not empty or a placeholder). */
+export function isUsablePasswordHash(value) {
+  return typeof value === "string" && (value.startsWith("pbkdf2:") || value.startsWith("kba-"));
+}
+
+export function normalizeActivationCode(value) {
+  return String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+/** Must match public.st_issue_staff_activation (migration 046): sha256("<app_users.id>:<code>"). */
+export async function activationCodeHash(appUserUuid, code) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${appUserUuid}:${normalizeActivationCode(code)}`));
+  return bytesToHex(new Uint8Array(digest));
+}
+
+export function validateNewStaffPassword(password) {
+  const value = typeof password === "string" ? password : "";
+  if (value.length < MIN_STAFF_PASSWORD_LENGTH) return `Password must be at least ${MIN_STAFF_PASSWORD_LENGTH} characters`;
+  if (value.length > 256) return "Password is too long";
+  return "";
+}
+
+/** public.app_users role -> app role, the same mapping as fetch_business_snapshot (migration 005). */
+export function appRoleFromRelational(role) {
+  if (role === "Owner") return "KBA";
+  if (role === "AssistantManager") return "Admin";
+  return String(role || "");
+}
+
+/**
+ * A public.app_users row as a staff-login user. The app identifies users by client_id (what
+ * fetch_business_snapshot returns as id); rows without one fall back to their uuid.
+ */
+export function staffUserFromAppUserRow(row, { mfaEnabled = false } = {}) {
+  if (!row?.id) return null;
+  return {
+    id: String(row.client_id || row.id),
+    uuid: String(row.id),
+    username: String(row.username || ""),
+    name: String(row.name || row.username || ""),
+    role: appRoleFromRelational(row.role),
+    active: row.active !== false,
+    passwordHash: isUsablePasswordHash(row.password_hash) ? row.password_hash : "",
+    mfaEnabled: Boolean(mfaEnabled),
+    source: "app_users"
+  };
 }
 
 function constantTimeEqual(a, b) {
@@ -116,6 +178,10 @@ export async function evaluateStaffLogin({ user, password, mfaCode = "", mfaSecr
     }
   }
   return { ok: true };
+}
+
+export function isPlainUsername(value) {
+  return /^[a-z0-9._@-]{1,80}$/.test(String(value || ""));
 }
 
 export function isValidBusinessCode(value) {

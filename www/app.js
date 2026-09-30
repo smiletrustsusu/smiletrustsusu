@@ -19,7 +19,7 @@ import {
   verifyPassword
 } from "./src/password.js";
 import { deviceQueueSecret } from "./src/sync/offline-crypto.js";
-import { staffCloudLogin, hasStaffCloudSession, clearStaffCloudSession } from "./src/sync/staff-session.js";
+import { staffCloudLogin, staffCloudActivate, hasStaffCloudSession, clearStaffCloudSession } from "./src/sync/staff-session.js";
 import {
   portalServerAvailable,
   portalServerLogin,
@@ -173,6 +173,8 @@ import { buildExceptionReport, recordException } from "./src/core/exceptions.js"
 import { pendingQueueItems } from "./src/sync/offline-queue.js";
 import { encryptOfflinePayload, decryptOfflinePayload, wrapQueueEntryForStorage } from "./src/sync/offline-crypto.js";
 import { pushCollectionToRelational, pushDeviceToRelational, relationalSyncEnabled, flushRelationalOfflineQueue } from "./src/sync/relational-sync.js";
+import { backendTransitionNotice, enforceBackendIdentity, takeQuarantineNotice } from "./src/core/backend-guard.js";
+import { adoptCloudVerifiedUser } from "./src/core/cloud-user-adoption.js";
 import {
   loadStateFromRelational,
   importSnapshotToRelational,
@@ -3612,6 +3614,7 @@ function renderLogin() {
         <div data-auth-panel="login">
           <h2>Secure Login</h2>
           <p class="muted">Enter your staff username and password.</p>
+          ${backendTransitionBannerHtml()}
           ${hasUsableLocalLogin(state.users) ? "" : `<div class="notice">This device has no staff accounts yet. Connect to the internet and sign in with your staff username and password.</div>`}
         <form id="loginForm">
           <div class="field">
@@ -3635,6 +3638,19 @@ function renderLogin() {
           </div>
           <div id="loginError"></div>
         </form>
+        <details class="activation-details">
+          <summary>First sign-in with an activation code</summary>
+          <p class="muted">For existing staff accounts that have never had a password. Ask your administrator for a one-time activation code, then choose your own password.</p>
+          <form id="activationForm">
+            <div class="field"><label for="activationUsername">Username</label><input id="activationUsername" required autocomplete="username" autocapitalize="none" /></div>
+            <div class="field"><label for="activationCode">Activation code</label><input id="activationCode" required autocapitalize="characters" autocomplete="one-time-code" placeholder="XXXX-XXXX-XXXX" /></div>
+            <div class="field"><label for="activationPassword">New password</label><input id="activationPassword" type="password" minlength="8" required autocomplete="new-password" /></div>
+            <div class="field"><label for="activationConfirm">Confirm password</label><input id="activationConfirm" type="password" minlength="8" required autocomplete="new-password" /></div>
+            <div class="field"><label for="activationMfa">Authenticator code (only if MFA is already set up)</label><input id="activationMfa" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" /></div>
+            <div class="form-actions"><button class="btn secondary" type="submit">Activate and sign in</button></div>
+            <div id="activationError"></div>
+          </form>
+        </details>
         </div>
         <div data-auth-panel="portal" style="display:none">
           <h2>Member portal</h2>
@@ -3692,6 +3708,7 @@ function renderLogin() {
         try {
           await loadUnifiedBusinessData();
           user = await findLoginUser(username, password);
+          if (!user && cloudLogin.ok) user = await adoptCloudSignIn(username, password, cloudLogin.appUser);
         } catch {
           // Keep the normal invalid message below.
         }
@@ -3720,7 +3737,9 @@ function renderLogin() {
           }, uid);
         }
         saveState();
-        const cloudMessage = cloudLogin?.mfaRequired || cloudLogin?.status === 429 ? cloudLogin.error : "";
+        const cloudMessage = cloudLogin?.ok
+          ? "You signed in online, but this device could not load your account yet. Tap Sync now, then try again."
+          : cloudLogin?.mfaRequired || cloudLogin?.status === 429 ? cloudLogin.error : "";
         document.querySelector("#loginError").innerHTML = `<div class="notice">${escapeHtml(cloudMessage || "Invalid login or inactive account.")}</div>`;
         return;
       }
@@ -3783,6 +3802,7 @@ function renderLogin() {
   });
   document.querySelector("#adminRequestForm").addEventListener("submit", handleAdminRequest);
   document.querySelector("#portalLoginForm")?.addEventListener("submit", handlePortalLogin);
+  document.querySelector("#activationForm")?.addEventListener("submit", handleStaffActivation);
   document.querySelector("#loginRestoreSync")?.addEventListener("click", connectLoginSync);
   document.querySelector("#loginReplaceSync")?.addEventListener("click", replaceLoginSync);
   document.querySelectorAll("[data-toggle-password]").forEach((button) => {
@@ -3798,6 +3818,84 @@ function renderLogin() {
       document.querySelector(".request-panel").style.display = mode === "create" ? "block" : "none";
     });
   });
+}
+
+function backendTransitionBannerHtml() {
+  const notice = backendTransitionNotice(localStorage);
+  if (!notice) return "";
+  const previous = notice.from?.host
+    ? ` Data from the previous server (${escapeHtml(notice.from.host)}) is kept on this device only and will not be uploaded.`
+    : "";
+  return `<div class="notice" data-backend-transition>This device is connected to ${escapeHtml(notice.to.host)} (business ${escapeHtml(notice.to.businessId || "not set")}). Cloud sync starts only after a staff member signs in online.${previous}</div>`;
+}
+
+/** The server has verified this username and password; bind the device's copy to that identity. */
+async function adoptCloudSignIn(username, password, appUser) {
+  const result = adoptCloudVerifiedUser(state.users, appUser, {
+    username,
+    passwordHash: await hashPasswordForUser(password),
+    now: new Date().toISOString()
+  });
+  if (!result.ok) return null;
+  state.users = result.users;
+  saveState();
+  return result.user;
+}
+
+async function handleStaffActivation(event) {
+  event.preventDefault();
+  const box = document.querySelector("#activationError");
+  const show = (message) => {
+    if (box) box.innerHTML = `<div class="notice">${escapeHtml(message)}</div>`;
+  };
+  const username = document.querySelector("#activationUsername").value.trim().toLowerCase();
+  const activationCode = document.querySelector("#activationCode").value.trim();
+  const newPassword = document.querySelector("#activationPassword").value;
+  const mfaCode = document.querySelector("#activationMfa")?.value?.trim() || "";
+  if (newPassword !== document.querySelector("#activationConfirm").value) {
+    show("Passwords do not match.");
+    return;
+  }
+  const invalid = validateForcedPassword(newPassword, "", undefined, {
+    minLength: getConfigValue(state, "security.passwordMinLength")
+  });
+  if (invalid) {
+    show(invalid);
+    return;
+  }
+  show("Activating your account online...");
+  const result = await staffCloudActivate(state, { username, activationCode, newPassword, mfaCode });
+  if (!result.ok) {
+    if (result.offline) show("Connect to the internet to activate your account.");
+    else if (result.unavailable) show("Account activation is not available on this server yet.");
+    else show(result.error || "Activation failed.");
+    return;
+  }
+  try {
+    await loadUnifiedBusinessData();
+  } catch {
+    // Adoption below reports if the account could not be loaded.
+  }
+  const user = await adoptCloudSignIn(username, newPassword, result.appUser);
+  if (!user) {
+    show("Your account is activated, but this device could not load it yet. Tap Sync now, then sign in with your new password.");
+    return;
+  }
+  recordAuditEvent(state, {
+    action: "Staff Account Activated",
+    details: `${user.username} chose a password with a one-time activation code`,
+    userId: user.id,
+    username: user.username,
+    category: "authentication",
+    eventType: "Account Activated",
+    result: "Success"
+  }, uid);
+  saveState();
+  document.querySelector("#username").value = username;
+  document.querySelector("#password").value = newPassword;
+  const mfaInput = document.querySelector("#mfaCode");
+  if (mfaInput) mfaInput.value = mfaCode;
+  document.querySelector("#loginForm").requestSubmit();
 }
 
 function needsFirstRunOwnerSetup() {
@@ -17976,6 +18074,14 @@ async function finishStartupTasks() {
 async function initializeApp() {
   try {
     await loadAppConfig();
+    const backend = enforceBackendIdentity({ storage: localStorage, sessionStore: sessionStorage, config: getAppConfig() });
+    if (backend.blocked) {
+      throw new Error("This device holds data from a different SMILE TRUST server and there is not enough storage to set it aside safely. Cloud sync is off. Free up storage on this device or contact your administrator.");
+    }
+    if (backend.quarantined) {
+      state = normalizeState(structuredClone(defaultState));
+      sessionUserId = null;
+    }
     captureLegacySyncKey(state);
     applyOwnerLoginDefaults();
     applyUnifiedCloudDefaults(state, getAppConfig());
@@ -17983,6 +18089,9 @@ async function initializeApp() {
     App.root = document.querySelector("#app") || app;
     syncToApp();
     render();
+    if (takeQuarantineNotice(localStorage)) {
+      toast("This device now uses the SMILE TRUST main server. Data from the previous server was set aside on this device and will not be uploaded.");
+    }
     startAutoCloudSync();
     void finishStartupTasks();
   } catch (error) {

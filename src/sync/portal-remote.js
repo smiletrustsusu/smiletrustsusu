@@ -4,6 +4,7 @@
  */
 import { resolveBusinessId, resolvedSupabaseKey, resolvedSupabaseUrl } from "../config.js";
 import { restFetch } from "./supabase-rest.js";
+import { supabaseKeyHeaders } from "./supabase-headers.js";
 
 export const PORTAL_SESSION_KEY = "smile_trust_portal_session";
 
@@ -21,7 +22,7 @@ async function publicRpc(state, name, body, fetchImpl = globalThis.fetch) {
   try {
     response = await fetchImpl(`${resolvedSupabaseUrl(state)}/rest/v1/rpc/${name}`, {
       method: "POST",
-      headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      headers: supabaseKeyHeaders(key),
       body: JSON.stringify(body)
     });
   } catch {

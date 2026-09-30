@@ -14,6 +14,12 @@ import { currentUser } from "../core/auth.js";
 import { mergeStates, normalizeState, saveStateToStorage } from "../core/state.js";
 import { shrinkStateMedia, isStorageQuotaError } from "../core/media-compress.js";
 import { ensureFreshAccessToken } from "./supabase-auth.js";
+import { supabaseKeyHeaders } from "./supabase-headers.js";
+import { backendSyncHeld } from "../core/backend-guard.js";
+
+function storageOrNull() {
+  return typeof localStorage !== "undefined" ? localStorage : null;
+}
 
 function businessId() {
   return resolveBusinessId(App.state);
@@ -47,12 +53,7 @@ function localHeaders(extra = {}) {
 }
 
 function cloudHeaders(bearer, extra = {}) {
-  return {
-    apikey: cloudKey(),
-    Authorization: `Bearer ${bearer}`,
-    "Content-Type": "application/json",
-    ...extra
-  };
+  return { ...supabaseKeyHeaders(cloudKey(), { bearer }), ...extra };
 }
 
 /**
@@ -66,7 +67,7 @@ async function snapshotAuth() {
   const token = await ensureFreshAccessToken(App.state).catch(() => "");
   if (token) return { url, bearer: token, legacyKey: "" };
   const legacyKey = syncAccessKey();
-  if (legacyKey) return { url, bearer: key, legacyKey };
+  if (legacyKey && !backendSyncHeld(storageOrNull())) return { url, bearer: "", legacyKey };
   throw new Error("Sign in online to sync with the cloud");
 }
 

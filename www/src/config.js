@@ -29,6 +29,51 @@ export function pickClientConfig(raw = {}) {
   return clean;
 }
 
+export function supabaseProjectRef(url) {
+  const match = /^https:\/\/([a-z0-9]{8,40})\.supabase\.co\/?$/i.exec(String(url || "").trim());
+  return match ? match[1].toLowerCase() : "";
+}
+
+function jwtPayload(token) {
+  try {
+    const part = String(token).split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(part.padEnd(part.length + ((4 - (part.length % 4)) % 4), "=")));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Build-time sanity check for the public backend settings. `problems` must stop a build (a key for
+ * another project, or a non-public key); `warnings` describe a build whose cloud features are off.
+ */
+export function clientBackendConfigProblems(config = {}) {
+  const problems = [];
+  const warnings = [];
+  const url = String(config.supabaseUrl || "").trim();
+  const key = String(config.supabaseAnonKey || "").trim();
+  if (!url && !key) return { problems, warnings };
+  const ref = supabaseProjectRef(url);
+  if (!ref) problems.push("supabaseUrl must be https://<project-ref>.supabase.co");
+  if (key.startsWith("sb_secret_")) {
+    problems.push("supabaseAnonKey is a secret key; only a publishable key may ship in the app");
+  } else if (key.startsWith("eyJ")) {
+    const payload = jwtPayload(key);
+    if (!payload) problems.push("supabaseAnonKey is not a readable legacy anon key");
+    else {
+      if (payload.role !== "anon") problems.push(`supabaseAnonKey has role "${payload.role}"; only the anon key may ship`);
+      if (ref && payload.ref && payload.ref !== ref) {
+        problems.push(`supabaseAnonKey belongs to project ${payload.ref}, but supabaseUrl is project ${ref}`);
+      }
+    }
+  } else if (key && !key.startsWith("sb_publishable_")) {
+    problems.push("supabaseAnonKey is neither a publishable key (sb_publishable_...) nor a legacy anon key");
+  }
+  if (!key) warnings.push("supabaseAnonKey is empty: cloud sign-in and sync are off in this build");
+  if (!String(config.businessId || "").trim()) warnings.push("businessId is empty");
+  return { problems, warnings };
+}
+
 export function getAppConfig() {
   return appConfig;
 }

@@ -72,9 +72,10 @@ export async function loadEmbeddedPostgres() {
 
 /**
  * Start a disposable cluster, apply the stub + snapshot table + every migration up to `upTo`.
+ * `withRlsSql: false` skips supabase/rls.sql, matching a project built from migrations alone.
  * Returns { query, asRole, stop, applied }.
  */
-export async function startLocalSupabase({ upTo = "999", onlyThrough } = {}) {
+export async function startLocalSupabase({ upTo = "999", onlyThrough, withRlsSql = true } = {}) {
   const EmbeddedPostgres = await loadEmbeddedPostgres();
   if (!EmbeddedPostgres) return null;
   const { default: pgLib } = await import("pg");
@@ -96,7 +97,7 @@ export async function startLocalSupabase({ upTo = "999", onlyThrough } = {}) {
   const client = new pgLib.Client({ host: "127.0.0.1", port, user: "postgres", password, database: "postgres" });
   await client.connect();
   await client.query(SUPABASE_STUB_SQL);
-  await client.query(snapshotTableSql());
+  if (withRlsSql) await client.query(snapshotTableSql());
   const applied = [];
   for (const file of migrationFiles()) {
     const prefix = file.name.slice(0, 3);

@@ -4,7 +4,9 @@
  * Offline sign-in against the local PBKDF2 hash keeps working without a network.
  */
 import { getAppConfig, resolveBusinessId, resolvedSupabaseKey, resolvedSupabaseUrl } from "../config.js";
+import { releaseBackendSyncHold } from "../core/backend-guard.js";
 import { clearAuthSession, getStoredAuthSession, storeAuthSession } from "./supabase-auth.js";
+import { supabaseKeyHeaders } from "./supabase-headers.js";
 
 export function staffLoginUrl(state) {
   const base = resolvedSupabaseUrl(state);
@@ -12,11 +14,7 @@ export function staffLoginUrl(state) {
   return base ? `${base}/functions/v1/${name}` : "";
 }
 
-/**
- * @returns {Promise<{ ok: boolean, appUser?: object, offline?: boolean, unavailable?: boolean,
- *   denied?: boolean, mfaRequired?: boolean, status?: number, error?: string }>}
- */
-export async function staffCloudLogin(state, { username, password, mfaCode = "" }, { fetchImpl = globalThis.fetch, timeoutMs = 15000 } = {}) {
+async function callStaffLogin(state, body, { fetchImpl = globalThis.fetch, timeoutMs = 15000 } = {}) {
   const url = staffLoginUrl(state);
   const key = resolvedSupabaseKey(state);
   if (!url || !key || typeof fetchImpl !== "function") {
@@ -28,13 +26,8 @@ export async function staffCloudLogin(state, { username, password, mfaCode = "" 
   try {
     response = await fetchImpl(url, {
       method: "POST",
-      headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        business_code: resolveBusinessId(state),
-        username: String(username || "").trim(),
-        password: String(password || ""),
-        mfa_code: String(mfaCode || "").trim()
-      }),
+      headers: supabaseKeyHeaders(key),
+      body: JSON.stringify({ business_code: resolveBusinessId(state), ...body }),
       signal: controller?.signal
     });
   } catch {
@@ -45,6 +38,7 @@ export async function staffCloudLogin(state, { username, password, mfaCode = "" 
   const data = await response.json().catch(() => ({}));
   if (response.ok && data.access_token) {
     storeAuthSession({ ...data, app_user: data.app_user || null });
+    if (typeof localStorage !== "undefined") releaseBackendSyncHold(localStorage);
     return { ok: true, appUser: data.app_user || null };
   }
   if (response.status === 404 || response.status >= 500) {
@@ -57,6 +51,32 @@ export async function staffCloudLogin(state, { username, password, mfaCode = "" 
     mfaRequired: Boolean(data.mfa_required),
     error: data.error || "Invalid login or inactive account."
   };
+}
+
+/**
+ * @returns {Promise<{ ok: boolean, appUser?: object, offline?: boolean, unavailable?: boolean,
+ *   denied?: boolean, mfaRequired?: boolean, status?: number, error?: string }>}
+ */
+export async function staffCloudLogin(state, { username, password, mfaCode = "" }, options = {}) {
+  return callStaffLogin(state, {
+    username: String(username || "").trim(),
+    password: String(password || ""),
+    mfa_code: String(mfaCode || "").trim()
+  }, options);
+}
+
+/**
+ * First sign-in for an existing staff account that has never had a password: redeem the one-time
+ * activation code from an administrator and choose a password. Same result shape as staffCloudLogin.
+ */
+export async function staffCloudActivate(state, { username, activationCode, newPassword, mfaCode = "" }, options = {}) {
+  return callStaffLogin(state, {
+    action: "activate",
+    username: String(username || "").trim(),
+    activation_code: String(activationCode || "").trim(),
+    new_password: String(newPassword || ""),
+    mfa_code: String(mfaCode || "").trim()
+  }, options);
 }
 
 /** True when this device holds a refreshable session for the given app user (or any user). */

@@ -23,7 +23,7 @@ In Supabase → **SQL Editor**, run each file completely. Repo path: `supabase/`
 
 | Order | File | Purpose |
 | --- | --- | --- |
-| 0 | `supabase/rls.sql` | Legacy cloud snapshot table + RLS (run first) |
+| 0 | `supabase/rls.sql` | Legacy cloud snapshot table + RLS (optional; 046 creates the table if missing) |
 | 1 | `supabase/migrations/001_financial_core.sql` | Relational financial core |
 | 2 | `supabase/migrations/002_susu_groups_pesewas.sql` | Susu groups + pesewas columns |
 | 3 | `supabase/migrations/003_rls_rpc_production.sql` | Production RLS / RPC templates |
