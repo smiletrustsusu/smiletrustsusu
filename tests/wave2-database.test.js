@@ -76,7 +76,8 @@ test("migration files are strictly sequenced without gaps in numbering", () => {
   }
   assert.ok(files.includes("044_wave2_database_platform.sql"));
   assert.ok(files.includes("045_app_users_role_rbac_align.sql"));
-  assert.equal(orders[orders.length - 1], 45);
+  assert.ok(files.includes("046_server_side_authorization.sql"));
+  assert.equal(orders[orders.length - 1], 46);
 });
 
 test("registry migrations match disk and validateDatabaseRegistry ok", () => {

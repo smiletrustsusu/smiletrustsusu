@@ -51,9 +51,9 @@ node server.js
 
 Open `http://localhost:5173`.
 
-**Staff login:** username created under Staff & Collectors. Default System Owner is `JOHN` / `7049`. Default Super Administrator is `KBA` / `05491`. Both must change password on first login. Passwords are stored as PBKDF2 hashes, never plain text.
+**Staff login:** username created under Staff & Collectors. The apps ship with **no default passwords**. On a device connected to the business cloud, staff sign in online once with their own username and password (verified by the `staff-login` Edge Function), after which offline sign-in works on that device. A standalone device with no cloud asks you to create the System Owner (`JOHN`) password on first launch. Passwords are stored as PBKDF2 hashes, never plain text.
 
-**Member portal:** login screen → **Member** → account number + PIN (default PIN = last 4 digits of the member's phone).
+**Member portal:** login screen → **Member** → account number + PIN (default PIN = last 4 digits of the member's phone). When the cloud is configured the PIN is checked by the server and the device receives only that member's records.
 
 ## Architecture
 
@@ -94,12 +94,11 @@ npm run sync
   "supabaseUrl": "https://your-project.supabase.co",
   "supabaseAnonKey": "your-anon-key",
   "businessId": "your-business-id",
-  "defaultOwnerPassword": "change-me-immediately",
   "allowDeveloperLogin": false
 }
 ```
 
-Never commit `config.json` or service-role keys.
+`config.json` is bundled into the APK and EXE, so it may only hold public settings. `npm run prepare:web` copies an allowlist of keys into `www/config.json` and refuses to build if a password, sync key, sync token, service-role key or webhook secret would ship. Service-role keys live only in the Supabase Edge Function environment. Never commit `config.json`. See [`docs/SECURITY-CUTOVER.md`](docs/SECURITY-CUTOVER.md).
 
 ## Tests
 
@@ -122,11 +121,6 @@ After `npm run build:apk`:
 
 `android\app\build\outputs\apk\debug\SMILE TRUST SUSU MANAGEMENT SYSTEM-2.0.7.apk`
 
-## Default login
+## First login
 
-| Role | Username | Password |
-| --- | --- | --- |
-| System Owner | `JOHN` | `7049` (or `config.json` → `defaultOwnerPassword`) |
-| Super Administrator | `KBA` | `05491` |
-
-Both default accounts are created on first launch if missing. Change passwords immediately; the app blocks the dashboard until they are changed.
+The System Owner (`JOHN`) and Super Administrator (`KBA`) accounts are created on first launch if missing, **without a password**. Nobody can sign in to them until a password is set: through first-run owner setup on a standalone device, or from the business cloud, where existing accounts keep the passwords already set. An account still carrying a legacy bootstrap hash must change its password before reaching the dashboard.

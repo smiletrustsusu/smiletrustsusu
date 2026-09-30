@@ -7,8 +7,14 @@ export function isCloudSafePasswordHash(hash) {
   return typeof hash === "string" && hash.startsWith("pbkdf2:");
 }
 
+/** Device or server secrets that must never be written into a shared snapshot. */
+export const CLOUD_FORBIDDEN_SETTINGS = Object.freeze(["syncAccessKey", "syncToken", "momoWebhookSecret"]);
+
 export function sanitizeStateForCloud(state) {
   const copy = structuredClone(state);
+  if (copy.settings) {
+    CLOUD_FORBIDDEN_SETTINGS.forEach((key) => { delete copy.settings[key]; });
+  }
   copy.users = (copy.users || []).map((user) => {
     const safe = { ...user };
     delete safe.password;

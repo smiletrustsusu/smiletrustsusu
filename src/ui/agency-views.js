@@ -481,10 +481,11 @@ export function renderAgencyReportsExtra() {
   `;
 }
 
-export function renderCustomerPortal(customer) {
-  const dash = portalDashboard(state(), customer);
+export function renderCustomerPortal(customer, portalState = null) {
+  const source = portalState || state();
+  const dash = portalDashboard(source, customer);
   if (!dash) return `<div class="notice">Unable to load member portal.</div>`;
-  const statement = portalStatement(state(), customer).slice(-20).reverse();
+  const statement = portalStatement(source, customer).slice(-20).reverse();
   const phonePin = String(customer.phone || "").replace(/\D/g, "").slice(-4) || "****";
   return `
     <div class="dash-header panel">

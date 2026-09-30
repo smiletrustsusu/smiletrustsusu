@@ -17,10 +17,8 @@ import {
   resolveBusinessId
 } from "./src/config.js";
 import {
-  getDefaultKbaPassword,
   hashPassword,
   legacyHash,
-  readDefaultKbaPasswordFromConfig,
   verifyPassword
 } from "./src/password.js";
 import {
@@ -69,13 +67,13 @@ source = source.replace(
 );
 
 source = source.replace(
-  /passwordHash: hashPassword\("King05491"\)/,
-  `passwordHash: legacyHash(getDefaultKbaPassword())`
+  /passwordHash: hashPassword\("[^"]*"\)/,
+  `passwordHash: ""`
 );
 
 source = source.replace(
-  /if \(!kba\.passwordHash\) kba\.passwordHash = hashPassword\("King05491"\);/,
-  `if (!kba.passwordHash) kba.passwordHash = legacyHash(getDefaultKbaPassword());`
+  /if \(!kba\.passwordHash\) kba\.passwordHash = hashPassword\("[^"]*"\);\n/,
+  ""
 );
 
 source = source.replace(
@@ -301,7 +299,6 @@ source = source.replace(
   /async function initializeApp\(\) \{\n  startAutoCloudSync\(\);/,
   `async function initializeApp() {
   await loadAppConfig();
-  readDefaultKbaPasswordFromConfig(getAppConfig());
   App.root = document.querySelector("#app");
   syncToApp();
   startAutoCloudSync();`

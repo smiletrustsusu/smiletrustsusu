@@ -1,6 +1,6 @@
 {
   "schemaVersion": "smile-trust-prod-readiness/1.1",
-  "generatedAtUtc": "2026-09-29T09:34:23.673Z",
+  "generatedAtUtc": "2026-09-29T15:48:20.064Z",
   "runTests": false,
   "runTestsDefault": false,
   "runTestsHint": "Default skips npm test (Partial). Pass --run-tests to execute the suite for a Ready tests row.",
@@ -8,7 +8,7 @@
   "checks": {
     "tests": {
       "status": "Partial",
-      "detail": "113 test files present (default skips execution; pass --run-tests to execute npm test)"
+      "detail": "116 test files present (default skips execution; pass --run-tests to execute npm test)"
     },
     "rc1Evidence": {
       "status": "Ready",
@@ -41,8 +41,8 @@
       ]
     },
     "androidDebugApk": {
-      "status": "Partial",
-      "detail": "debug present (android/app/build/outputs/apk/debug/app-debug.apk); release APK absent (org keystore)"
+      "status": "Blocked",
+      "detail": "no debug APK under android/app/build/outputs/apk/debug/"
     },
     "signingEnv": {
       "status": "Partial",
@@ -66,7 +66,7 @@
     },
     "bootstrapPasswordGuard": {
       "status": "Partial",
-      "detail": "config has bootstrap defaults; productionMode off (Partial until live secrets)"
+      "detail": "client bundles carry no passwords or secrets; local config.json still has 3 legacy key(s) that prepare:web strips"
     },
     "channelScripts": {
       "status": "Ready",
@@ -79,7 +79,7 @@
   },
   "counts": {
     "ready": 6,
-    "partial": 5,
-    "blocked": 1
+    "partial": 4,
+    "blocked": 2
   }
 }

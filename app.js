@@ -9,16 +9,29 @@ import {
   resolvedLocalBackupUrl,
   resolvedSupabaseKey,
   resolvedSupabaseUrl,
-  resolveBusinessId
+  resolveBusinessId,
+  captureLegacySyncKey,
+  legacySyncAccessKey
 } from "./src/config.js";
 import {
-  getDefaultDeveloperPassword,
-  getDefaultKbaPassword,
   hashPassword,
   legacyHash,
-  readDefaultKbaPasswordFromConfig,
   verifyPassword
 } from "./src/password.js";
+import { deviceQueueSecret } from "./src/sync/offline-crypto.js";
+import { staffCloudLogin, hasStaffCloudSession, clearStaffCloudSession } from "./src/sync/staff-session.js";
+import {
+  portalServerAvailable,
+  portalServerLogin,
+  portalServerRefresh,
+  portalServerChangePin,
+  portalServerRequestWithdrawal,
+  portalStateFromBundle,
+  storedPortalSession,
+  clearPortalSession,
+  ingestPortalRequests,
+  markPortalRequestsIngested
+} from "./src/sync/portal-remote.js";
 import {
   latestCloudSnapshot as latestRemoteSnapshot,
   pushCloudBackup as pushRemoteBackup,
@@ -109,7 +122,9 @@ import {
   ensureDefaultSystemAccounts,
   getUserForActor,
   hasOperationalPrivilege,
+  hasUsableLocalLogin,
   isDefaultSystemAccount,
+  isLegacyBootstrapHash,
   isProtectedOwnerAccount,
   isReservedDeveloperUsername,
   isSystemDeveloperAccount,
@@ -1033,7 +1048,6 @@ const defaultState = {
     cloudKey: "",
     localBackupUrl: "",
     syncToken: "",
-    syncAccessKey: "",
     businessId: "",
     cloudMode: "auto",
     lastReceiptSequence: 0,
@@ -1061,7 +1075,7 @@ const defaultState = {
       id: "u-owner",
       name: DEFAULT_SYSTEM_OWNER.name,
       username: DEFAULT_SYSTEM_OWNER.username,
-      passwordHash: legacyHash(getDefaultKbaPassword()),
+      passwordHash: "",
       role: "SystemOwner",
       systemOwner: true,
       undeletable: true,
@@ -1073,7 +1087,7 @@ const defaultState = {
       id: "u-developer",
       name: DEFAULT_SUPER_ADMIN.name,
       username: DEFAULT_SUPER_ADMIN.username,
-      passwordHash: legacyHash(getDefaultDeveloperPassword()),
+      passwordHash: "",
       role: "KBA",
       systemOwner: false,
       mustChangePassword: true,
@@ -1352,13 +1366,11 @@ async function findLoginUser(username, password) {
   const user = state.users.find((item) => item.username?.toLowerCase() === username && item.active && !item.pending);
   if (!user || !(await verifyPassword(password, user.passwordHash))) return null;
   if (user.role === "Developer" && !developerLoginAllowed(state)) return null;
-  if (user.passwordHash?.startsWith("kba-")) {
+  if (isLegacyBootstrapHash(user.passwordHash)) {
+    if (isDefaultSystemAccount(user)) user.mustChangePassword = true;
     user.passwordHash = await hashPassword(password);
     user.updatedAt = new Date().toISOString();
     saveState();
-  }
-  if (isDefaultSystemAccount(user) && [DEFAULT_SYSTEM_OWNER.password, DEFAULT_SUPER_ADMIN.password, getDefaultKbaPassword(), getDefaultDeveloperPassword()].includes(password)) {
-    user.mustChangePassword = true;
   }
   return user;
 }
@@ -1562,8 +1574,8 @@ function saveState(options = {}) {
 function signOutCurrentUser() {
   logAudit("Logout", `${currentUser()?.username || ""} signed out`);
   clearSession();
-  clearAuthSession();
   void signOutSupabase(state);
+  clearAuthSession();
   clearSensitiveOfflineCache();
   sessionUserId = null;
   mobileMoreOpen = false;
@@ -2699,11 +2711,16 @@ function registerCurrentDevice(userId) {
   return device;
 }
 
+/** Per-device queue key first; the legacy business key only decrypts items queued before the change. */
+function offlineQueueSecrets() {
+  return [deviceQueueSecret(), legacySyncAccessKey(), state.settings.syncAccessKey].filter(Boolean);
+}
+
 async function enqueueOfflineCollection(collection, idempotencyKey) {
   let payload = collection;
   if (state.settings.encryptOfflineQueue !== false) {
     const encrypted = await encryptOfflinePayload(collection, {
-      secret: state.settings.syncAccessKey || getAppConfig().syncAccessKey || "",
+      secret: offlineQueueSecrets(),
       fingerprint: deviceFingerprint()
     });
     payload = encrypted.encrypted ? encrypted.payload : collection;
@@ -2763,7 +2780,7 @@ function applyQueuedMeeting(entry) {
 
 async function flushOfflineQueueNow() {
   ensureWave4SyncState(state);
-  const secret = state.settings.syncAccessKey || getAppConfig().syncAccessKey || "";
+  const secret = offlineQueueSecrets();
   const fingerprint = deviceFingerprint();
   const deviceId = (state.devices || []).find((item) => item.fingerprint === fingerprint)?.id || "";
   const pending = pendingQueueItems(state);
@@ -3387,12 +3404,7 @@ function ensureSystemAccounts(normalized) {
     delete user.password;
   });
 
-  const result = ensureDefaultSystemAccounts(normalized, {
-    ownerPasswordHash: legacyHash(getDefaultKbaPassword()),
-    superAdminPasswordHash: legacyHash(getDefaultDeveloperPassword()),
-    legacyHashFn: legacyHash,
-    now: new Date().toISOString()
-  });
+  const result = ensureDefaultSystemAccounts(normalized, { now: new Date().toISOString() });
 
   normalized.users = normalized.users.filter((user, index, all) => {
     if (user.role === "Developer" && !developerLoginAllowed(normalized) && !isDefaultSystemAccount(user)) return false;
@@ -3422,28 +3434,6 @@ function applyOwnerLoginDefaults() {
   (result?.created || []).forEach((account) => {
     recordSystemAccountAudit("Default system account created", `${account.username} · ${account.role === "SystemOwner" ? "System Owner" : "Super Administrator"}`);
   });
-}
-
-async function upgradeDefaultAccountHashes() {
-  for (const user of state.users || []) {
-    if (!user.passwordHash?.startsWith("kba-")) continue;
-    if (user.id === "u-owner" || String(user.username || "").toLowerCase() === "john") {
-      const plain = getDefaultKbaPassword();
-      if (user.passwordHash === legacyHash(plain)) {
-        user.passwordHash = await hashPassword(plain);
-        user.mustChangePassword = true;
-        delete user.password;
-      }
-    }
-    if (String(user.username || "").toLowerCase() === "kba") {
-      const plain = getDefaultDeveloperPassword();
-      if (user.passwordHash === legacyHash(plain)) {
-        user.passwordHash = await hashPassword(plain);
-        user.mustChangePassword = true;
-        delete user.password;
-      }
-    }
-  }
 }
 
 function userLinkedToGroup(user, group) {
@@ -3569,6 +3559,11 @@ function render() {
     return;
   }
   if (!currentUser()) {
+    const serverPortal = storedPortalView();
+    if (serverPortal) {
+      renderPortalShell(serverPortal.customer, serverPortal.view);
+      return;
+    }
     const portalId = sessionStorage.getItem(PORTAL_CUSTOMER_KEY);
     if (portalId) {
       const customer = state.customers.find((item) => item.id === portalId);
@@ -3577,6 +3572,10 @@ function render() {
         return;
       }
       sessionStorage.removeItem(PORTAL_CUSTOMER_KEY);
+    }
+    if (needsFirstRunOwnerSetup()) {
+      renderFirstRunOwnerSetup();
+      return;
     }
     renderLogin();
     return;
@@ -3613,6 +3612,7 @@ function renderLogin() {
         <div data-auth-panel="login">
           <h2>Secure Login</h2>
           <p class="muted">Enter your staff username and password.</p>
+          ${hasUsableLocalLogin(state.users) ? "" : `<div class="notice">This device has no staff accounts yet. Connect to the internet and sign in with your staff username and password.</div>`}
         <form id="loginForm">
           <div class="field">
             <label for="username">Username</label>
@@ -3682,14 +3682,19 @@ function renderLogin() {
     event.preventDefault();
     const username = document.querySelector("#username").value.trim().toLowerCase();
     const password = document.querySelector("#password").value;
+    const enteredMfaCode = document.querySelector("#mfaCode")?.value?.trim() || "";
     let user = await findLoginUser(username, password);
+    let cloudLogin = null;
     if (!user) {
-      document.querySelector("#loginError").innerHTML = `<div class="notice">Checking latest business data...</div>`;
-      try {
-        await loadUnifiedBusinessData();
-        user = await findLoginUser(username, password);
-      } catch {
-        // Keep the normal invalid message below.
+      document.querySelector("#loginError").innerHTML = `<div class="notice">Checking your account online...</div>`;
+      cloudLogin = await staffCloudLogin(state, { username, password, mfaCode: enteredMfaCode });
+      if (!cloudLogin.denied) {
+        try {
+          await loadUnifiedBusinessData();
+          user = await findLoginUser(username, password);
+        } catch {
+          // Keep the normal invalid message below.
+        }
       }
       if (!user) {
         recordAuditEvent(state, {
@@ -3715,11 +3720,12 @@ function renderLogin() {
           }, uid);
         }
         saveState();
-        document.querySelector("#loginError").innerHTML = `<div class="notice">Invalid login or inactive account.</div>`;
+        const cloudMessage = cloudLogin?.mfaRequired || cloudLogin?.status === 429 ? cloudLogin.error : "";
+        document.querySelector("#loginError").innerHTML = `<div class="notice">${escapeHtml(cloudMessage || "Invalid login or inactive account.")}</div>`;
         return;
       }
     }
-    const mfaCode = document.querySelector("#mfaCode")?.value?.trim() || "";
+    const mfaCode = enteredMfaCode;
     const mfaResult = await verifyUserMfa(user, mfaCode);
     if (!mfaResult.ok) {
       recordAuditEvent(state, {
@@ -3743,6 +3749,12 @@ function renderLogin() {
         document.querySelector("#loginError").innerHTML = `<div class="notice">Supabase auth failed: ${escapeHtml(error.message)}</div>`;
         return;
       }
+    }
+    if (!cloudLogin?.ok && portalServerAvailable(state) && !hasStaffCloudSession(user.id)) {
+      // Signed in offline-capable; also obtain this user's cloud session so sync is authorized.
+      void staffCloudLogin(state, { username, password, mfaCode }).then((result) => {
+        if (result.ok) queueCloudBackup();
+      });
     }
     sessionUserId = user.id;
     sessionStorage.setItem(SESSION_USER_KEY, user.id);
@@ -3786,6 +3798,83 @@ function renderLogin() {
       document.querySelector(".request-panel").style.display = mode === "create" ? "block" : "none";
     });
   });
+}
+
+function needsFirstRunOwnerSetup() {
+  return !hasUsableLocalLogin(state.users) && getSyncMode(state) === "none";
+}
+
+function renderFirstRunOwnerSetup() {
+  app.innerHTML = `
+    <main class="auth auth-android">
+      <div class="auth-bg" aria-hidden="true"></div>
+      <section class="login-panel forced-password-panel">
+        <div class="login-brand">
+          <div class="brand-logo-full"><img src="assets/smile-trust-logo.png" alt="SMILE TRUST SUSU MANAGEMENT SYSTEM" /></div>
+          <h1>SMILE TRUST SUSU MANAGEMENT SYSTEM</h1>
+        </div>
+        <h2>Set up the owner account</h2>
+        <p class="muted">This device has no staff accounts yet. Choose a password for the system owner (${escapeHtml(DEFAULT_SYSTEM_OWNER.username)}). To join an existing business instead, configure the cloud connection and sign in online.</p>
+        <form id="ownerSetupForm">
+          <div class="field">
+            <label for="ownerSetupPassword">Owner password</label>
+            <div class="password-row">
+              <input id="ownerSetupPassword" name="newPassword" type="password" minlength="8" required autocomplete="new-password" />
+              <button class="btn ghost password-toggle" type="button" data-toggle-password="ownerSetupPassword">Show</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="ownerSetupConfirm">Confirm password</label>
+            <div class="password-row">
+              <input id="ownerSetupConfirm" name="confirmPassword" type="password" minlength="8" required autocomplete="new-password" />
+              <button class="btn ghost password-toggle" type="button" data-toggle-password="ownerSetupConfirm">Show</button>
+            </div>
+          </div>
+          <div class="form-actions" style="margin-top:18px">
+            <button class="btn secure-login" type="submit">Create owner account</button>
+          </div>
+          <div id="ownerSetupError"></div>
+        </form>
+        <p class="auth-version">Version ${APP_VERSION}</p>
+      </section>
+    </main>
+  `;
+  document.querySelectorAll("[data-toggle-password]").forEach((button) => {
+    button.addEventListener("click", () => togglePassword(button));
+  });
+  document.querySelector("#ownerSetupForm")?.addEventListener("submit", handleFirstRunOwnerSetup);
+}
+
+async function handleFirstRunOwnerSetup(event) {
+  event.preventDefault();
+  const errorBox = document.querySelector("#ownerSetupError");
+  if (!needsFirstRunOwnerSetup()) {
+    render();
+    return;
+  }
+  const owner = state.users.find((user) => isSystemOwnerUser(user));
+  if (!owner) return;
+  const data = formData(event.target);
+  if (data.newPassword !== data.confirmPassword) {
+    if (errorBox) errorBox.innerHTML = `<div class="notice">Passwords do not match.</div>`;
+    return;
+  }
+  const invalid = validateForcedPassword(data.newPassword, "", undefined, {
+    minLength: getConfigValue(state, "security.passwordMinLength")
+  });
+  if (invalid) {
+    if (errorBox) errorBox.innerHTML = `<div class="notice">${escapeHtml(invalid)}</div>`;
+    return;
+  }
+  owner.passwordHash = await hashPasswordForUser(data.newPassword);
+  owner.active = true;
+  owner.mustChangePassword = false;
+  owner.passwordChangedAt = new Date().toISOString();
+  owner.updatedAt = owner.passwordChangedAt;
+  logAudit("Owner account created", `${owner.username} · first-run setup`);
+  saveState();
+  toast(`Owner account ready. Sign in as ${owner.username}.`);
+  render();
 }
 
 function renderForcedPasswordChange() {
@@ -3837,8 +3926,8 @@ function renderForcedPasswordChange() {
   });
   document.querySelector("#forcedPasswordSignOut")?.addEventListener("click", () => {
     clearSession();
-    clearAuthSession();
     void signOutSupabase(state);
+    clearAuthSession();
     clearSensitiveOfflineCache();
     sessionUserId = null;
     render();
@@ -10390,7 +10479,6 @@ function renderSettings() {
         <div class="field full"><label>Supabase Anon Key</label><textarea name="cloudKey" placeholder="Paste Supabase anon public key">${escapeHtml(cloudKey())}</textarea></div>
         <div class="field full"><label>Local Backup URL</label><input name="localBackupUrl" value="${escapeAttr(localBackupUrl())}" placeholder="http://localhost:8787" /></div>
         <div class="field full"><label>Sync Token</label><input name="syncToken" value="${escapeAttr(state.settings.syncToken || "")}" placeholder="Optional token for local backup server" /></div>
-        <div class="field full"><label>Cloud Access Key</label><input name="syncAccessKey" value="${escapeAttr(state.settings.syncAccessKey || "")}" placeholder="Legacy snapshot sync only - disable in production mode" /></div>
         <div class="field"><label><input type="checkbox" name="productionMode" ${state.settings.productionMode ? "checked" : ""} /> Production mode (blocks unsafe financial writes)</label></div>
         <div class="field"><label><input type="checkbox" name="relationalSync" ${state.settings.relationalSync ? "checked" : ""} /> Relational PostgreSQL sync (dual-write collections)</label></div>
         <div class="field"><label><input type="checkbox" name="postgresSourceOfTruth" ${state.settings.postgresSourceOfTruth ? "checked" : ""} /> PostgreSQL as source of truth (load from database)</label></div>
@@ -10819,23 +10907,58 @@ function handleReassignCustomer(customerId) {
   render();
 }
 
-function renderPortalShell(customer) {
+function renderPortalShell(customer, portalView = null) {
   syncToApp();
   document.body.className = `theme-${state.settings.theme || "emerald"} color-mode-${state.settings.colorMode || "light"} layout-mobile`;
-  app.innerHTML = `<div class="app portal-app"><main class="main" style="margin:0"><section class="content">${renderCustomerPortal(customer)}</section></main></div>`;
+  app.innerHTML = `<div class="app portal-app"><main class="main" style="margin:0"><section class="content">${renderCustomerPortal(customer, portalView)}</section></main></div>`;
   document.querySelector("#portalLogoutBtn")?.addEventListener("click", () => {
     sessionStorage.removeItem(PORTAL_CUSTOMER_KEY);
+    clearPortalSession();
     render();
   });
   document.querySelector("#portalWithdrawForm")?.addEventListener("submit", (event) => {
     event.preventDefault();
-    handlePortalWithdrawal(customer, formData(event.target));
+    if (portalView) void handleServerPortalWithdrawal(formData(event.target));
+    else handlePortalWithdrawal(customer, formData(event.target));
   });
   document.querySelector("#portalChangePinForm")?.addEventListener("submit", (event) => {
     event.preventDefault();
-    handlePortalChangePin(customer, formData(event.target));
+    if (portalView) void handleServerPortalChangePin(formData(event.target));
+    else handlePortalChangePin(customer, formData(event.target));
   });
-  document.querySelector("#portalPrintStatement")?.addEventListener("click", () => printMemberStatement(customer.id));
+  document.querySelector("#portalPrintStatement")?.addEventListener("click", () => printMemberStatement(customer.id, {}, portalView || state));
+}
+
+function storedPortalView() {
+  const bundle = storedPortalSession()?.bundle;
+  if (!bundle?.customer?.id) return null;
+  return { customer: bundle.customer, view: portalStateFromBundle(bundle) };
+}
+
+async function refreshServerPortal() {
+  const result = await portalServerRefresh(state);
+  if (!result.ok && !result.offline) toast(result.error || "Session expired. Please sign in again.");
+  render();
+}
+
+async function handleServerPortalChangePin(data) {
+  const result = await portalServerChangePin(state, data.currentPin, data.newPin);
+  if (!result.ok) {
+    toast(result.error || "Unable to update PIN");
+    return;
+  }
+  toast("PIN updated");
+  await refreshServerPortal();
+}
+
+async function handleServerPortalWithdrawal(data) {
+  const result = await portalServerRequestWithdrawal(state, data.amount, data.reason);
+  if (!result.ok) {
+    toast(result.error || "Unable to submit withdrawal request");
+    return;
+  }
+  toast("Withdrawal request submitted");
+  await refreshServerPortal();
 }
 
 async function handlePortalLogin(event) {
@@ -10845,6 +10968,22 @@ async function handlePortalLogin(event) {
   const pin = document.querySelector("#portalPin")?.value || "";
   const errorBox = document.querySelector("#portalLoginError");
   const submitBtn = event.target?.querySelector?.('button[type="submit"]');
+  if (portalServerAvailable(state)) {
+    if (errorBox) errorBox.innerHTML = `<div class="notice">Checking your account...</div>`;
+    if (submitBtn) submitBtn.disabled = true;
+    const result = await portalServerLogin(state, accountNo, pin);
+    if (submitBtn) submitBtn.disabled = false;
+    if (result.ok) {
+      sessionStorage.removeItem(PORTAL_CUSTOMER_KEY);
+      render();
+      return;
+    }
+    // Before the server portal is deployed, devices that still hold the legacy sync key use the local check.
+    if (!(result.unavailable && legacySyncAccessKey())) {
+      if (errorBox) errorBox.innerHTML = `<div class="notice">${escapeHtml(result.error || "Account not found or wrong PIN.")}</div>`;
+      return;
+    }
+  }
   let customer = findPortalCustomer(state, accountNo);
   if (!customer) {
     if (errorBox) errorBox.innerHTML = `<div class="notice">Checking your account...</div>`;
@@ -12333,7 +12472,7 @@ function attachHandlers() {
   document.querySelector("#wave4SyncNowBtn")?.addEventListener("click", () => { void flushOfflineQueueNow().then(() => { toast("Wave 4 sync finished"); render(); }); });
   document.querySelector("#wave4RecoverQueueBtn")?.addEventListener("click", () => {
     void durableRecover(state, {
-      secret: state.settings.syncAccessKey || getAppConfig().syncAccessKey || "",
+      secret: offlineQueueSecrets(),
       fingerprint: deviceFingerprint(),
       uid
     }).then((res) => {
@@ -14820,7 +14959,6 @@ function handleSettings(event) {
     cloudKey: data.cloudKey,
     localBackupUrl: data.localBackupUrl,
     syncToken: data.syncToken,
-    syncAccessKey: data.syncAccessKey,
     businessId: data.businessId
   });
   recordLiveSettingsChange(state, previous, state.settings, currentUser(), uid);
@@ -15978,10 +16116,10 @@ function printReceipt(transactionId) {
   }));
 }
 
-function printMemberStatement(customerId, range = {}) {
-  const customer = state.customers.find((item) => item.id === customerId);
+function printMemberStatement(customerId, range = {}, source = state) {
+  const customer = (source.customers || []).find((item) => item.id === customerId);
   if (!customer) return;
-  const txs = state.transactions.filter((tx) => {
+  const txs = (source.transactions || []).filter((tx) => {
     if (tx.customerId !== customer.id) return false;
     if (range.from && tx.date < range.from) return false;
     if (range.to && tx.date > range.to) return false;
@@ -17481,16 +17619,17 @@ async function pushCloudBackup(silent = false) {
   if (cloudPushInFlight || syncBusy) {
     cloudPushQueued = true;
     if (!cloudPushInFlight) queueCloudBackup();
-    return;
+    return false;
   }
   cloudPushInFlight = true;
   // The push swaps in a merged copy of state; edits made while it is uploading
   // land on this object and must be merged back or they are silently lost.
   const localState = state;
   const localStamp = localState.updatedAt;
+  let pushed = false;
   syncToApp();
   try {
-    await pushRemoteBackup(silent);
+    pushed = Boolean(await pushRemoteBackup(silent));
     syncFromApp();
     if (!silent) {
       logAudit("Cloud backup pushed", businessId());
@@ -17513,6 +17652,7 @@ async function pushCloudBackup(silent = false) {
     }
     cloudPushQueued = false;
   }
+  return pushed;
 }
 
 async function pullCloudBackup() {
@@ -17658,6 +17798,50 @@ async function autoCloudMerge() {
     syncBusy = false;
     if (isAndroidRuntime()) processPhoneGatewayQueue();
   }
+  try {
+    if (await ingestPendingPortalRequests() && currentUser() && !isFormInteractionActive()) render();
+  } catch {
+    // Portal requests stay pending on the server and are retried next cycle.
+  }
+}
+
+const PORTAL_INGEST_INTERVAL_MS = 60000;
+let lastPortalIngestAt = 0;
+
+async function ingestPendingPortalRequests() {
+  const user = currentUser();
+  if (!user || !hasStaffCloudSession(user.id)) return false;
+  if (Date.now() - lastPortalIngestAt < PORTAL_INGEST_INTERVAL_MS) return false;
+  lastPortalIngestAt = Date.now();
+  const result = await ingestPortalRequests(state, (row, withdrawalId) => {
+    const customer = state.customers.find((item) => item.id === row.customer_id);
+    const created = createWithdrawalRequest(state, {
+      customerId: customer.id,
+      groupId: customer.groupId,
+      amount: Number(row.amount_pesewas || 0) / 100,
+      amountPesewas: Number(row.amount_pesewas || 0),
+      availableBalance: portalAccountBalance(state, customer.id),
+      reason: row.reason || "",
+      requestedBy: customer.id,
+      date: String(row.created_at || "").slice(0, 10) || today()
+    }, () => withdrawalId);
+    if (!created.error) {
+      queueNotification(state, {
+        event: "withdrawal_approved",
+        channel: "In-App",
+        customerId: customer.id,
+        vars: { name: customer.name, amount: (Number(row.amount_pesewas || 0) / 100).toFixed(2) },
+        uid
+      });
+    }
+    return created;
+  });
+  if (!result.ok || !result.ids.length) return false;
+  if (result.created) saveState();
+  // The server copy must contain these requests before they leave the pending queue.
+  if (!(await pushCloudBackup(true))) return result.created > 0;
+  await markPortalRequestsIngested(state, result.ids);
+  return result.created > 0;
 }
 
 async function ensureWave4ShellReady() {
@@ -17792,9 +17976,8 @@ async function finishStartupTasks() {
 async function initializeApp() {
   try {
     await loadAppConfig();
-    readDefaultKbaPasswordFromConfig(getAppConfig());
+    captureLegacySyncKey(state);
     applyOwnerLoginDefaults();
-    await upgradeDefaultAccountHashes();
     applyUnifiedCloudDefaults(state, getAppConfig());
     await persistStateWithMediaShrink();
     App.root = document.querySelector("#app") || app;

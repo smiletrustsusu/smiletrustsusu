@@ -3,7 +3,10 @@
  * Never duplicates existing accounts; never resets a changed password.
  *
  * Isolation: System Owner operates the business and must not enumerate, view, edit,
- * or disable the KBA developer account. Credentials are configured in seed (this module).
+ * or disable the KBA developer account.
+ *
+ * No password ships with the application. A bootstrap account without a usable hash
+ * cannot sign in until the owner completes first-run setup or the server returns it.
  */
 
 export const SYSTEM_OWNER_ID = "u-owner";
@@ -18,14 +21,12 @@ export const HIDDEN_DEVELOPER_DIRECTORY_LABEL = "System";
 
 export const DEFAULT_SYSTEM_OWNER = {
   username: "JOHN",
-  name: "John",
-  password: "7049"
+  name: "John"
 };
 
 export const DEFAULT_SUPER_ADMIN = {
   username: "KBA",
-  name: "KBA",
-  password: "05491"
+  name: "KBA"
 };
 
 export function isSystemOwnerUser(user) {
@@ -80,10 +81,20 @@ export function needsForcedPasswordChange(user) {
   return Boolean(user?.mustChangePassword);
 }
 
-export function isDefaultPasswordHash(hash, plainPassword, legacyHashFn) {
-  if (!hash || !plainPassword || typeof legacyHashFn !== "function") return false;
-  if (hash.startsWith("kba-")) return hash === legacyHashFn(plainPassword);
-  return false;
+/**
+ * Bootstrap accounts still on the pre-PBKDF2 fast hash date from the era of shipped
+ * default passwords, so they must choose a new password.
+ */
+export function isLegacyBootstrapHash(hash) {
+  return typeof hash === "string" && hash.startsWith("kba-");
+}
+
+/** True when at least one active account can sign in locally. */
+export function hasUsableLocalLogin(users = []) {
+  return (users || []).some((user) => user?.active !== false
+    && !user?.pending
+    && typeof user?.passwordHash === "string"
+    && (user.passwordHash.startsWith("pbkdf2:") || user.passwordHash.startsWith("kba-")));
 }
 
 /** True when actor may see target in user lists / getUser / pickers / directories. */
@@ -204,9 +215,8 @@ export function findExistingSuperAdmin(users = [], ownerId = "") {
 }
 
 export function ensureDefaultSystemAccounts(state, {
-  ownerPasswordHash,
-  superAdminPasswordHash,
-  legacyHashFn,
+  ownerPasswordHash = "",
+  superAdminPasswordHash = "",
   now = new Date().toISOString()
 } = {}) {
   state.users = state.users || [];
@@ -226,9 +236,7 @@ export function ensureDefaultSystemAccounts(state, {
     owner.active = true;
     owner.pending = false;
     if (!owner.passwordHash && ownerPasswordHash) owner.passwordHash = ownerPasswordHash;
-    if (isDefaultPasswordHash(owner.passwordHash, DEFAULT_SYSTEM_OWNER.password, legacyHashFn)) {
-      owner.mustChangePassword = true;
-    }
+    if (isLegacyBootstrapHash(owner.passwordHash)) owner.mustChangePassword = true;
     delete owner.password;
   } else {
     owner = {
@@ -262,9 +270,7 @@ export function ensureDefaultSystemAccounts(state, {
     admin.active = true;
     admin.pending = false;
     if (!admin.passwordHash && superAdminPasswordHash) admin.passwordHash = superAdminPasswordHash;
-    if (isDefaultPasswordHash(admin.passwordHash, DEFAULT_SUPER_ADMIN.password, legacyHashFn)) {
-      admin.mustChangePassword = true;
-    }
+    if (isLegacyBootstrapHash(admin.passwordHash)) admin.mustChangePassword = true;
     delete admin.password;
   } else {
     admin = {
@@ -302,7 +308,7 @@ export function ensureDefaultSystemAccounts(state, {
   return { created, owner, admin };
 }
 
-export function validateForcedPassword(nextPassword, currentPassword, defaults = [DEFAULT_SYSTEM_OWNER.password, DEFAULT_SUPER_ADMIN.password], policy = {}) {
+export function validateForcedPassword(nextPassword, currentPassword, defaults = [], policy = {}) {
   const value = String(nextPassword || "");
   const min = Number(policy.minLength) > 0 ? Number(policy.minLength) : 8;
   if (value.length < min) return `New password must be at least ${min} characters`;

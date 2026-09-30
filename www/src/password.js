@@ -59,27 +59,3 @@ export async function upgradePasswordHash(password, storedHash) {
   if (storedHash.startsWith("kba-")) return hashPassword(password);
   return storedHash;
 }
-
-export function getDefaultKbaPassword() {
-  return defaultPassword;
-}
-
-export function setDefaultKbaPassword(value) {
-  defaultPassword = String(value || "");
-}
-
-export function getDefaultDeveloperPassword() {
-  return developerPassword;
-}
-
-export function setDefaultDeveloperPassword(value) {
-  developerPassword = String(value || "");
-}
-
-let defaultPassword = "7049";
-let developerPassword = "05491";
-
-export function readDefaultKbaPasswordFromConfig(config) {
-  setDefaultKbaPassword(config?.defaultOwnerPassword || config?.defaultKbaPassword || "7049");
-  setDefaultDeveloperPassword(config?.developerPassword || "05491");
-}

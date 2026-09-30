@@ -1,6 +1,33 @@
 import { BUSINESS_ID_KEY, CLOUD_KEY_STORAGE, SYNC_TOKEN_STORAGE, SYNC_URL_KEY } from "./constants.js";
 
+/** Only public, non-secret settings may be read from the distributed config.json. */
+export const CLIENT_CONFIG_ALLOWED_KEYS = Object.freeze([
+  "supabaseUrl",
+  "supabaseAnonKey",
+  "businessId",
+  "localBackupUrl",
+  "allowDeveloperLogin",
+  "productionMode",
+  "unifiedCloud",
+  "relationalSync",
+  "postgresSourceOfTruth",
+  "encryptOfflineQueue",
+  "supabaseAuthEnabled",
+  "staffLoginFunction"
+]);
+
+/** Device-only slot for a legacy snapshot access key that existed before staff sessions. */
+export const LEGACY_SYNC_KEY_STORAGE = "smile_trust_legacy_sync_access_key";
+
 let appConfig = {};
+
+export function pickClientConfig(raw = {}) {
+  const clean = {};
+  CLIENT_CONFIG_ALLOWED_KEYS.forEach((key) => {
+    if (raw && Object.prototype.hasOwnProperty.call(raw, key)) clean[key] = raw[key];
+  });
+  return clean;
+}
 
 export function getAppConfig() {
   return appConfig;
@@ -9,11 +36,29 @@ export function getAppConfig() {
 export async function loadAppConfig() {
   try {
     const response = await fetch("./config.json", { cache: "no-store" });
-    if (response.ok) appConfig = await response.json();
+    if (response.ok) appConfig = pickClientConfig(await response.json());
   } catch {
     appConfig = {};
   }
   return appConfig;
+}
+
+/**
+ * Move a legacy access key out of synced settings into a device-only slot so it never
+ * travels in snapshots again; it stays available to decrypt older offline queue items.
+ */
+export function captureLegacySyncKey(state) {
+  const legacy = String(state?.settings?.syncAccessKey || "").trim();
+  if (legacy && typeof localStorage !== "undefined" && !localStorage.getItem(LEGACY_SYNC_KEY_STORAGE)) {
+    localStorage.setItem(LEGACY_SYNC_KEY_STORAGE, legacy);
+  }
+  if (state?.settings && "syncAccessKey" in state.settings) delete state.settings.syncAccessKey;
+  return legacy;
+}
+
+export function legacySyncAccessKey() {
+  if (typeof localStorage === "undefined") return "";
+  return localStorage.getItem(LEGACY_SYNC_KEY_STORAGE) || "";
 }
 
 export function resolveBusinessId(state) {
@@ -49,17 +94,17 @@ export function resolvedLocalBackupUrl(state) {
   return "";
 }
 
+/** Legacy snapshot key held by devices installed before staff sessions; never read from config. */
 export function resolvedSyncAccessKey(state) {
-  const fromState = state?.settings?.syncAccessKey;
-  return fromState || appConfig.syncAccessKey || "";
+  return legacySyncAccessKey() || state?.settings?.syncAccessKey || "";
 }
 
 export function resolvedSyncToken(state) {
   const storage = typeof localStorage !== "undefined" ? localStorage.getItem(SYNC_TOKEN_STORAGE) : "";
-  return state?.settings?.syncToken || storage || appConfig.syncToken || "";
+  return state?.settings?.syncToken || storage || "";
 }
 
-export function persistCloudSettings(state, { cloudUrl, cloudKey, localBackupUrl, syncToken, syncAccessKey, businessId }) {
+export function persistCloudSettings(state, { cloudUrl, cloudKey, localBackupUrl, syncToken, businessId }) {
   if (cloudUrl !== undefined) {
     const clean = String(cloudUrl || "").trim().replace(/\/$/, "");
     state.settings.cloudUrl = clean;
@@ -87,9 +132,6 @@ export function persistCloudSettings(state, { cloudUrl, cloudKey, localBackupUrl
       else localStorage.removeItem(SYNC_TOKEN_STORAGE);
     }
   }
-  if (syncAccessKey !== undefined) {
-    state.settings.syncAccessKey = String(syncAccessKey || "").trim();
-  }
   if (businessId !== undefined) {
     const clean = String(businessId || "").trim();
     if (clean) {
@@ -116,8 +158,7 @@ export function applyUnifiedCloudDefaults(state, config = appConfig) {
   persistCloudSettings(state, {
     cloudUrl: url,
     cloudKey: key,
-    businessId: config.businessId || resolveBusinessId(state),
-    syncAccessKey: config.syncAccessKey || resolvedSyncAccessKey(state)
+    businessId: config.businessId || resolveBusinessId(state)
   });
 
   if (config.unifiedCloud === false) return state;
@@ -130,7 +171,6 @@ export function applyUnifiedCloudDefaults(state, config = appConfig) {
     state.settings.businessId = config.businessId;
     if (typeof localStorage !== "undefined") localStorage.setItem(BUSINESS_ID_KEY, config.businessId);
   }
-  if (config.syncAccessKey) state.settings.syncAccessKey = config.syncAccessKey;
   return state;
 }
 

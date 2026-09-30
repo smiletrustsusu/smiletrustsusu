@@ -13,6 +13,7 @@ import { sanitizeStateForCloud, restoreUsersFromCloud } from "./snapshot-securit
 import { currentUser } from "../core/auth.js";
 import { mergeStates, normalizeState, saveStateToStorage } from "../core/state.js";
 import { shrinkStateMedia, isStorageQuotaError } from "../core/media-compress.js";
+import { ensureFreshAccessToken } from "./supabase-auth.js";
 
 function businessId() {
   return resolveBusinessId(App.state);
@@ -45,14 +46,33 @@ function localHeaders(extra = {}) {
   return headers;
 }
 
-function cloudHeaders(extra = {}) {
-  const key = cloudKey();
+function cloudHeaders(bearer, extra = {}) {
   return {
-    apikey: key,
-    Authorization: `Bearer ${key}`,
+    apikey: cloudKey(),
+    Authorization: `Bearer ${bearer}`,
     "Content-Type": "application/json",
     ...extra
   };
+}
+
+/**
+ * Snapshot access is authorized by the signed-in staff member's session. Devices installed before
+ * staff sessions may still hold a legacy access key; that path works only until migration 046.
+ */
+async function snapshotAuth() {
+  const url = cloudUrl();
+  const key = cloudKey();
+  if (!url || !key) throw new Error("Supabase URL and anon key are required");
+  const token = await ensureFreshAccessToken(App.state).catch(() => "");
+  if (token) return { url, bearer: token, legacyKey: "" };
+  const legacyKey = syncAccessKey();
+  if (legacyKey) return { url, bearer: key, legacyKey };
+  throw new Error("Sign in online to sync with the cloud");
+}
+
+function snapshotFilter(legacyKey) {
+  const base = `business_id=eq.${encodeURIComponent(businessId())}`;
+  return legacyKey ? `${base}&access_key=eq.${encodeURIComponent(legacyKey)}` : base;
 }
 
 export async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
@@ -118,15 +138,11 @@ async function saveLocalSnapshot(savedAt) {
 }
 
 async function latestSupabaseSnapshot() {
-  const url = cloudUrl();
-  const key = cloudKey();
-  const accessKey = syncAccessKey();
-  if (!url || !key) throw new Error("Supabase URL and anon key are required");
-  if (!accessKey) throw new Error("Configure syncAccessKey in Settings before using cloud sync");
-  const query = `business_id=eq.${encodeURIComponent(businessId())}&access_key=eq.${encodeURIComponent(accessKey)}&select=*&order=saved_at.desc&limit=1`;
+  const { url, bearer, legacyKey } = await snapshotAuth();
+  const query = `${snapshotFilter(legacyKey)}&select=business_id,payload,saved_at,saved_by&order=saved_at.desc&limit=1`;
   const response = await fetchWithTimeout(`${url}/rest/v1/${CLOUD_SNAPSHOT_TABLE}?${query}`, {
     cache: "no-store",
-    headers: cloudHeaders({ "Cache-Control": "no-cache", Pragma: "no-cache" })
+    headers: cloudHeaders(bearer, { "Cache-Control": "no-cache", Pragma: "no-cache" })
   }, 60000);
   if (!response.ok) throw await responseError(response, "Cloud read failed");
   const rows = await response.json();
@@ -134,30 +150,27 @@ async function latestSupabaseSnapshot() {
 }
 
 async function saveSupabaseSnapshot(savedAt) {
-  const url = cloudUrl();
-  const key = cloudKey();
-  const accessKey = syncAccessKey();
-  if (!url || !key) throw new Error("Supabase URL and anon key are required");
-  if (!accessKey) throw new Error("Configure syncAccessKey in Settings before using cloud sync");
+  const { url, bearer, legacyKey } = await snapshotAuth();
   const payload = sanitizeStateForCloud(App.state);
-  const updateBody = JSON.stringify({
-    payload,
-    saved_by: currentUser()?.username || "system",
-    saved_at: savedAt,
-    access_key: accessKey
-  });
-  const insertBody = JSON.stringify({
-    business_id: businessId(),
-    access_key: accessKey,
+  const update = {
     payload,
     saved_by: currentUser()?.username || "system",
     saved_at: savedAt
-  });
-  const updateUrl = `${url}/rest/v1/${CLOUD_SNAPSHOT_TABLE}?business_id=eq.${encodeURIComponent(businessId())}&access_key=eq.${encodeURIComponent(accessKey)}&select=id`;
+  };
+  const insert = {
+    business_id: businessId(),
+    payload,
+    saved_by: currentUser()?.username || "system",
+    saved_at: savedAt
+  };
+  if (legacyKey) insert.access_key = legacyKey;
+  const updateBody = JSON.stringify(update);
+  const insertBody = JSON.stringify(insert);
+  const updateUrl = `${url}/rest/v1/${CLOUD_SNAPSHOT_TABLE}?${snapshotFilter(legacyKey)}&select=id`;
   const updateResponse = await fetchWithTimeout(updateUrl, {
     method: "PATCH",
     cache: "no-store",
-    headers: cloudHeaders({ Prefer: "return=representation", "Cache-Control": "no-cache", Pragma: "no-cache" }),
+    headers: cloudHeaders(bearer, { Prefer: "return=representation", "Cache-Control": "no-cache", Pragma: "no-cache" }),
     body: updateBody
   }, 60000);
   // PostgREST answers 200 even when no row matched, so only stop if a row was actually updated.
@@ -173,7 +186,7 @@ async function saveSupabaseSnapshot(savedAt) {
   const insertResponse = await fetchWithTimeout(insertUrl, {
     method: "POST",
     cache: "no-store",
-    headers: cloudHeaders({ Prefer: "resolution=merge-duplicates,return=minimal", "Cache-Control": "no-cache", Pragma: "no-cache" }),
+    headers: cloudHeaders(bearer, { Prefer: "resolution=merge-duplicates,return=minimal", "Cache-Control": "no-cache", Pragma: "no-cache" }),
     body: insertBody
   }, 60000);
   if (!insertResponse.ok) {

@@ -1,0 +1,71 @@
+/**
+ * Staff cloud session: exchange username/password for a per-user Supabase session issued by the
+ * staff-login Edge Function. Cloud sync then runs with that session; the database authorizes it.
+ * Offline sign-in against the local PBKDF2 hash keeps working without a network.
+ */
+import { getAppConfig, resolveBusinessId, resolvedSupabaseKey, resolvedSupabaseUrl } from "../config.js";
+import { clearAuthSession, getStoredAuthSession, storeAuthSession } from "./supabase-auth.js";
+
+export function staffLoginUrl(state) {
+  const base = resolvedSupabaseUrl(state);
+  const name = getAppConfig().staffLoginFunction || "staff-login";
+  return base ? `${base}/functions/v1/${name}` : "";
+}
+
+/**
+ * @returns {Promise<{ ok: boolean, appUser?: object, offline?: boolean, unavailable?: boolean,
+ *   denied?: boolean, mfaRequired?: boolean, status?: number, error?: string }>}
+ */
+export async function staffCloudLogin(state, { username, password, mfaCode = "" }, { fetchImpl = globalThis.fetch, timeoutMs = 15000 } = {}) {
+  const url = staffLoginUrl(state);
+  const key = resolvedSupabaseKey(state);
+  if (!url || !key || typeof fetchImpl !== "function") {
+    return { ok: false, offline: true, error: "Cloud is not configured" };
+  }
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  let response;
+  try {
+    response = await fetchImpl(url, {
+      method: "POST",
+      headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        business_code: resolveBusinessId(state),
+        username: String(username || "").trim(),
+        password: String(password || ""),
+        mfa_code: String(mfaCode || "").trim()
+      }),
+      signal: controller?.signal
+    });
+  } catch {
+    return { ok: false, offline: true, error: "Cloud sign-in unavailable" };
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+  const data = await response.json().catch(() => ({}));
+  if (response.ok && data.access_token) {
+    storeAuthSession({ ...data, app_user: data.app_user || null });
+    return { ok: true, appUser: data.app_user || null };
+  }
+  if (response.status === 404 || response.status >= 500) {
+    return { ok: false, unavailable: true, status: response.status, error: data.error || "Cloud sign-in unavailable" };
+  }
+  return {
+    ok: false,
+    denied: response.status === 401 || response.status === 429,
+    status: response.status,
+    mfaRequired: Boolean(data.mfa_required),
+    error: data.error || "Invalid login or inactive account."
+  };
+}
+
+/** True when this device holds a refreshable session for the given app user (or any user). */
+export function hasStaffCloudSession(userId = "") {
+  const session = getStoredAuthSession();
+  if (!session?.refresh_token) return false;
+  return !userId || !session.app_user?.id || session.app_user.id === userId;
+}
+
+export function clearStaffCloudSession() {
+  clearAuthSession();
+}

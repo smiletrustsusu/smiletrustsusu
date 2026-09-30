@@ -1,33 +1,50 @@
 /**
  * Production safety checks before using real customer money.
- * GAP-024: productionMode fail-closed when bootstrap default passwords remain.
+ * GAP-024: productionMode fail-closed when bootstrap passwords are distributed with the client.
  */
 
-/** Known bootstrap / example passwords that must never authorize live money. */
+/** Generic example passwords that must never authorize live money. */
 export const BOOTSTRAP_DEFAULT_PASSWORDS = Object.freeze([
-  "7049",
-  "05491",
   "change-me",
   "change-me-immediately",
   "password",
   "1234"
 ]);
 
+/** Config keys that must never ship inside a client build. */
+export const CLIENT_FORBIDDEN_CONFIG_KEYS = Object.freeze([
+  "defaultOwnerPassword",
+  "developerPassword",
+  "defaultKbaPassword",
+  "defaultSuperAdminPassword",
+  "defaultDeveloperPassword",
+  "syncAccessKey",
+  "syncToken",
+  "serviceRoleKey",
+  "supabaseServiceRoleKey",
+  "momoWebhookSecret"
+]);
+
+const PASSWORD_CONFIG_KEYS = CLIENT_FORBIDDEN_CONFIG_KEYS.filter((key) => /password/i.test(key));
+
+function isWeakBootstrapPassword(value) {
+  const text = String(value || "").trim();
+  if (!text) return false;
+  if (BOOTSTRAP_DEFAULT_PASSWORDS.includes(text)) return true;
+  return /^\d{1,7}$/.test(text);
+}
+
 /**
  * @param {object} [config]
  * @returns {boolean}
  */
 export function hasBootstrapDefaultPassword(config = {}) {
-  const candidates = [
-    config.defaultOwnerPassword,
-    config.developerPassword,
-    config.defaultKbaPassword,
-    config.defaultSuperAdminPassword,
-    config.defaultDeveloperPassword
-  ];
-  return candidates.some((value) =>
-    BOOTSTRAP_DEFAULT_PASSWORDS.includes(String(value || "").trim())
-  );
+  return PASSWORD_CONFIG_KEYS.some((key) => isWeakBootstrapPassword(config[key]));
+}
+
+/** Keys present in a client config that must be server-side only. */
+export function forbiddenClientConfigKeys(config = {}) {
+  return CLIENT_FORBIDDEN_CONFIG_KEYS.filter((key) => String(config?.[key] ?? "").trim() !== "");
 }
 
 export function isProductionBuild() {
@@ -42,8 +59,8 @@ export function productionWarnings(state = {}, config = {}) {
   if (isProductionBuild() && settings.allowDeveloperLogin === true) {
     warnings.push("Developer login is enabled in a production build.");
   }
-  if (String(settings.syncAccessKey || config.syncAccessKey || "").length < 24) {
-    warnings.push("Cloud Access Key is missing or too short. Use a long random secret or enable relational auth.");
+  if (String(settings.syncAccessKey || "").trim()) {
+    warnings.push("A legacy Cloud Access Key is still stored on this device. Sign in online so sync uses your staff session.");
   }
   if (settings.productionMode === true && !settings.relationalSync) {
     warnings.push("Production mode is on but relational PostgreSQL sync is disabled.");
@@ -51,15 +68,13 @@ export function productionWarnings(state = {}, config = {}) {
   if (settings.productionMode === true && !settings.postgresSourceOfTruth) {
     warnings.push("Production mode should use PostgreSQL as source of truth.");
   }
-  if (settings.productionMode === true && settings.supabaseAuthEnabled && String(settings.syncAccessKey || "").length >= 24) {
-    warnings.push("Disable legacy syncAccessKey when Supabase Auth is enabled.");
-  }
   const owner = (state.users || []).find((user) => user.role === "SystemOwner" || user.systemOwner === true || user.role === "KBA");
   if (settings.productionMode === true && owner && !owner.mfaEnabled) {
     warnings.push("Manager MFA is not enabled. Enable two-factor authentication in Settings.");
   }
-  if (BOOTSTRAP_DEFAULT_PASSWORDS.includes(String(config.defaultOwnerPassword || "").trim())) {
-    warnings.push("Default owner password is still in config.json. Change it immediately.");
+  const forbidden = forbiddenClientConfigKeys(config);
+  if (forbidden.length) {
+    warnings.push(`Secrets must not be distributed in client config.json (${forbidden.join(", ")}).`);
   }
   if (settings.productionMode === true && hasBootstrapDefaultPassword(config)) {
     warnings.push(
@@ -71,7 +86,7 @@ export function productionWarnings(state = {}, config = {}) {
 
 /**
  * Fail-closed financial write gate when productionMode is on.
- * Blocks relational misconfig, developer login on prod builds, and bootstrap default passwords (GAP-024).
+ * Blocks relational misconfig, developer login on prod builds, and distributed secrets (GAP-024).
  */
 export function blockFinancialWriteIfUnsafe(state, config = {}) {
   if (state.settings?.productionMode !== true) return { ok: true };
@@ -80,7 +95,7 @@ export function blockFinancialWriteIfUnsafe(state, config = {}) {
     item.includes("relational")
     || item.includes("Developer login")
     || item.includes("Bootstrap default passwords")
-    || item.includes("Default owner password")
+    || item.includes("must not be distributed")
   );
   if (critical.length) return { ok: false, error: critical[0] };
   return { ok: true };

@@ -13,17 +13,8 @@ import {
   resolvedSupabaseUrl,
   resolveBusinessId
 } from "../config.js";
-import { getDefaultDeveloperPassword, getDefaultKbaPassword, legacyHash } from "../password.js";
 import { buildInterestSchedule } from "./domain.js";
 import { ensureDefaultSystemAccounts } from "./system-accounts.js";
-
-export function defaultKbaPasswordHashSync() {
-  return legacyHash(getDefaultKbaPassword());
-}
-
-export function defaultDeveloperPasswordHashSync() {
-  return legacyHash(getDefaultDeveloperPassword());
-}
 
 export function today() {
   return new Date().toISOString().slice(0, 10);
@@ -57,12 +48,7 @@ export function createDefaultState() {
     },
     users: []
   };
-  ensureDefaultSystemAccounts(state, {
-    ownerPasswordHash: defaultKbaPasswordHashSync(),
-    superAdminPasswordHash: defaultDeveloperPasswordHashSync(),
-    legacyHashFn: legacyHash,
-    now: new Date().toISOString()
-  });
+  ensureDefaultSystemAccounts(state, { now: new Date().toISOString() });
   return state;
 }
 
@@ -110,12 +96,7 @@ export function normalizeState(data) {
     delete user.password;
     return user;
   });
-  ensureDefaultSystemAccounts(normalized, {
-    ownerPasswordHash: defaultKbaPasswordHashSync(),
-    superAdminPasswordHash: defaultDeveloperPasswordHashSync(),
-    legacyHashFn: legacyHash,
-    now: new Date().toISOString()
-  });
+  ensureDefaultSystemAccounts(normalized, { now: new Date().toISOString() });
   normalized.users = applyUserTombstones(normalized.users, normalized.deletedUsers);
   normalized.groups = applyRecordTombstones(normalized.groups, normalized.deletedRecords, "groups");
   normalized.customers = applyRecordTombstones(normalized.customers, normalized.deletedRecords, "customers");

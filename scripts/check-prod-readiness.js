@@ -255,32 +255,36 @@ function assessDeployProfiles() {
 }
 
 function assessBootstrapPasswordGuard() {
-  const config = readJson("config.json") || readJson("config.example.json") || {};
-  const productionMode =
-    config.productionMode === true || process.env.SMILE_PRODUCTION_MODE === "1";
-  // Mirror src/core/production-guards.js BOOTSTRAP_DEFAULT_PASSWORDS (CJS cannot import ESM).
-  const defaults = ["7049", "05491", "change-me", "change-me-immediately", "password", "1234"];
-  const hasDefault = [
-    config.defaultOwnerPassword,
-    config.developerPassword,
-    config.defaultKbaPassword,
-    config.defaultSuperAdminPassword,
-    config.defaultDeveloperPassword
-  ].some((v) => defaults.includes(String(v || "").trim()));
-
-  if (!productionMode) {
-    return statusOf(
-      true,
-      hasDefault
-        ? "config has bootstrap defaults; productionMode off (Partial until live secrets)"
-        : "no known bootstrap defaults; productionMode off",
-      hasDefault
-    );
+  // Mirror src/core/production-guards.js CLIENT_FORBIDDEN_CONFIG_KEYS (CJS cannot import ESM).
+  const forbidden = [
+    "defaultOwnerPassword",
+    "developerPassword",
+    "defaultKbaPassword",
+    "defaultSuperAdminPassword",
+    "defaultDeveloperPassword",
+    "syncAccessKey",
+    "syncToken",
+    "serviceRoleKey",
+    "supabaseServiceRoleKey",
+    "momoWebhookSecret"
+  ];
+  const present = (config) => forbidden.filter((key) => String(config?.[key] ?? "").trim() !== "");
+  const shipped = present(readJson("www/config.json"));
+  if (shipped.length) {
+    return statusOf(false, `www/config.json ships secret keys: ${shipped.join(", ")} (run npm run prepare:web)`);
   }
-  if (hasDefault) {
-    return statusOf(false, "productionMode on with bootstrap default passwords (GAP-024 fail-closed)");
+  const example = present(readJson("config.example.json"));
+  if (example.length) {
+    return statusOf(false, `config.example.json documents secret keys: ${example.join(", ")}`);
   }
-  return statusOf(true, "productionMode on; bootstrap defaults not detected in config");
+  const local = present(readJson("config.json"));
+  return statusOf(
+    true,
+    local.length
+      ? `client bundles carry no passwords or secrets; local config.json still has ${local.length} legacy key(s) that prepare:web strips`
+      : "client bundles carry no passwords or secrets",
+    local.length > 0
+  );
 }
 
 function assessChannelScripts() {

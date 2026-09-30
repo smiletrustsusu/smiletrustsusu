@@ -60,6 +60,9 @@ export async function importSnapshotToRelational(state, snapshot) {
 function sanitizeSnapshotForImport(snapshot) {
   const copy = JSON.parse(JSON.stringify(snapshot || {}));
   delete copy.settings?.cloudKey;
+  delete copy.settings?.syncAccessKey;
+  delete copy.settings?.syncToken;
+  delete copy.settings?.momoWebhookSecret;
   (copy.users || []).forEach((user) => {
     if (user.passwordHash) user.passwordHash = "[protected]";
   });

@@ -1,8 +1,9 @@
 /**
  * Low-level Supabase PostgREST client (no @supabase/supabase-js dependency).
+ * Protected calls carry the signed-in staff member's JWT; the server authorizes by its claims.
  */
-import { resolvedSupabaseKey, resolvedSupabaseUrl, resolvedSyncAccessKey } from "../config.js";
-import { getAccessToken } from "./supabase-auth.js";
+import { resolvedSupabaseKey, resolvedSupabaseUrl } from "../config.js";
+import { ensureFreshAccessToken, getAccessToken } from "./supabase-auth.js";
 
 export function supabaseConfigured(state) {
   const url = resolvedSupabaseUrl(state);
@@ -25,6 +26,7 @@ export function restHeaders(state, { prefer = "", useUserToken = true } = {}) {
 
 export async function restFetch(state, path, { method = "GET", body, prefer = "" } = {}) {
   const url = `${resolvedSupabaseUrl(state)}/rest/v1/${path}`;
+  await ensureFreshAccessToken(state).catch(() => "");
   const response = await fetch(url, {
     method,
     headers: restHeaders(state, { prefer }),
@@ -41,7 +43,6 @@ export async function restFetch(state, path, { method = "GET", body, prefer = ""
 
 export function tenantHeaders(state) {
   return {
-    accessKey: resolvedSyncAccessKey(state),
     businessId: state.settings?.businessId || ""
   };
 }

@@ -18,6 +18,8 @@ import {
   displayUserNameForActor,
   ensureDefaultSystemAccounts,
   getUserForActor,
+  hasUsableLocalLogin,
+  isLegacyBootstrapHash,
   isProtectedOwnerAccount,
   isReservedDeveloperUsername,
   isSuperAdminUser,
@@ -46,14 +48,15 @@ function mockSessionStorage() {
   };
 }
 
-test("creates JOHN and KBA once with hashed default passwords and change-password flags", () => {
+test("creates JOHN and KBA once without any bundled password and with change-password flags", () => {
   const state = { users: [], audit: [] };
-  const first = ensureDefaultSystemAccounts(state, {
-    ownerPasswordHash: legacyHash(DEFAULT_SYSTEM_OWNER.password),
-    superAdminPasswordHash: legacyHash(DEFAULT_SUPER_ADMIN.password),
-    legacyHashFn: legacyHash
-  });
+  const first = ensureDefaultSystemAccounts(state);
   assert.equal(first.created.length, 2);
+  assert.equal(first.owner.passwordHash, "");
+  assert.equal(first.admin.passwordHash, "");
+  assert.equal(hasUsableLocalLogin(state.users), false);
+  assert.equal("password" in DEFAULT_SYSTEM_OWNER, false);
+  assert.equal("password" in DEFAULT_SUPER_ADMIN, false);
   assert.equal(first.owner.username, "JOHN");
   assert.equal(first.owner.name, "John");
   assert.equal(first.owner.role, SYSTEM_OWNER_ROLE);
@@ -69,14 +72,29 @@ test("creates JOHN and KBA once with hashed default passwords and change-passwor
   assert.equal(state.users.filter((user) => String(user.username).toLowerCase() === "john").length, 1);
   assert.equal(state.users.filter((user) => String(user.username).toLowerCase() === "kba").length, 1);
 
+  const firstRunHash = "pbkdf2:120000:aa:bb";
+  first.owner.passwordHash = firstRunHash;
   const second = ensureDefaultSystemAccounts(state, {
     ownerPasswordHash: legacyHash("other"),
-    superAdminPasswordHash: legacyHash("other"),
-    legacyHashFn: legacyHash
+    superAdminPasswordHash: legacyHash("other")
   });
   assert.equal(second.created.length, 0);
   assert.equal(state.users.length, 2);
-  assert.equal(first.owner.passwordHash, second.owner.passwordHash);
+  assert.equal(second.owner.passwordHash, firstRunHash);
+  assert.equal(hasUsableLocalLogin(state.users), true);
+});
+
+test("bootstrap accounts still on a legacy fast hash must change password", () => {
+  const state = {
+    users: [
+      { id: "u-owner", username: "JOHN", role: "SystemOwner", passwordHash: legacyHash("anything"), active: true },
+      { id: "u-superadmin", username: "KBA", role: "KBA", passwordHash: legacyHash("anything-else"), active: true }
+    ]
+  };
+  const result = ensureDefaultSystemAccounts(state);
+  assert.equal(isLegacyBootstrapHash(result.owner.passwordHash), true);
+  assert.equal(result.owner.mustChangePassword, true);
+  assert.equal(result.admin.mustChangePassword, true);
 });
 
 test("upgrades existing JOHN/KBA accounts without resetting a changed password", () => {
@@ -88,9 +106,8 @@ test("upgrades existing JOHN/KBA accounts without resetting a changed password",
     ]
   };
   const result = ensureDefaultSystemAccounts(state, {
-    ownerPasswordHash: legacyHash(DEFAULT_SYSTEM_OWNER.password),
-    superAdminPasswordHash: legacyHash(DEFAULT_SUPER_ADMIN.password),
-    legacyHashFn: legacyHash
+    ownerPasswordHash: legacyHash("bootstrap-owner"),
+    superAdminPasswordHash: legacyHash("bootstrap-admin")
   });
   assert.equal(result.created.length, 0);
   assert.equal(result.owner.role, SYSTEM_OWNER_ROLE);
@@ -126,7 +143,7 @@ test("System Owner cannot be deleted; developer account is never deletable; only
   assert.equal(staff.role, SYSTEM_OWNER_ROLE);
   assert.equal(owner.role, SUPER_ADMIN_ROLE);
   assert.equal(isSystemOwnerUser(staff), true);
-  const after = ensureDefaultSystemAccounts({ users: [owner, admin, staff] }, { legacyHashFn: legacyHash });
+  const after = ensureDefaultSystemAccounts({ users: [owner, admin, staff] });
   assert.equal(after.created.length, 0);
   assert.equal(staff.role, SYSTEM_OWNER_ROLE);
   assert.equal(owner.username, "JOHN");
@@ -259,9 +276,10 @@ test("v1/users.list and v1/users.get hide KBA from System Owner JOHN", async () 
 });
 
 test("forced password change rejects defaults and short values", () => {
-  assert.equal(validateForcedPassword("7049", "7049"), "New password must be at least 8 characters");
+  assert.equal(validateForcedPassword("1234", "1234"), "New password must be at least 8 characters");
   assert.equal(validateForcedPassword("password1", "password1"), "Choose a new password, not the current one");
-  assert.equal(validateForcedPassword("secure-pass", "7049"), "");
+  assert.equal(validateForcedPassword("secure-pass", "1234"), "");
+  assert.equal(validateForcedPassword("reused-old-pass", "x", ["reused-old-pass"]), "Do not reuse a default system password");
   assert.equal(needsForcedPasswordChange({ mustChangePassword: true }), true);
 });
 

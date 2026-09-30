@@ -69,6 +69,7 @@ In Supabase → **SQL Editor**, run each file completely. Repo path: `supabase/`
 | 43 | `supabase/migrations/043_platform_admin.sql` | Platform administration |
 | 44 | `supabase/migrations/044_wave2_database_platform.sql` | Wave 2 DB platform hardening |
 | 45 | `supabase/migrations/045_app_users_role_rbac_align.sql` | Additive `app_users.role` CHECK ↔ JS RBAC (GAP-010) |
+| 46 | `supabase/migrations/046_server_side_authorization.sql` | Server-side authorization. **Cutover only**: apply as step 4 of [`docs/SECURITY-CUTOVER.md`](docs/SECURITY-CUTOVER.md), after the new builds are installed |
 
 If a migration fails, note the line number, fix duplicates (safe `IF NOT EXISTS` / `DROP CONSTRAINT IF EXISTS` blocks), and do **not** proceed until the ordered list succeeds.
 
@@ -79,8 +80,8 @@ If a migration fails, note the line number, fix duplicates (safe `IF NOT EXISTS`
 2. Set:
    - `supabaseUrl` — your project URL
    - `supabaseAnonKey` — anon key
-   - `defaultOwnerPassword` — **strong password** (min 8 chars, not `7049`)
-   - `syncAccessKey` — long random string (32+ chars) for legacy snapshot sync during migration
+   - Only the public settings shown in `config.example.json`. Passwords, sync keys, sync tokens, service-role keys and webhook secrets must **not** go in `config.json`; it ships inside the APK/EXE and `npm run prepare:web` refuses to build if they are present.
+   - Deploy the `staff-login` Edge Function and apply migration `046_server_side_authorization.sql` following [`docs/SECURITY-CUTOVER.md`](docs/SECURITY-CUTOVER.md). The service-role key is set only as an Edge Function secret.
 3. In app **Settings** (Manager):
    - Paste Supabase URL + anon key
    - Set **Cloud Mode** → Supabase
@@ -198,4 +199,4 @@ Document your own:
 - IT / Supabase admin
 - Bank / MoMo reconciliation contact
 
-**Do not use default password `7049` or share `syncAccessKey` publicly.**
+**Never put passwords or privileged keys in `config.json` or any client build.**

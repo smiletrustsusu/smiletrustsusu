@@ -3,7 +3,14 @@
  */
 import { resolvedSupabaseKey, resolvedSupabaseUrl } from "../config.js";
 
-const SESSION_KEY = "smile_trust_supabase_session";
+export const SESSION_KEY = "smile_trust_supabase_session";
+
+/** Device storage keeps the per-user refresh token so background sync survives an app restart. */
+function sessionStore() {
+  if (typeof localStorage !== "undefined") return localStorage;
+  if (typeof sessionStorage !== "undefined") return sessionStorage;
+  return null;
+}
 
 export function supabaseAuthConfigured(state) {
   return Boolean(resolvedSupabaseUrl(state) && resolvedSupabaseKey(state) && state.settings?.supabaseAuthEnabled);
@@ -11,27 +18,31 @@ export function supabaseAuthConfigured(state) {
 
 export function getStoredAuthSession() {
   try {
-    return JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null");
+    return JSON.parse(sessionStore()?.getItem(SESSION_KEY) || "null");
   } catch {
     return null;
   }
 }
 
 export function storeAuthSession(session) {
+  const store = sessionStore();
+  if (!store) return;
   if (!session) {
-    sessionStorage.removeItem(SESSION_KEY);
+    store.removeItem(SESSION_KEY);
     return;
   }
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+  store.setItem(SESSION_KEY, JSON.stringify({
     access_token: session.access_token,
     refresh_token: session.refresh_token,
     expires_at: Date.now() + Number(session.expires_in || 3600) * 1000,
-    user: session.user || null
+    user: session.user || null,
+    app_user: session.app_user || null
   }));
 }
 
 export function clearAuthSession() {
-  sessionStorage.removeItem(SESSION_KEY);
+  sessionStore()?.removeItem(SESSION_KEY);
+  if (typeof sessionStorage !== "undefined") sessionStorage.removeItem(SESSION_KEY);
 }
 
 export function getAccessToken() {
