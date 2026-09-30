@@ -3,6 +3,16 @@
  * Retried submissions must never create duplicate payments.
  */
 
+// Several operations can be queued in the same millisecond; ids must stay unique because
+// dependencies (dependsOn) reference them.
+function newQueueItemId(queue) {
+  let id;
+  do {
+    id = `q-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  } while (queue.some((item) => item.id === id));
+  return id;
+}
+
 export function enqueueOfflineOperation(state, operation) {
   state.offlineQueue = state.offlineQueue || [];
   const key = String(operation.idempotencyKey || "").toLowerCase();
@@ -11,7 +21,7 @@ export function enqueueOfflineOperation(state, operation) {
     return state.offlineQueue.find((item) => String(item.idempotencyKey || "").toLowerCase() === key);
   }
   const entry = {
-    id: operation.id || `q-${Date.now()}`,
+    id: operation.id || newQueueItemId(state.offlineQueue),
     kind: operation.kind,
     idempotencyKey: key,
     payload: operation.payload,

@@ -64,7 +64,8 @@ export function normalizeState(data) {
   normalized.settings.cloudKey = normalized.settings.cloudKey || localStorage.getItem(CLOUD_KEY_STORAGE) || resolvedSupabaseKey(normalized);
   normalized.settings.localBackupUrl = normalized.settings.localBackupUrl || resolvedLocalBackupUrl(normalized);
   normalized.settings.businessId = resolveBusinessId(normalized);
-  if (!/Electron/i.test(navigator.userAgent) && /^https?:\/\/(localhost|127\.0\.0\.1)/i.test(normalized.settings.cloudUrl || "")) {
+  const userAgent = typeof navigator === "undefined" ? "" : navigator.userAgent || "";
+  if (!/Electron/i.test(userAgent) && /^https?:\/\/(localhost|127\.0\.0\.1)/i.test(normalized.settings.cloudUrl || "")) {
     normalized.settings.cloudUrl = localStorage.getItem(SYNC_URL_KEY) || "";
   }
   normalized.customers = (normalized.customers || []).map((customer) => ({
