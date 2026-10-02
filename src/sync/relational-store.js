@@ -1,8 +1,9 @@
 /**
  * PostgreSQL read/write when postgresSourceOfTruth is enabled.
  */
+import { resolveBusinessId } from "../config.js";
 import { mergeStates } from "../core/state.js";
-import { restoreUsersFromCloud } from "./snapshot-security.js";
+import { restoreUsersFromCloud, sanitizeStateForCloud } from "./snapshot-security.js";
 import { restFetch, supabaseConfigured, tenantHeaders } from "./supabase-rest.js";
 
 export function postgresSourceEnabled(state) {
@@ -58,30 +59,25 @@ export async function importSnapshotToRelational(state, snapshot) {
 }
 
 function sanitizeSnapshotForImport(snapshot) {
-  const copy = JSON.parse(JSON.stringify(snapshot || {}));
-  delete copy.settings?.cloudKey;
-  delete copy.settings?.syncAccessKey;
-  delete copy.settings?.syncToken;
-  delete copy.settings?.momoWebhookSecret;
-  (copy.users || []).forEach((user) => {
-    if (user.passwordHash) user.passwordHash = "[protected]";
-  });
-  return copy;
+  return sanitizeStateForCloud(snapshot || {});
 }
 
-export async function pushMfaToRelational(state, user) {
-  if (!postgresSourceEnabled(state) || !user?.mfaSecret) return { ok: true, skipped: true };
+/**
+ * Mirrors a staff account's username, name, role and active flag to public.app_users, the only
+ * authority staff-login and the database use (migration 047). Passwords are never sent: a new
+ * account signs in for the first time with a one-time activation code.
+ */
+export async function pushStaffAccountToServer(state, user) {
+  if (!supabaseConfigured(state) || !user?.id || !user?.username) return { ok: false, skipped: true };
   try {
-    await restFetch(state, "rpc/upsert_user_mfa", {
+    const result = await restFetch(state, "rpc/st_upsert_staff_account", {
       method: "POST",
       body: {
-        business_code: tenantHeaders(state).businessId,
-        user_client_id: user.id,
-        secret: user.mfaSecret,
-        enabled: Boolean(user.mfaEnabled)
+        p_business_code: resolveBusinessId(state),
+        p_user: { id: user.id, username: user.username, name: user.name || user.username, role: user.role || "Collector", active: user.active !== false }
       }
     });
-    return { ok: true };
+    return { ok: true, result };
   } catch (error) {
     return { ok: false, error: error.message };
   }

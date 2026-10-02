@@ -245,3 +245,52 @@ test("re-applying 046 on the migrations-only database is idempotent and keeps ro
   const own = await run(staff, "select public.fetch_business_snapshot($1) as s", [BIZ]);
   assert.equal(typeof own.rows[0].s, "object");
 });
+
+test("the read-only post-activation check reports JOHN's state before and after activation without exposing secrets", async (t) => {
+  if (skip()) return t.skip("local database unavailable");
+  const file = fs.readFileSync(path.join(root, "supabase", "preflight", "046_post_activation_readonly.sql"), "utf8");
+  assert.doesNotMatch(file.replace(/--.*$/gm, ""), /\b(insert|update|delete|truncate|drop|alter|create|grant|revoke)\b/i, "check is read-only");
+  const john = staffBefore.find((row) => row.username === "john");
+  const sql = file.replaceAll("bbef5ecc-3bdf-40b6-bf8e-c0e206eed9db", john.id);
+  const forbiddenColumns = ["password_hash", "code_hash", "email", "secret", "encrypted_password"];
+
+  await db.query("begin");
+  try {
+    await db.query("create table if not exists auth.users (id uuid primary key, raw_app_meta_data jsonb, banned_until timestamptz)");
+    const before = (await db.query(sql)).rows;
+    assert.equal(before.length, 1);
+    assert.deepEqual(
+      [before[0].matching_rows, before[0].uuid_unchanged, before[0].role_unchanged, before[0].password_format, before[0].auth_link_present, before[0].auth_users_total, before[0].codes_still_redeemable],
+      [1, true, true, "none", false, 0, 1]
+    );
+
+    const authId = crypto.randomUUID();
+    await db.query("update public.app_users set password_hash = 'pbkdf2:120000:00:00' where id = $1", [john.id]);
+    await db.query("update public.st_staff_activation_codes set used_at = now() where app_user_uuid = $1 and used_at is null and expires_at > now()", [john.id]);
+    await db.query("insert into auth.users (id, raw_app_meta_data) values ($1, $2)", [authId, { business_code: LIVE, app_user_id: "demo-user-john", app_role: "SystemOwner" }]);
+    await db.query("insert into public.st_staff_auth_links (business_code, app_user_id, auth_user_id) values ($1, 'demo-user-john', $2)", [LIVE, authId]);
+
+    const [after] = (await db.query(sql)).rows;
+    assert.deepEqual(
+      {
+        matching_rows: after.matching_rows, uuid_unchanged: after.uuid_unchanged, role: after.role, role_unchanged: after.role_unchanged,
+        active: after.active, password_format: after.password_format, auth_link_present: after.auth_link_present,
+        auth_user_exists: after.auth_user_exists, auth_claim_role: after.auth_claim_role, auth_claim_user_matches: after.auth_claim_user_matches,
+        auth_claim_business: after.auth_claim_business, auth_user_not_banned: after.auth_user_not_banned, auth_users_total: after.auth_users_total,
+        codes_still_redeemable: after.codes_still_redeemable, app_users_auth_user_id_set: after.app_users_auth_user_id_set
+      },
+      {
+        matching_rows: 1, uuid_unchanged: true, role: "SystemOwner", role_unchanged: true, active: true, password_format: "pbkdf2",
+        auth_link_present: true, auth_user_exists: true, auth_claim_role: "SystemOwner", auth_claim_user_matches: true,
+        auth_claim_business: LIVE, auth_user_not_banned: true, auth_users_total: 1, codes_still_redeemable: 0, app_users_auth_user_id_set: false
+      }
+    );
+    assert.ok(after.codes_used >= 1 && after.last_code_used_at);
+    for (const row of [...before, after]) {
+      assert.ok(Object.keys(row).every((key) => !forbiddenColumns.some((name) => key.includes(name) && key !== "app_users_auth_email_set")), "no secret-bearing column is returned");
+      assert.equal(JSON.stringify(row).includes("pbkdf2:120000"), false, "the hash value is never returned");
+    }
+  } finally {
+    await db.query("rollback");
+  }
+});

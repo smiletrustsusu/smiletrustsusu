@@ -1,28 +1,36 @@
 /**
  * staff-login request handler (runtime-agnostic; Deno entry point is index.ts).
  *
- * Verifies a staff member's username/password (and TOTP when enabled) against the server copy of
- * the business snapshot, or against public.app_users when the snapshot has no such user, then
- * issues a per-user Supabase Auth session whose app_metadata carries business_code / app_user_id /
- * app_role. Database policies (migration 046) authorize by those claims.
+ * Verifies a staff member's username/password (and TOTP) against public.app_users — the only
+ * authority for password, role and active status; the client-written snapshot is never read —
+ * then issues a per-user Supabase Auth session whose app_metadata carries business_code /
+ * app_user_id / app_role. Database policies (migrations 046/047) authorize by those claims and
+ * re-check the live app_users row on every request.
  *
  * Existing app_users rows that have never had a password are adopted with a one-time activation
  * code (public.st_issue_staff_activation): the member chooses their own password, the row keeps
  * its uuid, and nothing else about it changes. There is no password-reset path here.
  *
+ * Privileged roles (MFA_REQUIRED_ROLES) receive no session until they have confirmed a TOTP
+ * authenticator: action "mfa_enroll_start" (password) stores a pending secret server-side and
+ * shows it once; "mfa_enroll_confirm" (password + current code) enables it and signs in. An
+ * enabled authenticator can only be removed by an owner (public.st_reset_staff_mfa).
+ *
  * Server keys are read from the function environment only and never returned.
  */
 import {
+  MFA_REQUIRED_ROLES,
   activationCodeHash,
   evaluateStaffLogin,
-  findStaffUser,
+  generateTotpSecretBase32,
   hashPasswordPbkdf2,
   isPlainUsername,
-  isUsablePasswordHash,
   isValidBusinessCode,
   normalizeActivationCode,
   normalizeUsername,
   staffUserFromAppUserRow,
+  totpMatchStep,
+  totpProvisioningUri,
   validateNewStaffPassword
 } from "./auth-core.js";
 
@@ -97,25 +105,15 @@ export function createStaffLoginHandler({ env, fetchImpl = fetch, now = () => Da
     }).catch(() => {});
   }
 
-  async function loadSnapshot(businessCode) {
-    const rows = await rest(`smile_trust_cloud_snapshots?business_id=eq.${encodeURIComponent(businessCode)}&select=payload&order=saved_at.desc&limit=1`);
-    return rows?.[0]?.payload || null;
-  }
-
   async function businessUuid(businessCode) {
     const rows = await rest(`businesses?or=(code.eq.${encodeURIComponent(businessCode)},legacy_code.eq.${encodeURIComponent(businessCode)})&select=id&limit=1`);
     return rows?.[0]?.id || "";
   }
 
-  async function serverMfaSecret(businessCode, userId) {
-    try {
-      const businessId = await businessUuid(businessCode);
-      if (!businessId) return "";
-      const rows = await rest(`user_mfa_secrets?business_id=eq.${businessId}&user_client_id=eq.${encodeURIComponent(userId)}&enabled=is.true&select=secret&limit=1`);
-      return rows?.[0]?.secret || "";
-    } catch {
-      return "";
-    }
+  /** The user's server-side TOTP row ({ secret, enabled, last_used_step }) or null. Never returned to clients. */
+  async function mfaRow(businessId, userId) {
+    const rows = await rest(`user_mfa_secrets?business_id=eq.${businessId}&user_client_id=eq.${encodeURIComponent(userId)}&select=secret,enabled,last_used_step,updated_at&limit=1`);
+    return rows?.[0] || null;
   }
 
   async function loadAppUser(businessCode, usernameKey) {
@@ -126,27 +124,43 @@ export function createStaffLoginHandler({ env, fetchImpl = fetch, now = () => Da
     const row = (rows || []).find((item) => normalizeUsername(item?.username) === usernameKey);
     if (!row) return null;
     const user = staffUserFromAppUserRow(row);
-    const mfaSecret = await serverMfaSecret(businessCode, user.id);
-    return { ...user, mfaEnabled: Boolean(mfaSecret), serverMfaSecret: mfaSecret };
+    const mfa = await mfaRow(businessId, user.id);
+    return { ...user, businessId, mfa: mfa?.enabled === true && mfa.secret ? mfa : null, pendingMfa: mfa && mfa.enabled !== true ? mfa : null };
   }
 
   /**
-   * app_users is authoritative when its row has a password hash (migration 046 makes hashes and
-   * roles unwritable by staff sessions). Otherwise the snapshot copy is used. A deactivation in
-   * either source denies sign-in. Accounts with no usable password anywhere can only be activated.
+   * public.app_users is the only source of staff identity, password, role and active status.
+   * Accounts with no password can only be activated.
    * @returns {{ user: object|null, inactiveId?: string, activatable?: object }}
    */
   async function resolveStaffUser(businessCode, usernameKey) {
-    const payload = await loadSnapshot(businessCode);
-    const listed = (payload?.users || []).find((item) => normalizeUsername(item?.username) === usernameKey);
-    const snapshotUser = listed ? findStaffUser(payload, usernameKey) : null;
-    if (listed && !snapshotUser) return { user: null, inactiveId: listed.id };
     const appUser = await loadAppUser(businessCode, usernameKey);
-    if (appUser && (!appUser.active || appUser.role === "Developer")) return { user: null, inactiveId: appUser.id };
-    if (appUser?.passwordHash) return { user: appUser };
-    if (snapshotUser && isUsablePasswordHash(snapshotUser.passwordHash)) return { user: snapshotUser };
-    if (appUser) return { user: null, activatable: appUser };
-    return { user: null };
+    if (!appUser) return { user: null };
+    if (!appUser.active || appUser.role === "Developer") return { user: null, inactiveId: appUser.id };
+    if (appUser.passwordHash) return { user: appUser };
+    return { user: null, activatable: appUser };
+  }
+
+  async function securityEvent(businessCode, userId, event, details = {}) {
+    await rest("st_staff_security_events", {
+      method: "POST",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ business_code: businessCode, app_user_id: userId, event, actor: userId, details })
+    }).catch(() => {});
+  }
+
+  /** Atomically records the TOTP step so the same code cannot be used twice. */
+  async function claimMfaStep(user, step) {
+    const updated = await rest(
+      `user_mfa_secrets?business_id=eq.${user.businessId}&user_client_id=eq.${encodeURIComponent(user.id)}&enabled=is.true&or=(last_used_step.is.null,last_used_step.lt.${step})`,
+      { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ last_used_step: step, updated_at: new Date(now()).toISOString() }) }
+    );
+    return Array.isArray(updated) && updated.length === 1;
+  }
+
+  function verdictResponse(verdict) {
+    if (verdict.mfaEnrollmentRequired) return json(403, { error: verdict.error, mfa_enrollment_required: true });
+    return json(401, { error: verdict.error, mfa_required: Boolean(verdict.mfaRequired) });
   }
 
   async function authAdmin(path, method, body) {
@@ -221,14 +235,69 @@ export function createStaffLoginHandler({ env, fetchImpl = fetch, now = () => Da
     const mfaCode = String(body?.mfa_code || "");
     if (!password || password.length > 256) return json(400, { error: "Invalid request" });
     const { user, inactiveId } = await resolveStaffUser(businessCode, usernameKey);
-    const mfaSecret = user?.serverMfaSecret
-      || (user && !user.mfaSecret && user.mfaEnabled ? await serverMfaSecret(businessCode, user.id) : "");
-    const verdict = await evaluateStaffLogin({ user, password, mfaCode, mfaSecret, now: now() });
+    const verdict = await evaluateStaffLogin({
+      user, password, mfaCode, mfaSecret: user?.mfa?.secret || "", lastUsedStep: user?.mfa?.last_used_step ?? null, now: now()
+    });
     if (!verdict.ok) {
-      if (verdict.reason !== "mfa_required") await recordAttempt(businessCode, usernameKey, false);
+      if (!["mfa_required", "mfa_enrollment_required"].includes(verdict.reason)) await recordAttempt(businessCode, usernameKey, false);
       if (!user && inactiveId) await banLinkedUser(businessCode, inactiveId);
-      return json(401, { error: verdict.error, mfa_required: Boolean(verdict.mfaRequired) });
+      return verdictResponse(verdict);
     }
+    if (verdict.mfaStep != null && !(await claimMfaStep(user, verdict.mfaStep))) {
+      await recordAttempt(businessCode, usernameKey, false);
+      return json(401, { error: "That MFA code was already used. Wait for the next code.", mfa_required: true });
+    }
+    return startSession(businessCode, usernameKey, user);
+  }
+
+  /** Password-verified, privileged, active staff without an enabled authenticator. */
+  async function enrollmentCandidate(body, businessCode, usernameKey) {
+    const password = typeof body?.password === "string" ? body.password : "";
+    if (!password || password.length > 256) return { response: json(400, { error: "Invalid request" }) };
+    const { user } = await resolveStaffUser(businessCode, usernameKey);
+    const verdict = await evaluateStaffLogin({ user, password, now: now() });
+    if (verdict.reason === "unknown_user" || verdict.reason === "bad_password") {
+      await recordAttempt(businessCode, usernameKey, false);
+      return { response: json(401, { error: verdict.error }) };
+    }
+    if (!MFA_REQUIRED_ROLES.includes(user.role)) return { response: json(400, { error: "Two-factor setup is not required for this role." }) };
+    if (user.mfa) return { response: json(409, { error: "Two-factor authentication is already set up. Ask the System Owner to reset it if you lost your device." }) };
+    return { user };
+  }
+
+  async function handleMfaEnrollStart(body, businessCode, usernameKey) {
+    const { user, response } = await enrollmentCandidate(body, businessCode, usernameKey);
+    if (response) return response;
+    const secret = generateTotpSecretBase32();
+    await rest("user_mfa_secrets?on_conflict=business_id,user_client_id", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({ business_id: user.businessId, user_client_id: user.id, secret, enabled: false, confirmed_at: null, last_used_step: null, updated_at: new Date(now()).toISOString() })
+    });
+    await securityEvent(businessCode, user.id, "mfa_enroll_started");
+    return json(200, {
+      mfa_enrollment_pending: true,
+      secret,
+      otpauth_uri: totpProvisioningUri(secret, { account: `${user.username}@${businessCode}` })
+    });
+  }
+
+  async function handleMfaEnrollConfirm(body, businessCode, usernameKey) {
+    const { user, response } = await enrollmentCandidate(body, businessCode, usernameKey);
+    if (response) return response;
+    const pending = user.pendingMfa;
+    const step = pending?.secret ? await totpMatchStep(pending.secret, body?.mfa_code, { now: now() }) : -1;
+    if (step < 0) {
+      await recordAttempt(businessCode, usernameKey, false);
+      return json(401, { error: pending ? "Invalid MFA code" : "Start two-factor setup first.", mfa_required: Boolean(pending) });
+    }
+    const nowIso = new Date(now()).toISOString();
+    const enabled = await rest(
+      `user_mfa_secrets?business_id=eq.${user.businessId}&user_client_id=eq.${encodeURIComponent(user.id)}&enabled=is.false&updated_at=eq.${encodeURIComponent(pending.updated_at)}`,
+      { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ enabled: true, confirmed_at: nowIso, last_used_step: step, updated_at: nowIso }) }
+    );
+    if (!Array.isArray(enabled) || enabled.length !== 1) return json(409, { error: "Two-factor setup changed. Start again." });
+    await securityEvent(businessCode, user.id, "mfa_enrolled");
     return startSession(businessCode, usernameKey, user);
   }
 
@@ -256,10 +325,13 @@ export function createStaffLoginHandler({ env, fetchImpl = fetch, now = () => Da
 
     const passwordHash = await hashPasswordPbkdf2(newPassword);
     const candidate = { ...activatable, passwordHash };
-    const verdict = await evaluateStaffLogin({ user: candidate, password: newPassword, mfaCode, mfaSecret: activatable.serverMfaSecret, now: now() });
-    if (!verdict.ok) {
+    const verdict = await evaluateStaffLogin({
+      user: candidate, password: newPassword, mfaCode, mfaSecret: activatable.mfa?.secret || "", lastUsedStep: activatable.mfa?.last_used_step ?? null, now: now()
+    });
+    const needsEnrollment = verdict.reason === "mfa_enrollment_required";
+    if (!verdict.ok && !needsEnrollment) {
       if (verdict.reason !== "mfa_required") await recordAttempt(businessCode, usernameKey, false);
-      return json(401, { error: verdict.error, mfa_required: Boolean(verdict.mfaRequired) });
+      return verdictResponse(verdict);
     }
 
     // Only sets a password where none exists; a concurrent activation or an existing hash wins.
@@ -282,6 +354,11 @@ export function createStaffLoginHandler({ env, fetchImpl = fetch, now = () => Da
       headers: { Prefer: "return=minimal" },
       body: JSON.stringify({ expires_at: nowIso })
     }).catch(() => {});
+    await securityEvent(businessCode, activatable.id, "activated");
+    if (needsEnrollment) return verdictResponse(verdict);
+    if (verdict.mfaStep != null && !(await claimMfaStep(activatable, verdict.mfaStep))) {
+      return json(401, { error: "That MFA code was already used. Sign in with the next code.", mfa_required: true });
+    }
     return startSession(businessCode, usernameKey, candidate);
   }
 
@@ -299,7 +376,13 @@ export function createStaffLoginHandler({ env, fetchImpl = fetch, now = () => Da
     const businessCode = String(body?.business_code || "");
     const usernameKey = normalizeUsername(body?.username);
     const action = String(body?.action || "login");
-    if (!isValidBusinessCode(businessCode) || !usernameKey || usernameKey.length > 80 || !["login", "activate"].includes(action)) {
+    const handlers = {
+      login: handleLogin,
+      activate: handleActivation,
+      mfa_enroll_start: handleMfaEnrollStart,
+      mfa_enroll_confirm: handleMfaEnrollConfirm
+    };
+    if (!isValidBusinessCode(businessCode) || !usernameKey || usernameKey.length > 80 || !Object.hasOwn(handlers, action)) {
       return json(400, { error: "Invalid request" });
     }
 
@@ -307,9 +390,7 @@ export function createStaffLoginHandler({ env, fetchImpl = fetch, now = () => Da
       if ((await recentFailures(businessCode, usernameKey)) >= MAX_FAILURES) {
         return json(429, { error: "Too many failed sign-in attempts. Try again in 15 minutes." });
       }
-      return action === "activate"
-        ? await handleActivation(body, businessCode, usernameKey)
-        : await handleLogin(body, businessCode, usernameKey);
+      return await handlers[action](body, businessCode, usernameKey);
     } catch {
       return json(503, { error: "Cloud sign-in is temporarily unavailable" });
     }

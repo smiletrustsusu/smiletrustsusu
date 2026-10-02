@@ -24,7 +24,7 @@ Set these as Supabase function secrets only. They never go in `config.json`, the
 | Name | Purpose |
 | --- | --- |
 | `SUPABASE_URL` | Project URL (provided by Supabase). |
-| `SUPABASE_SERVICE_ROLE_KEY` | Reads the snapshot and manages Auth users. Server-side only. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Reads `app_users` and MFA rows and manages Auth users. Server-side only. |
 | `SUPABASE_ANON_KEY` | Issues the per-user session. |
 | `STAFF_EMAIL_DOMAIN` | Optional. Domain for the synthetic Auth e-mails (default `staff.smile-trust.invalid`). |
 | `STAFF_LOGIN_PUBLIC_KEY` / `STAFF_LOGIN_SERVICE_KEY` | Optional. For projects using the new API keys: the `sb_publishable_...` and `sb_secret_...` keys. They take precedence over the two legacy keys above and are sent only in the `apikey` header. |
@@ -46,7 +46,7 @@ supabase functions deploy staff-login --no-verify-jwt
 
 ## Existing staff accounts in `public.app_users`
 
-staff-login checks a staff member against `public.app_users` when the row has a password hash (`pbkdf2:<iterations>:<salt>:<hash>`, the app's format), and otherwise against the snapshot copy. A deactivation in either place blocks sign-in. The session's `app_user_id` is the row's `client_id` (or its uuid when it has none), so rows, uuids and foreign keys are never changed or re-created. Roles map the same way as `fetch_business_snapshot`: `AssistantManager` signs in as `Admin` and `Owner` as `KBA`.
+staff-login checks a staff member only against `public.app_users` (password hash in the app's `pbkdf2:<iterations>:<salt>:<hash>` format, role and active flag); the snapshot copy is never consulted (migration 047 / B2). A deactivation in `app_users` blocks sign-in. Privileged roles also need a confirmed authenticator; see `docs/SECURITY-HARDENING-047.md`. The session's `app_user_id` is the row's `client_id` (or its uuid when it has none), so rows, uuids and foreign keys are never changed or re-created. Roles map the same way as `fetch_business_snapshot`: `AssistantManager` signs in as `Admin` and `Owner` as `KBA`.
 
 Migration 046 makes `app_users.password_hash` unreadable and unwritable for every client session, and only owners/managers (`SystemOwner`, `Owner`, `KBA`, `Admin`, `AssistantManager`) may change staff rows. Only the staff-login function (service role) writes password hashes.
 
@@ -70,7 +70,8 @@ A signed-in owner can also call `st_issue_staff_activation` for their own busine
 - **Old APK/EXE builds lose cloud sync after step 4.** Their unsynced local work stays on the device; install the new build and sign in online to upload it. Complete step 1 so nothing is pending.
 - Members keep their current PINs. A PIN set through the new portal is stored server-side and overrides the snapshot PIN until staff reset it in the app.
 - **Devices switched to a different backend** (another Supabase project or business code) set their existing local data aside under hidden quarantine keys on the device, start clean, and show a notice on the login screen. That data is never uploaded, merged or read by sync. Cloud sync on the new backend starts only after a staff member signs in online (staff-login succeeds); until then every database call is refused on the device.
-- Deactivating a user in the app blocks new sign-ins immediately (the function bans the linked Auth user on the next attempt). An already-issued session stays valid until it expires; revoke it from the Supabase dashboard if needed.
+- Deactivating a user in the app blocks new sign-ins immediately (the function bans the linked Auth user on the next attempt). With 046 alone an already-issued session stays valid until it expires; migration 047 rejects it at once (live `app_users` check and per-user session cutoff).
+- Re-running 046 after 047 reverts 047's guards. Always run 047 again afterwards.
 
 ## Rollback
 

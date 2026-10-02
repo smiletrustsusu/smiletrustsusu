@@ -42,7 +42,7 @@ test("deleting an extra KBA account sticks across merges while core accounts sur
   assert.deepEqual(usernames, ["JOHN", "KBA"]);
 });
 
-test("cloud snapshot carries PBKDF2 hashes but never plaintext or legacy hashes", async () => {
+test("cloud snapshot never carries password hashes of any format, plaintext or hints", async () => {
   const strong = await hashPassword("Collector#2026");
   const cloud = sanitizeStateForCloud({
     users: [
@@ -50,18 +50,29 @@ test("cloud snapshot carries PBKDF2 hashes but never plaintext or legacy hashes"
       { id: "u2", username: "Old", role: "Collector", passwordHash: legacyHash("1234") }
     ]
   });
-  assert.equal(cloud.users[0].passwordHash, strong);
+  assert.deepEqual(cloud.users.map((user) => user.passwordHash), ["[protected]", "[protected]"]);
   assert.equal(cloud.users[0].loginPasswordHint, undefined);
   assert.equal(cloud.users[0].password, undefined);
-  assert.equal(cloud.users[1].passwordHash, "[protected]");
+  assert.doesNotMatch(JSON.stringify(cloud), /pbkdf2:|Collector#2026/);
 });
 
-test("fresh device can verify a collector password from the cloud copy", async () => {
+test("a fresh device cannot verify passwords from the cloud copy; it signs in through the server and keeps its own hash", async () => {
   const strong = await hashPassword("Collector#2026");
   const cloud = sanitizeStateForCloud({ users: [{ id: "u1", username: "Baba", passwordHash: strong, active: true }] });
   const onNewPhone = restoreUsersFromCloud([], cloud.users);
-  assert.equal(await verifyPassword("Collector#2026", onNewPhone[0].passwordHash), true);
-  assert.equal(await verifyPassword("wrong", onNewPhone[0].passwordHash), false);
+  assert.equal(await verifyPassword("Collector#2026", onNewPhone[0].passwordHash), false, "the new device must use staff-login");
+  const deviceHash = await hashPassword("Collector#2026");
+  const afterServerSignIn = restoreUsersFromCloud([{ id: "u1", username: "Baba", passwordHash: deviceHash }], cloud.users);
+  assert.equal(await verifyPassword("Collector#2026", afterServerSignIn[0].passwordHash), true, "the device's own hash survives later merges");
+});
+
+test("a device-local authenticator survives merges with the cloud copy, which never holds it", () => {
+  const local = [{ id: "u1", username: "John", role: "SystemOwner", mfaSecret: "LOCALSECRET", mfaEnabled: true, mfaConfirmedAt: "2026-09-01" }];
+  const cloud = sanitizeStateForCloud({ users: local });
+  assert.equal(cloud.users[0].mfaSecret, undefined);
+  const merged = restoreUsersFromCloud(local, cloud.users);
+  assert.equal(merged[0].mfaSecret, "LOCALSECRET");
+  assert.equal(merged[0].mfaEnabled, true);
 });
 
 test("local password hint is dropped once the password changed on another device", async () => {

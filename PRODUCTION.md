@@ -70,6 +70,7 @@ In Supabase → **SQL Editor**, run each file completely. Repo path: `supabase/`
 | 44 | `supabase/migrations/044_wave2_database_platform.sql` | Wave 2 DB platform hardening |
 | 45 | `supabase/migrations/045_app_users_role_rbac_align.sql` | Additive `app_users.role` CHECK ↔ JS RBAC (GAP-010) |
 | 46 | `supabase/migrations/046_server_side_authorization.sql` | Server-side authorization. **Cutover only**: apply as step 4 of [`docs/SECURITY-CUTOVER.md`](docs/SECURITY-CUTOVER.md), after the new builds are installed |
+| 47 | `supabase/migrations/047_security_hardening.sql` | Security hardening (role guard, live staff check, snapshot scrub, collector submit RPC, MFA, immutable posted rows, member lifecycle). Apply only after 046, following [`docs/SECURITY-HARDENING-047.md`](docs/SECURITY-HARDENING-047.md); re-apply after any 046 re-run |
 
 If a migration fails, note the line number, fix duplicates (safe `IF NOT EXISTS` / `DROP CONSTRAINT IF EXISTS` blocks), and do **not** proceed until the ordered list succeeds.
 

@@ -41,21 +41,26 @@ async function callStaffLogin(state, body, { fetchImpl = globalThis.fetch, timeo
     if (typeof localStorage !== "undefined") releaseBackendSyncHold(localStorage);
     return { ok: true, appUser: data.app_user || null };
   }
+  if (response.ok && data.mfa_enrollment_pending && data.secret) {
+    // Shown once so the member can add it to an authenticator app; never stored on the device.
+    return { ok: false, enrollmentPending: true, secret: String(data.secret), uri: String(data.otpauth_uri || "") };
+  }
   if (response.status === 404 || response.status >= 500) {
     return { ok: false, unavailable: true, status: response.status, error: data.error || "Cloud sign-in unavailable" };
   }
   return {
     ok: false,
-    denied: response.status === 401 || response.status === 429,
+    denied: [401, 403, 409, 429].includes(response.status),
     status: response.status,
     mfaRequired: Boolean(data.mfa_required),
+    mfaEnrollmentRequired: Boolean(data.mfa_enrollment_required),
     error: data.error || "Invalid login or inactive account."
   };
 }
 
 /**
  * @returns {Promise<{ ok: boolean, appUser?: object, offline?: boolean, unavailable?: boolean,
- *   denied?: boolean, mfaRequired?: boolean, status?: number, error?: string }>}
+ *   denied?: boolean, mfaRequired?: boolean, mfaEnrollmentRequired?: boolean, status?: number, error?: string }>}
  */
 export async function staffCloudLogin(state, { username, password, mfaCode = "" }, options = {}) {
   return callStaffLogin(state, {
@@ -75,6 +80,28 @@ export async function staffCloudActivate(state, { username, activationCode, newP
     username: String(username || "").trim(),
     activation_code: String(activationCode || "").trim(),
     new_password: String(newPassword || ""),
+    mfa_code: String(mfaCode || "").trim()
+  }, options);
+}
+
+/**
+ * Privileged roles must confirm a server-side authenticator before any cloud session.
+ * Start: password -> { enrollmentPending, secret, uri } (pending secret kept only on the server).
+ */
+export async function staffMfaEnrollStart(state, { username, password }, options = {}) {
+  return callStaffLogin(state, {
+    action: "mfa_enroll_start",
+    username: String(username || "").trim(),
+    password: String(password || "")
+  }, options);
+}
+
+/** Confirm: password + current authenticator code -> same result shape as staffCloudLogin. */
+export async function staffMfaEnrollConfirm(state, { username, password, mfaCode }, options = {}) {
+  return callStaffLogin(state, {
+    action: "mfa_enroll_confirm",
+    username: String(username || "").trim(),
+    password: String(password || ""),
     mfa_code: String(mfaCode || "").trim()
   }, options);
 }

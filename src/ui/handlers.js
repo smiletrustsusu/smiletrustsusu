@@ -527,20 +527,17 @@ export function deleteUser(userId) {
 export function deleteCustomer(customerId) {
   const customer = rt.state.customers.find((item) => item.id === customerId);
   if (!customer || !isAdmin() || !visibleGroupIds().includes(customer.groupId)) return;
-  if (!confirm(`Delete member "${customer.name}" and all linked records?`)) return;
-  const linkedCollections = rt.state.collections.filter((item) => item.customerId === customerId);
-  const linkedLoans = rt.state.loans.filter((item) => item.customerId === customerId);
-  const linkedTransactions = rt.state.transactions.filter((item) => item.customerId === customerId);
+  const hasHistory = ["collections", "transactions", "ledgerEntries", "loans", "withdrawalRequests"]
+    .some((key) => (rt.state[key] || []).some((item) => item.customerId === customerId));
+  if (hasHistory) {
+    toast("Members with financial history are closed, never deleted.");
+    return;
+  }
+  if (!confirm(`Delete member "${customer.name}"? This member has no financial records.`)) return;
   const linkedMessages = rt.state.messages.filter((item) => item.customerId === customerId);
   tombstoneRecord("customers", customer);
-  tombstoneRecords("collections", linkedCollections);
-  tombstoneRecords("loans", linkedLoans);
-  tombstoneRecords("transactions", linkedTransactions);
   tombstoneRecords("messages", linkedMessages);
   rt.state.customers = rt.state.customers.filter((item) => item.id !== customerId);
-  rt.state.collections = rt.state.collections.filter((item) => item.customerId !== customerId);
-  rt.state.loans = rt.state.loans.filter((item) => item.customerId !== customerId);
-  rt.state.transactions = rt.state.transactions.filter((item) => item.customerId !== customerId);
   rt.state.messages = rt.state.messages.filter((item) => item.customerId !== customerId);
   sessionStorage.removeItem("edit_customer_id");
   saveState();
@@ -549,23 +546,8 @@ export function deleteCustomer(customerId) {
   render();
 }
 
-export function deleteCollection(collectionId) {
-  const collection = rt.state.collections.find((item) => item.id === collectionId);
-  if (!collection || !isAdmin() || !visibleGroupIds().includes(collection.groupId)) return;
-  if (!confirm(`Delete collection for ${customerName(collection.customerId)} on ${collection.date}?`)) return;
-  const linkedTransactions = rt.state.transactions.filter((item) => item.ref === collectionId);
-  const linkedMessages = rt.state.messages.filter((item) => item.ref === collectionId);
-  tombstoneRecord("collections", collection);
-  tombstoneRecords("transactions", linkedTransactions);
-  tombstoneRecords("messages", linkedMessages);
-  rt.state.collections = rt.state.collections.filter((item) => item.id !== collectionId);
-  rt.state.transactions = rt.state.transactions.filter((item) => item.ref !== collectionId);
-  rt.state.messages = rt.state.messages.filter((item) => item.ref !== collectionId);
-  sessionStorage.removeItem("edit_collection_id");
-  saveState();
-  pushCloudBackup(false);
-  logAudit("Collection deleted", `${customerName(collection.customerId)} · ${money(collection.amount)}`);
-  render();
+export function deleteCollection() {
+  toast("Posted collections cannot be deleted. Request a reversal instead.");
 }
 
 export function deleteLoan(loanId) {

@@ -19,7 +19,7 @@ import {
   verifyPassword
 } from "./src/password.js";
 import { deviceQueueSecret } from "./src/sync/offline-crypto.js";
-import { staffCloudLogin, staffCloudActivate, hasStaffCloudSession, clearStaffCloudSession } from "./src/sync/staff-session.js";
+import { staffCloudLogin, staffCloudActivate, staffMfaEnrollStart, staffMfaEnrollConfirm, hasStaffCloudSession, clearStaffCloudSession } from "./src/sync/staff-session.js";
 import {
   portalServerAvailable,
   portalServerLogin,
@@ -178,8 +178,8 @@ import { adoptCloudVerifiedUser } from "./src/core/cloud-user-adoption.js";
 import {
   loadStateFromRelational,
   importSnapshotToRelational,
-  pushMfaToRelational,
-  postgresSourceEnabled
+  postgresSourceEnabled,
+  pushStaffAccountToServer
 } from "./src/sync/relational-store.js";
 import { restoreUsersFromCloud } from "./src/sync/snapshot-security.js";
 import {
@@ -194,6 +194,7 @@ import {
   verifyUserMfa,
   disableUserMfa,
   mfaRequiredForUser,
+  serverMfaOfflineGraceOk,
   userMfaEnabled
 } from "./src/core/mfa.js";
 import { applyMomoWebhookVerification, processMomoCallback } from "./src/core/momo-webhook.js";
@@ -372,6 +373,7 @@ import {
   appendCustomerActivity,
   canChangeCustomerStatus,
   canHardDeleteCustomers,
+  customerHasFinancialHistory,
   customerAnalytics,
   customerProfileStats,
   customerTimeline,
@@ -3739,13 +3741,32 @@ function renderLogin() {
         saveState();
         const cloudMessage = cloudLogin?.ok
           ? "You signed in online, but this device could not load your account yet. Tap Sync now, then try again."
-          : cloudLogin?.mfaRequired || cloudLogin?.status === 429 ? cloudLogin.error : "";
+          : cloudLogin?.mfaRequired || cloudLogin?.mfaEnrollmentRequired || cloudLogin?.status === 429 ? cloudLogin.error : "";
         document.querySelector("#loginError").innerHTML = `<div class="notice">${escapeHtml(cloudMessage || "Invalid login or inactive account.")}</div>`;
+        if (cloudLogin?.mfaEnrollmentRequired) showServerMfaEnrollment(username);
         return;
       }
     }
     const mfaCode = enteredMfaCode;
-    const mfaResult = await verifyUserMfa(user, mfaCode);
+    const gate = await privilegedSignInGate(user, { username, password, mfaCode, cloudLogin });
+    if (!gate.ok) {
+      recordAuditEvent(state, {
+        action: "Login Failure",
+        details: `Server MFA verification required for ${user.username}`,
+        userId: user.id,
+        username: user.username,
+        category: "authentication",
+        eventType: "Login Failure",
+        result: "Failure",
+        guarantee: "G1"
+      }, uid);
+      saveState();
+      document.querySelector("#loginError").innerHTML = `<div class="notice">${escapeHtml(gate.error || "Invalid login or inactive account.")}</div>`;
+      if (gate.enrollment) showServerMfaEnrollment(username);
+      return;
+    }
+    cloudLogin = gate.cloudLogin;
+    const mfaResult = gate.serverVerified ? { ok: true } : await verifyUserMfa(user, mfaCode);
     if (!mfaResult.ok) {
       recordAuditEvent(state, {
         action: "Login Failure",
@@ -3829,6 +3850,101 @@ function backendTransitionBannerHtml() {
   return `<div class="notice" data-backend-transition>This device is connected to ${escapeHtml(notice.to.host)} (business ${escapeHtml(notice.to.businessId || "not set")}). Cloud sync starts only after a staff member signs in online.${previous}</div>`;
 }
 
+/** Staff identity, role and active status live in app_users on the server; the device copy follows it. */
+function mirrorStaffAccount(user) {
+  if (!portalServerAvailable(state) || !hasStaffCloudSession()) return;
+  void pushStaffAccountToServer(state, user).then((result) => {
+    if (!result.ok && !result.skipped) toast(`Saved on this device, but the server did not update ${user.username}: ${result.error}`);
+  });
+}
+
+const SERVER_MFA_VERIFIED_KEY = "smile-trust-server-mfa-verified";
+
+function serverMfaMarkers() {
+  try {
+    return JSON.parse(localStorage.getItem(SERVER_MFA_VERIFIED_KEY) || "{}") || {};
+  } catch {
+    return {};
+  }
+}
+
+function markServerMfaVerified(userId) {
+  const markers = serverMfaMarkers();
+  markers[userId] = new Date().toISOString();
+  localStorage.setItem(SERVER_MFA_VERIFIED_KEY, JSON.stringify(markers));
+}
+
+/**
+ * Privileged roles never sign in on a password alone when a server is configured: staff-login
+ * checks the server-held authenticator. Offline, a recent server-verified sign-in on this device
+ * is required (SERVER_MFA_OFFLINE_GRACE_MS).
+ */
+async function privilegedSignInGate(user, { username, password, mfaCode, cloudLogin }) {
+  if (!mfaRequiredForUser(user) || !portalServerAvailable(state)) return { ok: true, cloudLogin };
+  const result = cloudLogin?.ok ? cloudLogin : await staffCloudLogin(state, { username, password, mfaCode });
+  if (result.ok) {
+    markServerMfaVerified(user.id);
+    return { ok: true, cloudLogin: result, serverVerified: true };
+  }
+  if (result.offline || result.unavailable) {
+    if (serverMfaOfflineGraceOk(serverMfaMarkers(), user.id)) return { ok: true, cloudLogin: result };
+    return { ok: false, error: "Connect to the internet so the server can verify your two-factor sign-in." };
+  }
+  return { ok: false, error: result.error, enrollment: Boolean(result.mfaEnrollmentRequired) };
+}
+
+/** Server-side authenticator setup for privileged roles; the secret is shown once and never stored here. */
+function showServerMfaEnrollment(username) {
+  const box = document.querySelector("#loginError");
+  if (!box) return;
+  box.insertAdjacentHTML("beforeend", `
+    <div class="notice" id="serverMfaEnroll">
+      <p>Your role needs an authenticator app (for example Google Authenticator or Microsoft Authenticator).</p>
+      <button class="btn secondary" type="button" id="serverMfaStart">Set up authenticator</button>
+      <div id="serverMfaSetup" hidden>
+        <p>Add this key to your authenticator app, then enter the 6-digit code it shows.</p>
+        <p><code id="serverMfaSecret"></code></p>
+        <label>Authenticator code <input id="serverMfaCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6"></label>
+        <button class="btn" type="button" id="serverMfaConfirm">Confirm</button>
+      </div>
+      <div id="serverMfaStatus"></div>
+    </div>`);
+  const status = (message) => {
+    document.querySelector("#serverMfaStatus").innerHTML = `<p>${escapeHtml(message)}</p>`;
+  };
+  const password = () => document.querySelector("#password")?.value || "";
+  document.querySelector("#serverMfaStart").addEventListener("click", async () => {
+    status("Starting setup online...");
+    const started = await staffMfaEnrollStart(state, { username, password: password() });
+    if (!started.enrollmentPending) {
+      status(started.offline ? "Connect to the internet to set up your authenticator." : started.error || "Setup could not start.");
+      return;
+    }
+    document.querySelector("#serverMfaSecret").textContent = started.secret.replace(/(.{4})/g, "$1 ").trim();
+    document.querySelector("#serverMfaSetup").hidden = false;
+    status("");
+  });
+  document.querySelector("#serverMfaConfirm").addEventListener("click", async () => {
+    const confirmed = await staffMfaEnrollConfirm(state, { username, password: password(), mfaCode: document.querySelector("#serverMfaCode").value });
+    if (!confirmed.ok) {
+      status(confirmed.error || "Invalid code.");
+      return;
+    }
+    document.querySelector("#serverMfaSecret").textContent = "";
+    document.querySelector("#serverMfaSetup").hidden = true;
+    recordAuditEvent(state, {
+      action: "MFA Enrolled",
+      details: `${username} confirmed a server-side authenticator`,
+      username,
+      category: "authentication",
+      eventType: "MFA Enrolled",
+      result: "Success"
+    }, uid);
+    saveState();
+    status("Authenticator set up. Wait for the next code, enter it in the MFA field and sign in.");
+  });
+}
+
 /** The server has verified this username and password; bind the device's copy to that identity. */
 async function adoptCloudSignIn(username, password, appUser) {
   const result = adoptCloudVerifiedUser(state.users, appUser, {
@@ -3865,6 +3981,13 @@ async function handleStaffActivation(event) {
   }
   show("Activating your account online...");
   const result = await staffCloudActivate(state, { username, activationCode, newPassword, mfaCode });
+  if (result.mfaEnrollmentRequired) {
+    show("Your password is saved. Your role also needs an authenticator app before you can sign in.");
+    document.querySelector("#username").value = username;
+    document.querySelector("#password").value = newPassword;
+    showServerMfaEnrollment(username);
+    return;
+  }
   if (!result.ok) {
     if (result.offline) show("Connect to the internet to activate your account.");
     else if (result.unavailable) show("Account activation is not available on this server yet.");
@@ -10472,7 +10595,6 @@ async function handleMfaSetup(event) {
   if (action === "disable") {
     disableUserMfa(user);
     saveState();
-    void pushMfaToRelational(state, user);
     toast("MFA disabled");
     render();
     return;
@@ -10483,7 +10605,6 @@ async function handleMfaSetup(event) {
     return;
   }
   saveState();
-  void pushMfaToRelational(state, user);
   logAudit("MFA enabled", user.username);
   toast("MFA enabled successfully");
   render();
@@ -12879,6 +13000,7 @@ function attachToggleButtons() {
       user.updatedAt = new Date().toISOString();
       saveState();
       logAudit(user.active ? "Admin activated" : "Admin disabled", user.username);
+      mirrorStaffAccount(user);
       pushCloudBackup(false);
       render();
     });
@@ -13704,33 +13826,29 @@ function deleteCustomer(customerId) {
     toast("You cannot delete this member");
     return;
   }
-  if (!canHardDeleteCustomers(currentUser())) {
-    if (!confirm(`Close member "${customer.name}" and retain history?`)) return;
+  const hasHistory = customerHasFinancialHistory(state, customerId);
+  if (!canHardDeleteCustomers(currentUser()) || hasHistory) {
+    const question = hasHistory && canHardDeleteCustomers(currentUser())
+      ? `Member "${customer.name}" has financial history, so it cannot be deleted. Close the member instead?`
+      : `Close member "${customer.name}" and retain history?`;
+    if (!confirm(question)) return;
     const result = setCustomerStatus(customer, "Closed", currentUser(), uid);
     if (result.error) {
       toast(result.error);
       return;
     }
     saveState();
+    pushCloudBackup(false);
     logAudit("Member closed", customer.name);
     toast("Member closed - history retained");
     render();
     return;
   }
-  if (!confirm(`Permanently delete member "${customer.name}" and all linked records?`)) return;
-  const linkedCollections = state.collections.filter((item) => item.customerId === customerId);
-  const linkedLoans = state.loans.filter((item) => item.customerId === customerId);
-  const linkedTransactions = state.transactions.filter((item) => item.customerId === customerId);
+  if (!confirm(`Permanently delete member "${customer.name}"? This member has no financial records.`)) return;
   const linkedMessages = state.messages.filter((item) => item.customerId === customerId);
   tombstoneRecord("customers", customer);
-  tombstoneRecords("collections", linkedCollections);
-  tombstoneRecords("loans", linkedLoans);
-  tombstoneRecords("transactions", linkedTransactions);
   tombstoneRecords("messages", linkedMessages);
   state.customers = state.customers.filter((item) => item.id !== customerId);
-  state.collections = state.collections.filter((item) => item.customerId !== customerId);
-  state.loans = state.loans.filter((item) => item.customerId !== customerId);
-  state.transactions = state.transactions.filter((item) => item.customerId !== customerId);
   state.messages = state.messages.filter((item) => item.customerId !== customerId);
   sessionStorage.removeItem("edit_customer_id");
   saveState();
@@ -14607,6 +14725,11 @@ function handleLoan(event) {
       toast("This loan can no longer be edited");
       return;
     }
+    const disbursed = state.transactions.some((item) => item.ref === loan.id && item.type === "Loan Disbursement" && !item.reversed);
+    if (disbursed && (Number(loan.principal) !== principal || loan.customerId !== data.customerId || loan.date !== loanDate)) {
+      toast("A disbursed loan's member, principal and date are posted. Reverse the disbursement and issue a new loan instead.");
+      return;
+    }
     const before = { principal: loan.principal, interest: loan.interest, interestMonths: loan.interestMonths, totalDue: loan.totalDue };
     const nextStatus = loan.status === "Active" || loan.status === "Completed"
       ? (loan.amountPaid >= totalDue ? "Completed" : "Active")
@@ -14626,12 +14749,6 @@ function handleLoan(event) {
       updatedAt: new Date().toISOString(),
       ...loanExtras
     });
-    const tx = state.transactions.find((item) => item.ref === loan.id && item.type === "Loan Disbursement");
-    if (tx && loan.status === "Active") {
-      tx.customerId = data.customerId;
-      tx.amount = principal;
-      tx.date = loanDate;
-    }
     sessionStorage.removeItem("edit_loan_id");
     saveState();
     logAudit("Loan edited", `${customer.name} - ${JSON.stringify(before)} to principal ${money(principal)}, interest ${interest}%`);
@@ -15344,6 +15461,7 @@ async function handleUser(event) {
     user.updatedAt = new Date().toISOString();
     sessionStorage.removeItem("edit_user_id");
     saveState();
+    mirrorStaffAccount(user);
     pushCloudBackup(false);
     const roleNames = { Admin: "Branch Manager", Auditor: "Auditor", Collector: "Agent / Collector" };
     logAudit(`${roleNames[staffRole] || agencyRoleLabel(staffRole)} updated`, data.username);
@@ -15449,6 +15567,7 @@ async function handleUser(event) {
         }
     );
     saveState();
+    mirrorStaffAccount(user);
     pushCloudBackup(false);
     logAudit("Collector and location created", `${data.username} · ${group.name}`);
     toast("Collector and location created");
@@ -15463,6 +15582,7 @@ async function handleUser(event) {
     }
     linkUserToGroupStaff(user);
     saveState();
+    mirrorStaffAccount(user);
     pushCloudBackup(false);
     logAudit(`${agencyRoleLabel(staffRole)} created`, data.username);
     toast(`${agencyRoleLabel(staffRole)} account created`);
@@ -16979,16 +17099,19 @@ function handleBulkCustomerDelete() {
     return;
   }
   const ids = selectedCustomerIds();
-  if (!ids.length || !confirm(`Permanently delete ${ids.length} customer(s)?`)) return;
+  if (!ids.length || !confirm(`Permanently delete ${ids.length} customer(s)? Members with financial records are skipped; close them instead.`)) return;
+  let deleted = 0;
   ids.forEach((id) => {
     const customer = state.customers.find((item) => item.id === id);
-    if (!customer) return;
+    if (!customer || customerHasFinancialHistory(state, id)) return;
     tombstoneRecord("customers", customer);
     state.customers = state.customers.filter((item) => item.id !== id);
+    deleted += 1;
   });
   saveState();
   pushCloudBackup(false);
-  toast("Selected customers deleted");
+  const skipped = ids.length - deleted;
+  toast(skipped ? `Deleted ${deleted} customer(s); ${skipped} with financial history kept (close them instead)` : "Selected customers deleted");
   render();
 }
 

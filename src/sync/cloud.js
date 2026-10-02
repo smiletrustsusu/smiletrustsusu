@@ -13,7 +13,8 @@ import { sanitizeStateForCloud, restoreUsersFromCloud } from "./snapshot-securit
 import { currentUser } from "../core/auth.js";
 import { mergeStates, normalizeState, saveStateToStorage } from "../core/state.js";
 import { shrinkStateMedia, isStorageQuotaError } from "../core/media-compress.js";
-import { ensureFreshAccessToken } from "./supabase-auth.js";
+import { ensureFreshAccessToken, getStoredAuthSession } from "./supabase-auth.js";
+import { applySubmissionResult, canWriteSnapshot, pendingCollectionSubmissions, submissionBatches } from "./collection-submit.js";
 import { supabaseKeyHeaders } from "./supabase-headers.js";
 import { backendSyncHeld } from "../core/backend-guard.js";
 
@@ -196,6 +197,31 @@ async function saveSupabaseSnapshot(savedAt) {
   }
 }
 
+/** The signed-in staff session's app user, as issued by staff-login (null for legacy-key devices). */
+function sessionAppUser() {
+  return getStoredAuthSession()?.app_user || null;
+}
+
+/** Non-manager sessions upload only their own offline collections, validated by the server. */
+async function submitOwnCollections(serverCollectionIds) {
+  const { url, bearer } = await snapshotAuth();
+  const userId = sessionAppUser()?.id || currentUser()?.id || "";
+  const items = pendingCollectionSubmissions(App.state, { userId, serverCollectionIds });
+  const totals = { accepted: 0, duplicates: 0, rejected: 0 };
+  for (const batch of submissionBatches(items)) {
+    const response = await fetchWithTimeout(`${url}/rest/v1/rpc/st_submit_collections`, {
+      method: "POST",
+      cache: "no-store",
+      headers: cloudHeaders(bearer, { "Content-Type": "application/json", "Cache-Control": "no-cache", Pragma: "no-cache" }),
+      body: JSON.stringify({ p_business_code: businessId(), p_items: batch })
+    }, 60000);
+    if (!response.ok) throw await responseError(response, "Collection upload failed");
+    const counts = applySubmissionResult(App.state, await response.json());
+    Object.keys(totals).forEach((key) => { totals[key] += counts[key]; });
+  }
+  return totals;
+}
+
 export async function latestCloudSnapshot() {
   const mode = getSyncMode(App.state);
   if (mode === "local") return latestLocalSnapshot();
@@ -234,6 +260,7 @@ export async function pushCloudBackup(silent = false) {
   App.syncBusy = true;
   try {
     const snapshot = await latestCloudSnapshot().catch(() => null);
+    const serverCollectionIds = (snapshot?.payload?.collections || []).map((item) => item?.id).filter(Boolean);
     if (snapshot?.payload) {
       const merged = mergeStates(App.state, snapshot.payload);
       merged.users = restoreUsersFromCloud(App.state.users, merged.users);
@@ -241,7 +268,13 @@ export async function pushCloudBackup(silent = false) {
     }
     await shrinkStateMedia(App.state);
     const savedAt = new Date().toISOString();
-    await saveCloudSnapshot(savedAt);
+    const appUser = sessionAppUser();
+    if (getSyncMode(App.state) === "supabase" && appUser && !canWriteSnapshot(appUser.role)) {
+      if (!snapshot) throw new Error("Could not read the cloud copy; collections stay queued on this device");
+      await submitOwnCollections(serverCollectionIds);
+    } else {
+      await saveCloudSnapshot(savedAt);
+    }
     App.state.settings.lastSyncedAt = savedAt;
     App.state.settings.lastBackupAt = savedAt;
     try {

@@ -77,7 +77,8 @@ test("migration files are strictly sequenced without gaps in numbering", () => {
   assert.ok(files.includes("044_wave2_database_platform.sql"));
   assert.ok(files.includes("045_app_users_role_rbac_align.sql"));
   assert.ok(files.includes("046_server_side_authorization.sql"));
-  assert.equal(orders[orders.length - 1], 46);
+  assert.ok(files.includes("047_security_hardening.sql"));
+  assert.equal(orders[orders.length - 1], 47);
 });
 
 test("registry migrations match disk and validateDatabaseRegistry ok", () => {
@@ -87,6 +88,9 @@ test("registry migrations match disk and validateDatabaseRegistry ok", () => {
   for (const m of reg) {
     const name = m.filename || m.file;
     assert.ok(files.includes(name), `registry migration missing on disk: ${name}`);
+  }
+  for (const file of files) {
+    assert.ok(reg.some((m) => (m.filename || m.file) === file), `disk migration missing from registry: ${file}`);
   }
   assert.ok(DATABASE_MIGRATIONS.some((m) => m.order === 44 && m.filename === "044_wave2_database_platform.sql"));
   assert.ok(DATABASE_MIGRATIONS.some((m) => m.order === 45 && m.filename === "045_app_users_role_rbac_align.sql"));

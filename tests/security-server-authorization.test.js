@@ -1,9 +1,9 @@
 /**
  * Production Blocker #1 — server-side authorization regression tests.
- * Applies every migration (including 046) to a disposable local PostgreSQL that mimics
+ * Applies every migration (including 046 and 047) to a disposable local PostgreSQL that mimics
  * Supabase roles, auth.jwt() and default grants, then proves:
  *   - anon (the public key shipped in apps) can no longer read/write snapshots, tables or RPCs;
- *   - staff sessions only reach their own business;
+ *   - staff sessions (active app_users row + Auth link) only reach their own business;
  *   - privileged RPCs need an elevated role;
  *   - the member portal verifies PINs server-side and returns only that member's data.
  * Never connects to a remote database.
@@ -70,6 +70,15 @@ before(async () => {
     [BIZ_A, JSON.stringify(snapshotA), BIZ_B, JSON.stringify({ customers: [{ id: "c-b", name: "Other", accountNo: "c99", phone: "0551112222" }] })]
   );
   await db.query(`insert into public.businesses (code, name, legacy_code) values ($1, 'Alpha', $1), ($2, 'Beta', $2) on conflict do nothing`, [BIZ_A, BIZ_B]);
+  for (const [claims, name, role] of [[staffA, "Collector A", "Collector"], [ownerA, "Owner A", "SystemOwner"], [staffB, "Collector B", "Collector"]]) {
+    const { business_code: code, app_user_id: appUserId } = claims.app_metadata;
+    await db.query(
+      `insert into public.app_users (business_id, client_id, username, name, role, active)
+       select id, $2, $2, $3, $4, true from public.businesses where code = $1`,
+      [code, appUserId, name, role]
+    );
+    await db.query("insert into public.st_staff_auth_links (business_code, app_user_id, auth_user_id) values ($1, $2, $3)", [code, appUserId, claims.sub]);
+  }
   await db.query(
     `insert into public.user_mfa_secrets (business_id, user_client_id, secret, enabled)
      select id, 'u-owner', 'mfa-secret-a', true from public.businesses where code = $1`,
@@ -141,12 +150,16 @@ test("staff session reads and writes only its own business snapshot", async (t) 
   if (skip()) return t.skip("local database unavailable");
   const own = await run(staffA, "select business_id from public.smile_trust_cloud_snapshots");
   assert.deepEqual(own.rows.map((row) => row.business_id), [BIZ_A]);
-  const updated = await run(staffA, "update public.smile_trust_cloud_snapshots set saved_by = 'collector-a' where business_id = $1 returning id", [BIZ_A]);
+  const byCollector = await run(staffA, "update public.smile_trust_cloud_snapshots set saved_by = 'collector-a' where business_id = $1 returning id", [BIZ_A]);
+  assert.equal(byCollector.rowCount, 0, "collectors submit collections through st_submit_collections, never the whole snapshot");
+  const updated = await run(ownerA, "update public.smile_trust_cloud_snapshots set saved_by = 'owner-a' where business_id = $1 returning id", [BIZ_A]);
   assert.equal(updated.rowCount, 1);
-  const crossUpdate = await run(staffA, "update public.smile_trust_cloud_snapshots set payload = '{}' where business_id = $1 returning id", [BIZ_B]);
+  const crossUpdate = await run(ownerA, "update public.smile_trust_cloud_snapshots set payload = '{}' where business_id = $1 returning id", [BIZ_B]);
   assert.equal(crossUpdate.rowCount, 0);
   await expectDenied(run(staffA, "insert into public.smile_trust_cloud_snapshots (business_id, payload) values ($1, '{}')", [BIZ_B]), "cross-business insert");
-  await expectDenied(run(staffA, "update public.smile_trust_cloud_snapshots set business_id = $1 where business_id = $2", [BIZ_B, BIZ_A]), "move row to other business");
+  await expectDenied(run(ownerA, "update public.smile_trust_cloud_snapshots set business_id = $1 where business_id = $2", [BIZ_B, BIZ_A]), "move row to other business");
+  const collectorMove = await run(staffA, "update public.smile_trust_cloud_snapshots set business_id = $1 where business_id = $2 returning id", [BIZ_B, BIZ_A]);
+  assert.equal(collectorMove.rowCount, 0);
   await expectDenied(run(ownerA, "delete from public.smile_trust_cloud_snapshots where business_id = $1", [BIZ_A]), "snapshot delete");
   const other = await run(staffB, "select business_id from public.smile_trust_cloud_snapshots");
   assert.deepEqual(other.rows.map((row) => row.business_id), [BIZ_B]);
@@ -170,8 +183,7 @@ test("business-scoped RPCs enforce the caller's business and role", async (t) =>
   await expectDenied(run(staffA, "select public.record_momo_webhook($1, '{}'::jsonb)", [BIZ_A]), "collector momo");
   await expectDenied(run(staffA, "select public.list_app_users($1)", [BIZ_A]), "collector list users");
   await expectDenied(run(staffA, "select public.upsert_user_mfa($1, 'u-owner', 'x', true)", [BIZ_A]), "collector changes owner MFA");
-  const selfMfa = await run(staffA, "select public.upsert_user_mfa($1, 'u-collector-a', 'x', false) as r", [BIZ_A]);
-  assert.equal(selfMfa.rows[0].r.ok, true);
+  await expectDenied(run(staffA, "select public.upsert_user_mfa($1, 'u-collector-a', 'x', false)", [BIZ_A]), "TOTP secrets are written only by staff-login");
   const users = await run(ownerA, "select public.list_app_users($1) as r", [BIZ_A]);
   assert.ok(Array.isArray(users.rows[0].r));
   await expectDenied(run(staffA, "select public.st_internal_fetch_business_snapshot($1)", [BIZ_B]), "authenticated calls internal");
@@ -194,6 +206,12 @@ test("TOTP secrets are never readable by any client session", async (t) => {
   await expectDenied(run(staffA, "select * from public.user_mfa_secrets"), "collector reads MFA secrets");
   const stored = await db.query("select count(*)::int as n from public.user_mfa_secrets where user_client_id = 'u-owner'");
   assert.equal(stored.rows[0].n, 1);
+});
+
+test("stored snapshots never keep password hashes or plaintext portal PINs", async (t) => {
+  if (skip()) return t.skip("local database unavailable");
+  const { rows } = await db.query("select payload::text as p from public.smile_trust_cloud_snapshots where business_id = $1", [BIZ_A]);
+  assert.doesNotMatch(rows[0].p, /pbkdf2:|passwordHash|"portalPin"/);
 });
 
 test("portal login verifies the PIN server-side and returns only that member's records", async (t) => {
@@ -265,10 +283,12 @@ test("portal PIN change and withdrawal requests are server-validated and reach s
   await expectDenied(run(anonClaims, "select * from public.st_portal_requests"), "anon reads portal request table");
 });
 
-test("re-applying migration 046 is idempotent and keeps every guard", async (t) => {
+test("re-applying migrations 046 then 047 is idempotent and keeps every guard", async (t) => {
   if (skip()) return t.skip("local database unavailable");
-  const file = migrationFiles().find((item) => item.name.startsWith("046_"));
-  await db.query(file.sql);
+  for (const prefix of ["046_", "047_"]) {
+    await db.query(migrationFiles().find((item) => item.name.startsWith(prefix)).sql);
+  }
+  await expectDenied(run(staffA, "select public.upsert_user_mfa($1, 'u-collector-a', 'x', false)", [BIZ_A]), "047 guards restored after 046");
   await expectDenied(run(anonClaims, "select * from public.smile_trust_cloud_snapshots"), "anon select after re-apply");
   await expectDenied(run(staffA, "select public.fetch_business_snapshot($1)", [BIZ_B]), "cross-business after re-apply");
   const own = await run(staffA, "select public.fetch_business_snapshot($1) as s", [BIZ_A]);

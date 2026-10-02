@@ -12,8 +12,8 @@
   },
   "etqavsVersion": "1.0.0",
   "p16Version": "1.0.0",
-  "startedAt": "2026-09-29T09:33:41.519Z",
-  "finishedAt": "2026-09-29T09:34:12.187Z",
+  "startedAt": "2026-10-02T11:28:29.134Z",
+  "finishedAt": "2026-10-02T11:30:00.835Z",
   "decision": "PASS",
   "passFail": "pass",
   "readyForWave9": true,
@@ -31,9 +31,9 @@
     "note": "CERT-001 requires Wave 10 governance / business acceptance / monitoring — expected incomplete at RC1"
   },
   "testSummary": {
-    "passed": 805,
+    "passed": 939,
     "failed": 0,
-    "total": 805,
+    "total": 939,
     "passRate": 100,
     "computed": {
       "ok": false,

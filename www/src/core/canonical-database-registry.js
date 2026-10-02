@@ -5153,7 +5153,8 @@ export const DATABASE_MIGRATIONS = Object.freeze([
   Object.freeze({"id":"MIG-043","filename":"043_platform_admin.sql","order":43,"description":"platform admin","owningModule":30}),
   Object.freeze({"id":"MIG-044","filename":"044_wave2_database_platform.sql","order":44,"description":"wave 2 database platform hardening","owningModule":14}),
   Object.freeze({"id":"MIG-045","filename":"045_app_users_role_rbac_align.sql","order":45,"description":"GAP-010 app_users.role CHECK align JS RBAC","owningModule":1}),
-  Object.freeze({"id":"MIG-046","filename":"046_server_side_authorization.sql","order":46,"description":"server-side authorization: default-deny grants, RLS, guarded RPCs, server member portal","owningModule":1})
+  Object.freeze({"id":"MIG-046","filename":"046_server_side_authorization.sql","order":46,"description":"server-side authorization: default-deny grants, RLS, guarded RPCs, server member portal","owningModule":1}),
+  Object.freeze({"id":"MIG-047","filename":"047_security_hardening.sql","order":47,"description":"security hardening: role-change guard, live staff check, snapshot secret scrub, collector submit RPC, MFA records, immutable posted rows, member lifecycle","owningModule":1})
 ]);
 
 export const DATABASE_PARTITIONS = Object.freeze([

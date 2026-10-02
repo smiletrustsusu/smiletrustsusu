@@ -58,7 +58,7 @@ export function appRoleFromRelational(role) {
  * A public.app_users row as a staff-login user. The app identifies users by client_id (what
  * fetch_business_snapshot returns as id); rows without one fall back to their uuid.
  */
-export function staffUserFromAppUserRow(row, { mfaEnabled = false } = {}) {
+export function staffUserFromAppUserRow(row) {
   if (!row?.id) return null;
   return {
     id: String(row.client_id || row.id),
@@ -68,7 +68,6 @@ export function staffUserFromAppUserRow(row, { mfaEnabled = false } = {}) {
     role: appRoleFromRelational(row.role),
     active: row.active !== false,
     passwordHash: isUsablePasswordHash(row.password_hash) ? row.password_hash : "",
-    mfaEnabled: Boolean(mfaEnabled),
     source: "app_users"
   };
 }
@@ -130,54 +129,66 @@ async function totpAt(secret, counter) {
   return String(code % 1_000_000).padStart(6, "0");
 }
 
-export async function verifyTotp(secret, token, { now = Date.now(), window = 1 } = {}) {
+/** The 30-second time step a valid code belongs to, or -1. Steps let the server refuse replays. */
+export async function totpMatchStep(secret, token, { now = Date.now(), window = 1 } = {}) {
   const normalized = String(token || "").replace(/\s/g, "");
-  if (!secret || !/^\d{6}$/.test(normalized)) return false;
+  if (!secret || !/^\d{6}$/.test(normalized)) return -1;
   const counter = Math.floor(now / 1000 / 30);
   for (let drift = -window; drift <= window; drift += 1) {
-    if ((await totpAt(secret, counter + drift)) === normalized) return true;
+    if ((await totpAt(secret, counter + drift)) === normalized) return counter + drift;
   }
-  return false;
+  return -1;
+}
+
+export async function verifyTotp(secret, token, options = {}) {
+  return (await totpMatchStep(secret, token, options)) >= 0;
+}
+
+/** A new random base32 TOTP secret (160 bits, RFC 4226 recommendation). */
+export function generateTotpSecretBase32(bytes = 20) {
+  const raw = crypto.getRandomValues(new Uint8Array(bytes));
+  let bits = "";
+  for (const byte of raw) bits += byte.toString(2).padStart(8, "0");
+  let out = "";
+  for (let i = 0; i + 5 <= bits.length; i += 5) out += BASE32[parseInt(bits.slice(i, i + 5), 2)];
+  return out;
+}
+
+export function totpProvisioningUri(secret, { issuer = "Smile Trust", account = "" } = {}) {
+  const label = encodeURIComponent(`${issuer}:${account}`);
+  return `otpauth://totp/${label}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30`;
 }
 
 export function normalizeUsername(value) {
   return String(value || "").trim().toLowerCase();
 }
 
-/** Same eligibility as the app's findLoginUser: active, not pending, not tombstoned. */
-export function findStaffUser(payload, usernameKey) {
-  const users = Array.isArray(payload?.users) ? payload.users : [];
-  const user = users.find((item) => normalizeUsername(item?.username) === usernameKey);
-  if (!user || user.active === false || user.pending) return null;
-  const deleted = (payload?.deletedUsers || []).some((item) => item?.userId && item.userId === user.id
-    && Date.parse(item.deletedAt || item.createdAt || 0) >= Date.parse(user.updatedAt || user.createdAt || 0));
-  if (deleted) return null;
-  if (user.role === "Developer" && payload?.settings?.allowDeveloperLogin !== true) return null;
-  return user;
-}
+export const MFA_ENROLLMENT_ERROR = "Two-factor authentication is required for your role. Set it up to continue.";
 
 /**
- * @returns {Promise<{ ok: boolean, reason?: string, error?: string, mfaRequired?: boolean }>}
+ * Privileged roles (MFA_REQUIRED_ROLES) never get a session without a confirmed server-side TOTP
+ * secret: without one the verdict is mfa_enrollment_required. Secrets come only from
+ * public.user_mfa_secrets, never from a client snapshot.
+ * @returns {Promise<{ ok: boolean, reason?: string, error?: string, mfaRequired?: boolean, mfaEnrollmentRequired?: boolean, mfaStep?: number }>}
  */
-export async function evaluateStaffLogin({ user, password, mfaCode = "", mfaSecret = "", now = Date.now() }) {
+export async function evaluateStaffLogin({ user, password, mfaCode = "", mfaSecret = "", lastUsedStep = null, now = Date.now() }) {
   if (!user) return { ok: false, reason: "unknown_user", error: "Invalid login or inactive account." };
   if (!(await verifyPasswordHash(password, user.passwordHash))) {
     return { ok: false, reason: "bad_password", error: "Invalid login or inactive account." };
   }
-  if (MFA_REQUIRED_ROLES.includes(user.role)) {
-    const secret = user.mfaSecret || mfaSecret;
-    if (user.mfaEnabled && secret) {
-      if (!String(mfaCode || "").trim()) {
-        return { ok: false, reason: "mfa_required", mfaRequired: true, error: "Enter your MFA code." };
-      }
-      if (!(await verifyTotp(secret, mfaCode, { now }))) {
-        return { ok: false, reason: "bad_mfa", mfaRequired: true, error: "Invalid MFA code" };
-      }
-    } else if (user.mfaPending) {
-      return { ok: false, reason: "mfa_pending", error: "Complete MFA setup in Settings before signing in" };
-    }
+  if (!MFA_REQUIRED_ROLES.includes(user.role)) return { ok: true };
+  if (!mfaSecret) {
+    return { ok: false, reason: "mfa_enrollment_required", mfaEnrollmentRequired: true, error: MFA_ENROLLMENT_ERROR };
   }
-  return { ok: true };
+  if (!String(mfaCode || "").trim()) {
+    return { ok: false, reason: "mfa_required", mfaRequired: true, error: "Enter your MFA code." };
+  }
+  const step = await totpMatchStep(mfaSecret, mfaCode, { now });
+  if (step < 0) return { ok: false, reason: "bad_mfa", mfaRequired: true, error: "Invalid MFA code" };
+  if (lastUsedStep != null && step <= Number(lastUsedStep)) {
+    return { ok: false, reason: "mfa_replay", mfaRequired: true, error: "That MFA code was already used. Wait for the next code." };
+  }
+  return { ok: true, mfaStep: step };
 }
 
 export function isPlainUsername(value) {

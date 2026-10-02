@@ -32,13 +32,14 @@ const { forbiddenClientConfigKeys, CLIENT_FORBIDDEN_CONFIG_KEYS } = await import
 const { DEFAULT_SYSTEM_OWNER, DEFAULT_SUPER_ADMIN, ensureDefaultSystemAccounts, hasUsableLocalLogin } = await import("../src/core/system-accounts.js");
 const passwordModule = await import("../src/password.js");
 const { hashPassword, verifyPassword } = passwordModule;
-const { sanitizeStateForCloud } = await import("../src/sync/snapshot-security.js");
+const { sanitizeStateForCloud, SNAPSHOT_SECRET_KEYS } = await import("../src/sync/snapshot-security.js");
 const { encryptOfflinePayload, decryptOfflinePayload, deviceQueueSecret } = await import("../src/sync/offline-crypto.js");
 const { SESSION_KEY } = await import("../src/sync/supabase-auth.js");
-const { staffCloudLogin, hasStaffCloudSession } = await import("../src/sync/staff-session.js");
+const { staffCloudLogin, staffMfaEnrollStart, staffMfaEnrollConfirm, hasStaffCloudSession } = await import("../src/sync/staff-session.js");
+const { serverMfaOfflineGraceOk } = await import("../src/core/mfa.js");
 const portal = await import("../src/sync/portal-remote.js");
 const { latestCloudSnapshot, pushCloudBackup } = await import("../src/sync/cloud.js");
-const { evaluateStaffLogin, findStaffUser, verifyPasswordHash, verifyTotp } = await import("../supabase/functions/staff-login/auth-core.js");
+const { evaluateStaffLogin, verifyPasswordHash, verifyTotp } = await import("../supabase/functions/staff-login/auth-core.js");
 const { createStaffLoginHandler } = await import("../supabase/functions/staff-login/handler.js");
 const { generateTotpCode, generateTotpSecret } = await import("../src/core/totp.js");
 
@@ -165,6 +166,36 @@ test("cloud snapshots strip sync keys, tokens and webhook secrets", () => {
   assert.equal(cleaned.settings.businessName, "S");
 });
 
+test("cloud snapshots never carry password hashes, TOTP secrets, activation codes, tokens or recovery material at any depth", async () => {
+  const strong = await hashPassword("Collector#2026");
+  const planted = {
+    password: "PLANTED-plain", passwordHash: strong, password_hash: "PLANTED-hash", loginPasswordHint: "PLANTED-hint",
+    mfaSecret: "PLANTEDTOTPSECRET", totpSecret: "PLANTEDTOTP2", mfaPendingSecret: "PLANTEDPENDING",
+    activationCode: "PLANTED-ACT", activation_code: "PLANTED-ACT2", accessToken: "PLANTED-at", refresh_token: "PLANTED-rt",
+    sessionToken: "PLANTED-st", recoveryCodes: ["PLANTED-rc"], backup_codes: ["PLANTED-bc"], pinHash: "PLANTED-pin",
+    serviceRoleKey: "PLANTED-srk", privateKey: "PLANTED-pk", webhookSecret: "PLANTED-wh", apiSecret: "PLANTED-api", customToken: "PLANTED-ct"
+  };
+  const cleaned = sanitizeStateForCloud({
+    settings: { businessName: "S", ...planted, integrations: { momo: { ...planted } } },
+    users: [{ id: "u1", username: "baba", role: "SystemOwner", mfaEnabled: true, ...planted }, { id: "u2", username: "old", passwordHash: "kba-1234" }],
+    customers: [{ id: "c1", name: "Ama", portalPin: "2468", nested: [{ ...planted }] }],
+    auditLog: [{ id: "a1", details: { ...planted } }]
+  });
+  const text = JSON.stringify(cleaned);
+  assert.doesNotMatch(text, /PLANTED|pbkdf2:|kba-1234/, "no injected secret survives");
+  assert.deepEqual(cleaned.users.map((user) => user.passwordHash), ["[protected]", "[protected]"]);
+  assert.equal(cleaned.users[0].mfaEnabled, true, "non-secret flags are kept");
+  assert.equal(cleaned.customers[0].portalPin, "2468", "member PINs go to the server, which keeps only a bcrypt hash");
+  assert.equal(cleaned.settings.businessName, "S");
+});
+
+test("client and server secret-key lists stay in step", () => {
+  const migration = fs.readFileSync(path.join(root, "supabase/migrations/047_security_hardening.sql"), "utf8");
+  const block = /st_is_secret_key[\s\S]*?array\[([\s\S]*?)\]\)/.exec(migration)[1];
+  const serverKeys = [...block.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]).filter((key) => !["portalpin", "portal_pin"].includes(key));
+  assert.deepEqual([...SNAPSHOT_SECRET_KEYS].sort(), serverKeys.sort());
+});
+
 test("a legacy access key moves from synced settings into a device-only slot", () => {
   const state = cloudState({ syncAccessKey: "legacy-device-key-0123456789abcdef" });
   captureLegacySyncKey(state);
@@ -209,20 +240,66 @@ function storeSession(appUser = { id: "u-col", username: "ama", role: "Collector
 test("snapshot sync sends the user's session token and no shared access key", async () => {
   App.state = cloudState();
   App.syncBusy = false;
-  storeSession();
+  storeSession({ id: "u-acc", username: "esi", role: "Accountant" });
   const calls = mockFetch((url, options) => {
     if ((options.method || "GET") === "PATCH") return { body: [{ id: 1 }] };
     return { body: [{ business_id: "biz-1", payload: { customers: [] }, saved_at: "2026-09-28T00:00:00Z" }] };
   });
   await latestCloudSnapshot();
   await pushCloudBackup(true);
-  assert.ok(calls.length >= 2);
+  assert.ok(calls.some((call) => call.method === "PATCH"), "a manager-level session writes the snapshot");
   for (const call of calls) {
     assert.equal(call.headers.Authorization, "Bearer user-access-token");
     assert.doesNotMatch(call.url, /access_key/);
     assert.doesNotMatch(String(call.body || ""), /access_key/);
   }
   assert.doesNotMatch(calls[0].url, /select=[^&]*access_key/);
+});
+
+test("collector sessions never write the snapshot; their offline collections upload through st_submit_collections", async () => {
+  const pending = {
+    collection: { id: "col-off-1", customerId: "c1", userId: "u-col", amount: 20, amountPesewas: 2000, paymentMethod: "Cash", idempotencyKey: "idem-off-1" },
+    ledger: [
+      { id: "led-off-1c", referenceId: "col-off-1", referenceType: "collection", customerId: "c1", amount: 20, direction: "credit", account: "customer:c1" },
+      { id: "led-off-1d", referenceId: "col-off-1", referenceType: "collection", customerId: "", amount: 20, direction: "debit", account: "account:cash" }
+    ],
+    tx: { id: "tx-off-1", type: "Susu Deposit", customerId: "c1", amount: 20, ref: "col-off-1", ledgerEntryId: "led-off-1c" }
+  };
+  App.state = {
+    ...cloudState(),
+    collections: [
+      { id: "col-synced", customerId: "c1", userId: "u-col", amount: 5 },
+      pending.collection,
+      { id: "col-other", customerId: "c2", userId: "u-someone-else", amount: 9 },
+      { id: "col-refused", customerId: "c1", userId: "u-col", amount: 3, cloudSyncStatus: "Rejected" },
+      { id: "col-bad", customerId: "c9", userId: "u-col", amount: 4 }
+    ],
+    ledgerEntries: pending.ledger,
+    transactions: [pending.tx]
+  };
+  App.syncBusy = false;
+  storeSession({ id: "u-col", username: "kwame", role: "Collector" });
+  const calls = mockFetch((url, options) => {
+    if (url.includes("/rpc/st_submit_collections")) {
+      return { body: { ok: true, accepted: ["col-off-1"], duplicates: [], rejected: [{ id: "col-bad", reason: "unknown member" }] } };
+    }
+    if ((options.method || "GET") !== "GET") return { status: 403, body: { message: "denied" } };
+    return { body: [{ business_id: "biz-1", payload: { collections: [{ id: "col-synced", customerId: "c1", userId: "u-col", amount: 5 }] }, saved_at: "2026-09-28T00:00:00Z" }] };
+  });
+  await pushCloudBackup(true);
+  assert.equal(calls.some((call) => call.url.includes("smile_trust_cloud_snapshots") && call.method !== "GET"), false, "no snapshot write");
+  const submit = calls.find((call) => call.url.includes("/rpc/st_submit_collections"));
+  assert.equal(submit.method, "POST");
+  assert.equal(submit.headers.Authorization, "Bearer user-access-token");
+  const body = JSON.parse(submit.body);
+  assert.equal(body.p_business_code, "biz-1");
+  assert.deepEqual(body.p_items.map((item) => item.collection.id), ["col-off-1", "col-bad"], "only this collector's unsynced, not-yet-refused collections");
+  assert.deepEqual(body.p_items[0].ledgerEntries.map((entry) => entry.id), ["led-off-1c", "led-off-1d"]);
+  assert.deepEqual(body.p_items[0].transactions.map((tx) => tx.id), ["tx-off-1"]);
+  const bad = App.state.collections.find((item) => item.id === "col-bad");
+  assert.equal(bad.cloudSyncStatus, "Rejected");
+  assert.equal(bad.cloudSyncError, "unknown member");
+  assert.equal(App.state.collections.find((item) => item.id === "col-off-1").cloudSyncStatus, undefined);
 });
 
 test("without a session or legacy key the device refuses to touch cloud snapshots", async () => {
@@ -282,7 +359,44 @@ test("staff cloud login distinguishes denied, MFA, offline and not-yet-deployed"
   assert.equal(missing.unavailable, true);
   const offline = await staffCloudLogin(state, { username: "a", password: "b" }, { fetchImpl: async () => { throw new TypeError("fetch failed"); } });
   assert.equal(offline.offline, true);
+  const enroll = await staffCloudLogin(state, { username: "a", password: "b" }, { fetchImpl: respond(403, { error: "Two-factor authentication is required", mfa_enrollment_required: true }) });
+  assert.equal(enroll.denied, true);
+  assert.equal(enroll.mfaEnrollmentRequired, true);
   assert.equal(localStorage.getItem(SESSION_KEY), null, "no session stored on failure");
+});
+
+test("privileged MFA enrollment: the pending secret is shown once and nothing is stored on the device", async () => {
+  const state = cloudState();
+  const bodies = [];
+  const fetchImpl = async (url, options) => {
+    const body = JSON.parse(options.body);
+    bodies.push(body);
+    if (body.action === "mfa_enroll_start") {
+      return new Response(JSON.stringify({ mfa_enrollment_pending: true, secret: "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP", otpauth_uri: "otpauth://totp/x" }), { status: 200 });
+    }
+    return new Response(JSON.stringify({ access_token: "user-access-token", refresh_token: "r", expires_in: 3600, app_user: { id: "u-owner", username: "john", role: "SystemOwner" } }), { status: 200 });
+  };
+  const started = await staffMfaEnrollStart(state, { username: "John", password: "Owner-pw-9" }, { fetchImpl });
+  assert.equal(started.enrollmentPending, true);
+  assert.equal(started.secret, "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP");
+  assert.equal(localStorage.getItem(SESSION_KEY), null);
+  assert.doesNotMatch(JSON.stringify([...memory.values(), ...session.values()]), /JBSWY3DPEHPK3PXP/, "the secret is never persisted");
+  const confirmed = await staffMfaEnrollConfirm(state, { username: "John", password: "Owner-pw-9", mfaCode: "123456" }, { fetchImpl });
+  assert.equal(confirmed.ok, true);
+  assert.deepEqual(bodies.map((body) => body.action), ["mfa_enroll_start", "mfa_enroll_confirm"]);
+  assert.equal(bodies[1].mfa_code, "123456");
+});
+
+test("privileged sign-in offline is allowed only shortly after a server-verified MFA sign-in", () => {
+  const now = Date.parse("2026-09-30T12:00:00Z");
+  assert.equal(serverMfaOfflineGraceOk({}, "u1", now), false);
+  assert.equal(serverMfaOfflineGraceOk({ u1: "2026-09-29T12:00:00Z" }, "u1", now), true);
+  assert.equal(serverMfaOfflineGraceOk({ u1: "2026-09-20T12:00:00Z" }, "u1", now), false, "grace expires");
+  assert.equal(serverMfaOfflineGraceOk({ u1: "2026-10-30T12:00:00Z" }, "u1", now), false, "a future marker is rejected");
+  assert.equal(serverMfaOfflineGraceOk({ u2: "2026-09-29T12:00:00Z" }, "u1", now), false, "markers are per user");
+  const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
+  assert.match(app, /const gate = await privilegedSignInGate\(user, \{ username, password, mfaCode, cloudLogin \}\);\s*if \(!gate\.ok\) \{/);
+  assert.doesNotMatch(app, /pushMfaToRelational|upsert_user_mfa/, "device TOTP secrets are never uploaded");
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -297,32 +411,25 @@ test("server credential checks match the app's rules", async () => {
   assert.equal((await evaluateStaffLogin({ user, password: "Correct-horse-42" })).ok, true);
   assert.equal((await evaluateStaffLogin({ user, password: "nope" })).reason, "bad_password");
 
-  const payload = {
-    settings: {},
-    users: [
-      user,
-      { id: "u2", username: "gone", active: false, passwordHash: hash },
-      { id: "u3", username: "dev", role: "Developer", active: true, passwordHash: hash },
-      { id: "u4", username: "del", active: true, passwordHash: hash, updatedAt: "2026-01-01" }
-    ],
-    deletedUsers: [{ userId: "u4", deletedAt: "2026-02-01" }]
-  };
-  assert.equal(findStaffUser(payload, "ama")?.id, "u1");
-  assert.equal(findStaffUser(payload, "gone"), null, "inactive");
-  assert.equal(findStaffUser(payload, "dev"), null, "developer login off by default");
-  assert.equal(findStaffUser(payload, "del"), null, "tombstoned");
-
   const secret = generateTotpSecret();
-  const owner = { id: "o1", username: "john", role: "SystemOwner", active: true, passwordHash: hash, mfaEnabled: true, mfaSecret: secret };
-  const needCode = await evaluateStaffLogin({ user: owner, password: "Correct-horse-42" });
+  const owner = { id: "o1", username: "john", role: "SystemOwner", active: true, passwordHash: hash };
+  const noAuthenticator = await evaluateStaffLogin({ user: owner, password: "Correct-horse-42" });
+  assert.equal(noAuthenticator.reason, "mfa_enrollment_required", "privileged roles never sign in on a password alone");
+  const snapshotSecret = await evaluateStaffLogin({ user: { ...owner, mfaEnabled: true, mfaSecret: secret }, password: "Correct-horse-42" });
+  assert.equal(snapshotSecret.reason, "mfa_enrollment_required", "a client-supplied secret on the user object is ignored");
+  const needCode = await evaluateStaffLogin({ user: owner, password: "Correct-horse-42", mfaSecret: secret });
   assert.equal(needCode.mfaRequired, true);
   const now = Date.now();
   const code = await generateTotpCode(secret, { now });
   assert.equal(await verifyTotp(secret, code, { now }), true);
-  assert.equal((await evaluateStaffLogin({ user: owner, password: "Correct-horse-42", mfaCode: code, now })).ok, true);
-  assert.equal((await evaluateStaffLogin({ user: owner, password: "Correct-horse-42", mfaCode: "000000", now })).ok, false);
+  const ok = await evaluateStaffLogin({ user: owner, password: "Correct-horse-42", mfaSecret: secret, mfaCode: code, now });
+  assert.equal(ok.ok, true);
+  assert.equal(ok.mfaStep, Math.floor(now / 30000));
+  assert.equal((await evaluateStaffLogin({ user: owner, password: "Correct-horse-42", mfaSecret: secret, mfaCode: code, lastUsedStep: ok.mfaStep, now })).reason, "mfa_replay");
+  assert.equal((await evaluateStaffLogin({ user: owner, password: "Correct-horse-42", mfaSecret: secret, mfaCode: "000000", now })).ok, false);
 });
 
+/** users: public.app_users rows ({ id, client_id, username, role, active, password_hash }). */
 function fakeSupabase({ users, failures = 0, links = [] }) {
   const calls = [];
   const fetchImpl = async (url, options = {}) => {
@@ -332,9 +439,13 @@ function fakeSupabase({ users, failures = 0, links = [] }) {
     if (url.includes("/rest/v1/st_staff_login_attempts")) {
       return method === "GET" ? reply(200, Array.from({ length: failures }, (_, i) => ({ id: i }))) : reply(201, null);
     }
-    if (url.includes("/rest/v1/smile_trust_cloud_snapshots")) return reply(200, [{ payload: { settings: {}, users } }]);
     if (url.includes("/rest/v1/st_staff_auth_links")) return method === "GET" ? reply(200, links) : reply(201, null);
-    if (url.includes("/rest/v1/businesses")) return reply(200, []);
+    if (url.includes("/rest/v1/businesses")) return reply(200, [{ id: "biz-uuid-1" }]);
+    if (url.includes("/rest/v1/app_users")) {
+      const wanted = decodeURIComponent(new URL(url).searchParams.get("username") || "").replace(/^ilike\./, "").toLowerCase();
+      return reply(200, users.filter((row) => row.username.toLowerCase() === wanted));
+    }
+    if (url.includes("/rest/v1/user_mfa_secrets")) return reply(200, []);
     if (url.endsWith("/auth/v1/admin/users") && method === "POST") return reply(200, { id: "auth-new", email: calls.at(-1).body.email });
     if (url.includes("/auth/v1/admin/users/") && method === "PUT") return reply(200, { id: "auth-old", email: "x@staff.smile-trust.invalid" });
     if (url.includes("/auth/v1/token")) {
@@ -354,7 +465,7 @@ const env = { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY: SERVICE, SUPABASE_ANON_KE
 
 test("staff-login issues a per-user session with server-set business claims and never returns the service key", async () => {
   const hash = await hashPassword("Correct-horse-42");
-  const fake = fakeSupabase({ users: [{ id: "u-col", username: "Ama", role: "Collector", active: true, passwordHash: hash }] });
+  const fake = fakeSupabase({ users: [{ id: "uuid-col", client_id: "u-col", username: "Ama", role: "Collector", active: true, password_hash: hash }] });
   const handler = createStaffLoginHandler({ env, fetchImpl: fake.fetchImpl });
   const response = await handler(loginRequest({ username: "ama", password: "Correct-horse-42" }));
   const text = await response.text();
@@ -377,8 +488,8 @@ test("staff-login issues a per-user session with server-set business claims and 
 test("staff-login rejects wrong passwords, inactive users and brute force without creating sessions", async () => {
   const hash = await hashPassword("Correct-horse-42");
   const users = [
-    { id: "u-col", username: "ama", role: "Collector", active: true, passwordHash: hash },
-    { id: "u-old", username: "kofi", role: "Collector", active: false, passwordHash: hash }
+    { id: "uuid-col", client_id: "u-col", username: "ama", role: "Collector", active: true, password_hash: hash },
+    { id: "uuid-old", client_id: "u-old", username: "kofi", role: "Collector", active: false, password_hash: hash }
   ];
   const wrong = fakeSupabase({ users });
   const r1 = await createStaffLoginHandler({ env, fetchImpl: wrong.fetchImpl })(loginRequest({ username: "ama", password: "nope" }));

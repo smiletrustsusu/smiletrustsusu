@@ -41,7 +41,7 @@ test("only the system owner can permanently delete members", () => {
 
 test("non-owners can only close a member, keeping its financial history", () => {
   const body = functionBody("deleteCustomer");
-  assert.match(body, /if \(!canHardDeleteCustomers\(currentUser\(\)\)\) \{[\s\S]*setCustomerStatus\(customer, "Closed"/);
+  assert.match(body, /if \(!canHardDeleteCustomers\(currentUser\(\)\) \|\| hasHistory\) \{[\s\S]*setCustomerStatus\(customer, "Closed"/);
   assert.match(body, /toast\("You cannot delete this member"\)/);
   assert.match(body, /logAudit\("Member deleted"/);
 });

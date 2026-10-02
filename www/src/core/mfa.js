@@ -9,6 +9,15 @@ export function mfaRequiredForUser(user) {
   return MFA_REQUIRED_ROLES.includes(user?.role);
 }
 
+/** How long a privileged user may sign in offline after the server last verified their MFA. */
+export const SERVER_MFA_OFFLINE_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** markers: { [userId]: ISO time of the last server-verified (password + TOTP) sign-in on this device }. */
+export function serverMfaOfflineGraceOk(markers, userId, now = Date.now(), graceMs = SERVER_MFA_OFFLINE_GRACE_MS) {
+  const at = Date.parse(markers?.[userId] || "");
+  return Number.isFinite(at) && at <= now && now - at <= graceMs;
+}
+
 export function userMfaEnabled(user) {
   return Boolean(user?.mfaEnabled && user?.mfaSecret);
 }

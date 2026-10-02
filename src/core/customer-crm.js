@@ -33,6 +33,18 @@ export function canHardDeleteCustomers(actor) {
   return actor?.role === "SystemOwner" || actor?.systemOwner === true;
 }
 
+/** Collections whose records reference a member's money; any row here means the member is closed, never deleted. */
+export const MEMBER_FINANCIAL_COLLECTIONS = Object.freeze([
+  "collections", "transactions", "ledgerEntries", "loans", "loanRepayments", "withdrawalRequests",
+  "withdrawals", "collectionAdjustments", "reversals", "susuPayouts", "savingsAccounts"
+]);
+
+export function customerHasFinancialHistory(state, customerId) {
+  if (!customerId) return false;
+  return MEMBER_FINANCIAL_COLLECTIONS.some((key) => (Array.isArray(state?.[key]) ? state[key] : [])
+    .some((row) => row?.customerId === customerId));
+}
+
 export function normalizePhoneKey(value) {
   return String(value || "").replace(/\D/g, "").slice(-9);
 }
