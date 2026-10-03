@@ -6,7 +6,8 @@
  * column types apply:
  *   - the current handler: 403 before enrollment, enroll start/confirm, replay rejection,
  *     owner reset recovery, and supabase/preflight/047_john_mfa_enrollment_readonly.sql;
- *   - the pre-047 handler (commit 6843234, the rollback artifact): no database errors on a 047
+ *   - the pre-047 handler (commit 6843234, the rollback artifact; HEAD holds the new 047 handler
+ *     and the two are checked to differ on purpose): no database errors on a 047
  *     database, but it issues password-only sessions to privileged roles that have not enrolled
  *     and has no replay protection.
  * Never connects to a remote database. The password and TOTP secret here are local test values.
@@ -213,6 +214,14 @@ async function clearAttempts() {
 }
 
 before(async () => {
+  oldModuleDir = fs.mkdtempSync(path.join(os.tmpdir(), "st-staff-login-rollback-"));
+  fs.writeFileSync(path.join(oldModuleDir, "package.json"), JSON.stringify({ type: "module" }));
+  for (const file of ["handler.js", "auth-core.js"]) {
+    const source = execFileSync("git", ["show", `${ROLLBACK_COMMIT}:supabase/functions/staff-login/${file}`], { cwd: root, encoding: "utf8" });
+    fs.writeFileSync(path.join(oldModuleDir, file), source);
+  }
+  ({ createStaffLoginHandler: createOldHandler } = await import(pathToFileURL(path.join(oldModuleDir, "handler.js")).href));
+
   db = await startLocalSupabase({ upTo: "045", withRlsSql: false });
   if (!db) {
     if (process.env.SMILE_SKIP_DB_TESTS === "1") return;
@@ -235,14 +244,6 @@ before(async () => {
 
   verifySql = VERIFY_FILE;
   for (const name of Object.keys(PROD_UUIDS)) verifySql = verifySql.replaceAll(PROD_UUIDS[name], staff[name].id);
-
-  oldModuleDir = fs.mkdtempSync(path.join(os.tmpdir(), "st-staff-login-rollback-"));
-  fs.writeFileSync(path.join(oldModuleDir, "package.json"), JSON.stringify({ type: "module" }));
-  for (const file of ["handler.js", "auth-core.js"]) {
-    const source = execFileSync("git", ["show", `${ROLLBACK_COMMIT}:supabase/functions/staff-login/${file}`], { cwd: root, encoding: "utf8" });
-    fs.writeFileSync(path.join(oldModuleDir, file), source);
-  }
-  ({ createStaffLoginHandler: createOldHandler } = await import(pathToFileURL(path.join(oldModuleDir, "handler.js")).href));
 }, { timeout: 240000 });
 
 after(async () => {
@@ -260,8 +261,48 @@ test("the post-enrollment verification file is a single read-only SELECT that ne
   for (const uuid of Object.values(PROD_UUIDS)) assert.ok(VERIFY_FILE.includes(uuid), `expected uuid ${uuid}`);
 });
 
-test("rollback artifact: staff-login at 6843234 is what HEAD holds (the currently deployed pre-047 source)", () => {
-  execFileSync("git", ["diff", "--quiet", ROLLBACK_COMMIT, "HEAD", "--", "supabase/functions/staff-login"], { cwd: root });
+const STAFF_LOGIN_FILES = ["auth-core.js", "handler.js", "index.ts"];
+const gitShow = (rev, file) => execFileSync("git", ["show", `${rev}:supabase/functions/staff-login/${file}`], { cwd: root, encoding: "utf8" });
+
+test("rollback artifact: 6843234 holds the pre-047 staff-login (no enrollment actions, no replay claim, snapshot fallback)", () => {
+  const files = execFileSync("git", ["ls-tree", "-r", "--name-only", ROLLBACK_COMMIT, "--", "supabase/functions/staff-login"], { cwd: root, encoding: "utf8" })
+    .trim().split("\n").map((name) => path.posix.basename(name)).sort();
+  assert.deepEqual(files, STAFF_LOGIN_FILES);
+  const handler = gitShow(ROLLBACK_COMMIT, "handler.js");
+  const core = gitShow(ROLLBACK_COMMIT, "auth-core.js");
+  assert.match(handler, /\["login", "activate"\]\.includes\(action\)/, "only login and activate");
+  assert.match(handler, /smile_trust_cloud_snapshots\?/, "reads the snapshot copy of staff");
+  assert.doesNotMatch(handler, /mfa_enroll_start|mfa_enroll_confirm|claimMfaStep|mfa_enrollment_required|last_used_step/);
+  assert.doesNotMatch(core, /mfaEnrollmentRequired|lastUsedStep|totpMatchStep/);
+});
+
+test("HEAD holds the new 047 staff-login: enrollment actions, single-use codes, app_users only", () => {
+  const handler = gitShow("HEAD", "handler.js");
+  const core = gitShow("HEAD", "auth-core.js");
+  for (const action of ["login", "activate", "mfa_enroll_start", "mfa_enroll_confirm"]) {
+    assert.match(handler, new RegExp(`${action}: handle`), `action ${action}`);
+  }
+  assert.match(handler, /async function claimMfaStep/);
+  assert.match(handler, /last_used_step\.lt\./, "the TOTP step is claimed conditionally");
+  assert.match(handler, /mfa_enrollment_required: true/);
+  assert.match(handler, /enabled=is\.false&updated_at=eq\./, "confirmation only enables the pending secret it verified");
+  assert.doesNotMatch(handler, /smile_trust_cloud_snapshots/, "the client-written snapshot is never read");
+  assert.match(core, /mfaEnrollmentRequired/);
+  assert.match(core, /lastUsedStep/);
+});
+
+test("the old and new staff-login differ on purpose, and the rollback fixture extracts from 6843234", () => {
+  assert.throws(
+    () => execFileSync("git", ["diff", "--quiet", ROLLBACK_COMMIT, "HEAD", "--", "supabase/functions/staff-login"], { cwd: root, stdio: "ignore" }),
+    (error) => error.status === 1,
+    "HEAD must not be the pre-047 rollback version"
+  );
+  for (const file of ["handler.js", "auth-core.js"]) {
+    assert.notEqual(gitShow(ROLLBACK_COMMIT, file), gitShow("HEAD", file), `${file} changed`);
+    assert.equal(fs.readFileSync(path.join(oldModuleDir, file), "utf8"), gitShow(ROLLBACK_COMMIT, file), `fixture ${file} is the 6843234 copy`);
+  }
+  assert.match(gitShow(ROLLBACK_COMMIT, "index.ts"), /Deno\.serve\(createStaffLoginHandler/, "the rollback entry point is complete");
+  assert.equal(typeof createOldHandler, "function", "the extracted rollback handler loads");
 });
 
 test("before enrollment: JOHN gets 403 mfa_enrollment_required, no session, nothing changes", async (t) => {

@@ -34,7 +34,7 @@ export function supabaseProjectRef(url) {
   return match ? match[1].toLowerCase() : "";
 }
 
-function jwtPayload(token) {
+export function jwtPayload(token) {
   try {
     const part = String(token).split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
     return JSON.parse(atob(part.padEnd(part.length + ((4 - (part.length % 4)) % 4), "=")));

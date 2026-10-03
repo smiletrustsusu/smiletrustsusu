@@ -151,49 +151,29 @@ async function latestSupabaseSnapshot() {
   return rows?.[0] || null;
 }
 
+/**
+ * Updates the existing cloud copy only. The first copy is never created here: it is made once,
+ * deliberately, by a manager through snapshot-bootstrap.js.
+ */
 async function saveSupabaseSnapshot(savedAt) {
   const { url, bearer, legacyKey } = await snapshotAuth();
-  const payload = sanitizeStateForCloud(App.state);
   const update = {
-    payload,
+    payload: sanitizeStateForCloud(App.state),
     saved_by: currentUser()?.username || "system",
     saved_at: savedAt
   };
-  const insert = {
-    business_id: businessId(),
-    payload,
-    saved_by: currentUser()?.username || "system",
-    saved_at: savedAt
-  };
-  if (legacyKey) insert.access_key = legacyKey;
-  const updateBody = JSON.stringify(update);
-  const insertBody = JSON.stringify(insert);
   const updateUrl = `${url}/rest/v1/${CLOUD_SNAPSHOT_TABLE}?${snapshotFilter(legacyKey)}&select=id`;
   const updateResponse = await fetchWithTimeout(updateUrl, {
     method: "PATCH",
     cache: "no-store",
     headers: cloudHeaders(bearer, { Prefer: "return=representation", "Cache-Control": "no-cache", Pragma: "no-cache" }),
-    body: updateBody
+    body: JSON.stringify(update)
   }, 60000);
-  // PostgREST answers 200 even when no row matched, so only stop if a row was actually updated.
-  let updateError;
-  if (updateResponse.ok) {
-    const updatedRows = await updateResponse.json().catch(() => []);
-    if (Array.isArray(updatedRows) && updatedRows.length) return;
-    updateError = new Error("Cloud update matched no snapshot row");
-  } else {
-    updateError = await responseError(updateResponse, "Cloud update failed");
-  }
-  const insertUrl = `${url}/rest/v1/${CLOUD_SNAPSHOT_TABLE}?on_conflict=business_id`;
-  const insertResponse = await fetchWithTimeout(insertUrl, {
-    method: "POST",
-    cache: "no-store",
-    headers: cloudHeaders(bearer, { Prefer: "resolution=merge-duplicates,return=minimal", "Cache-Control": "no-cache", Pragma: "no-cache" }),
-    body: insertBody
-  }, 60000);
-  if (!insertResponse.ok) {
-    const insertError = await responseError(insertResponse, "Cloud insert failed");
-    throw new Error(`${updateError.message}; ${insertError.message}`);
+  if (!updateResponse.ok) throw await responseError(updateResponse, "Cloud update failed");
+  // PostgREST answers 200 even when no row matched.
+  const updatedRows = await updateResponse.json().catch(() => []);
+  if (!Array.isArray(updatedRows) || !updatedRows.length) {
+    throw new Error("Cloud update matched no snapshot row; nothing was uploaded");
   }
 }
 
@@ -229,6 +209,29 @@ export async function latestCloudSnapshot() {
   throw new Error("Cloud sync is not configured");
 }
 
+export const CLOUD_READ_FAILED = "cloud-read-failed";
+export const CLOUD_BOOTSTRAP_REQUIRED = "cloud-bootstrap-required";
+
+function syncError(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+
+/**
+ * The three cloud states are never conflated: `{ status: "exists" }`, `{ status: "missing" }`
+ * (the read succeeded and found no row), or a thrown CLOUD_READ_FAILED error.
+ */
+export async function readCloudSnapshotState() {
+  let snapshot;
+  try {
+    snapshot = await latestCloudSnapshot();
+  } catch (error) {
+    throw syncError(CLOUD_READ_FAILED, `Could not read the cloud copy (${error.message}). Nothing was uploaded and this device's data stays here; check the connection and try again.`);
+  }
+  return snapshot ? { status: "exists", snapshot } : { status: "missing", snapshot: null };
+}
+
 async function saveCloudSnapshot(savedAt) {
   const mode = getSyncMode(App.state);
   if (mode === "local") {
@@ -259,7 +262,15 @@ export async function pushCloudBackup(silent = false) {
   }
   App.syncBusy = true;
   try {
-    const snapshot = await latestCloudSnapshot().catch(() => null);
+    const cloud = await readCloudSnapshotState();
+    const snapshot = cloud.snapshot;
+    const appUser = sessionAppUser();
+    const collectorSession = getSyncMode(App.state) === "supabase" && appUser && !canWriteSnapshot(appUser.role);
+    if (cloud.status === "missing" && getSyncMode(App.state) === "supabase") {
+      throw syncError(CLOUD_BOOTSTRAP_REQUIRED, collectorSession
+        ? "This business has no cloud copy yet; collections stay queued on this device until a manager creates the initial cloud snapshot"
+        : "No cloud copy exists yet, so nothing was uploaded. A manager must create the initial cloud snapshot from Backup & Restore.");
+    }
     const serverCollectionIds = (snapshot?.payload?.collections || []).map((item) => item?.id).filter(Boolean);
     if (snapshot?.payload) {
       const merged = mergeStates(App.state, snapshot.payload);
@@ -268,9 +279,7 @@ export async function pushCloudBackup(silent = false) {
     }
     await shrinkStateMedia(App.state);
     const savedAt = new Date().toISOString();
-    const appUser = sessionAppUser();
-    if (getSyncMode(App.state) === "supabase" && appUser && !canWriteSnapshot(appUser.role)) {
-      if (!snapshot) throw new Error("Could not read the cloud copy; collections stay queued on this device");
+    if (collectorSession) {
       await submitOwnCollections(serverCollectionIds);
     } else {
       await saveCloudSnapshot(savedAt);

@@ -40,27 +40,38 @@ function mockFetch(handlers) {
   return calls;
 }
 
-test("save inserts a snapshot when the update matched no row", async () => {
+const existingRow = { business_id: "biz-1", payload: { customers: [] }, saved_at: "2026-10-01T00:00:00Z" };
+
+test("save never creates the first snapshot when the cloud has no row", async () => {
   setupState();
   const calls = mockFetch({
     GET: () => ({ body: [] }),
     PATCH: () => ({ body: [] }),
     POST: () => ({ status: 201 })
   });
-  await pushCloudBackup(false);
-  const methods = calls.map((c) => c.method);
-  assert.deepEqual(methods, ["GET", "PATCH", "POST"]);
-  assert.match(calls[1].url, /select=id/);
-  assert.match(calls[2].url, /on_conflict=business_id/);
+  await assert.rejects(pushCloudBackup(false), /No cloud copy exists yet/);
+  assert.deepEqual(calls.map((c) => c.method), ["GET"]);
 });
 
 test("save stops after a successful update of an existing row", async () => {
   setupState();
   const calls = mockFetch({
-    GET: () => ({ body: [] }),
+    GET: () => ({ body: [existingRow] }),
     PATCH: () => ({ body: [{ id: 7 }] }),
     POST: () => ({ status: 201 })
   });
   await pushCloudBackup(false);
+  assert.deepEqual(calls.map((c) => c.method), ["GET", "PATCH"]);
+  assert.match(calls[1].url, /select=id/);
+});
+
+test("save fails rather than inserting when the update matched no row", async () => {
+  setupState();
+  const calls = mockFetch({
+    GET: () => ({ body: [existingRow] }),
+    PATCH: () => ({ body: [] }),
+    POST: () => ({ status: 201 })
+  });
+  await assert.rejects(pushCloudBackup(false), /matched no snapshot row/);
   assert.deepEqual(calls.map((c) => c.method), ["GET", "PATCH"]);
 });

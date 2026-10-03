@@ -37,8 +37,16 @@ import {
   pushCloudBackup as pushRemoteBackup,
   replaceFromCloud as replaceFromCloudRemote,
   restoreCloudBackupFromCloud as restoreRemoteBackup,
-  startAutoCloudSync as startRemoteAutoSync
+  startAutoCloudSync as startRemoteAutoSync,
+  CLOUD_BOOTSTRAP_REQUIRED
 } from "./src/sync/cloud.js";
+import {
+  createInitialCloudSnapshot,
+  deviceStateAfterBootstrap,
+  discardVerifiedBootstrap,
+  loadVerifiedBootstrap
+} from "./src/sync/snapshot-bootstrap.js";
+import { canWriteSnapshot } from "./src/sync/collection-submit.js";
 import {
   amountInWords,
   buildAccountLedgerTransactions,
@@ -7074,6 +7082,7 @@ function renderBackup() {
         </div>
         <div class="notice good">Automatic cloud sync still runs when internet is available.</div>
       </div>
+      ${renderInitialCloudSnapshotPanel()}
     </div>
     ${renderSynchronizationExtras()}
     ${renderJobEngineExtras()}
@@ -7081,6 +7090,18 @@ function renderBackup() {
     ${renderGatewayEngineExtras()}
     ${renderRecoveryEngineExtras()}
   `;
+}
+
+function renderInitialCloudSnapshotPanel() {
+  if (getSyncMode(state) !== "supabase" || !canWriteSnapshot(currentUser()?.role)) return "";
+  return `
+      <div class="panel">
+        <div class="section-title"><h2>Initial Cloud Snapshot</h2></div>
+        <p class="muted">Only needed once, when this business has no cloud copy yet. It loads the business from the database, checks it, and creates the first authoritative synchronized copy from that data only. Data already stored on this device is not uploaded.</p>
+        <div class="row-actions" style="margin-top:16px">
+          <button class="btn warning" id="createInitialCloudSnapshot">Create Initial Cloud Snapshot</button>
+        </div>
+      </div>`;
 }
 
 function renderSynchronizationExtras() {
@@ -12559,11 +12580,12 @@ function attachHandlers() {
   });
   document.querySelector("#importPostgresBtn")?.addEventListener("click", () => { void importLocalSnapshotToPostgres(); });
   const pushCloudButton = document.querySelector("#pushCloudBackup");
-  if (pushCloudButton) pushCloudButton.addEventListener("click", pushCloudBackup);
+  if (pushCloudButton) pushCloudButton.addEventListener("click", () => pushCloudBackup(false));
   const pullCloudButton = document.querySelector("#pullCloudBackup");
   if (pullCloudButton) pullCloudButton.addEventListener("click", pullCloudBackup);
   const replaceCloudButton = document.querySelector("#replaceCloudBackup");
   if (replaceCloudButton) replaceCloudButton.addEventListener("click", replaceCloudBackup);
+  document.querySelector("#createInitialCloudSnapshot")?.addEventListener("click", () => { void createInitialCloudSnapshotFlow(); });
 
   const userForm = document.querySelector("#userForm");
   if (userForm) userForm.addEventListener("submit", handleUser);
@@ -17858,7 +17880,7 @@ async function pushCloudBackup(silent = false) {
     }
   } catch (error) {
     syncFromApp();
-    if (!silent) toast(`Cloud backup failed: ${error.message}`);
+    if (!silent) toast(error.code === CLOUD_BOOTSTRAP_REQUIRED ? error.message : `Cloud backup failed: ${error.message}`);
   } finally {
     cloudPushInFlight = false;
     const editedDuringPush = localState !== state && localState.updatedAt !== localStamp;
@@ -17896,6 +17918,58 @@ async function replaceCloudBackup() {
     render();
   } catch (error) {
     toast(`Cloud replace failed: ${error.message}`);
+  }
+}
+
+async function createInitialCloudSnapshotFlow() {
+  if (!canWriteSnapshot(currentUser()?.role)) {
+    toast("Only a manager can create the initial cloud snapshot");
+    return;
+  }
+  syncToApp();
+  let summary;
+  try {
+    toast("Loading business data from the database...");
+    summary = await loadVerifiedBootstrap(state);
+  } catch (error) {
+    toast(`Initial cloud snapshot not created: ${error.message}`);
+    return;
+  }
+  const explanation = [
+    `Create the first authoritative cloud copy of ${summary.businessCode}?`,
+    "",
+    "It is built only from the database load just completed:",
+    `members ${summary.members}, staff ${summary.staff}, groups ${summary.groups}, collections ${summary.collections}, savings products ${summary.savingsProducts}.`,
+    "",
+    "Data already on this device is NOT uploaded. This device will switch to the new cloud copy (a local backup is kept).",
+    "Every device will synchronize from this copy afterwards."
+  ].join("\n");
+  if (!confirm(explanation)) {
+    discardVerifiedBootstrap();
+    return;
+  }
+  const typed = prompt(`Type ${summary.businessCode} to create the initial cloud snapshot.`);
+  if (typed === null) {
+    discardVerifiedBootstrap();
+    return;
+  }
+  try {
+    const result = await createInitialCloudSnapshot({ confirmation: typed.trim() }, state);
+    try {
+      localStorage.setItem("smile_trust_susu_local_backup_before_bootstrap", JSON.stringify(state));
+    } catch {
+      // The device copy is replaced below either way; the cloud copy is now authoritative.
+    }
+    state = normalizeState(deviceStateAfterBootstrap(state, result.state));
+    applyUnifiedCloudDefaults(state, getAppConfig());
+    state.settings.lastSyncedAt = result.savedAt;
+    logAudit("Initial cloud snapshot created", `${summary.businessCode}: ${summary.members} members, ${summary.staff} staff`, { skipSave: true });
+    syncToApp();
+    saveState();
+    toast("Initial cloud snapshot created");
+    render();
+  } catch (error) {
+    toast(`Initial cloud snapshot not created: ${error.message}`);
   }
 }
 
