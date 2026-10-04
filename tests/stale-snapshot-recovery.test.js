@@ -12,6 +12,7 @@ import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -361,6 +362,17 @@ test("step F: the recovery server serves only www/ on 127.0.0.1, never caches, w
     assert.equal((await realFetch(`${base}/service-worker.js`)).status, 404);
     assert.equal((await realFetch(`${base}/..%2fpackage.json`)).status, 403);
     assert.equal((await realFetch(`${base}/..%5cpackage.json`)).status, 403);
+    // Send the exact request target: fetch would normalize raw dot segments before sending.
+    for (const target of ["/../package.json", "/..\\package.json", "/%2e%2e/package.json", "/%2E.%5Cpackage.json", "/src/../../package.json"]) {
+      const response = await new Promise((resolve, reject) => {
+        http.get(base, { path: target }, (res) => {
+          res.resume();
+          res.on("end", () => resolve(res));
+        }).on("error", reject);
+      });
+      assert.equal(response.statusCode, 403, target);
+      assert.equal(response.headers["cache-control"], "no-store, max-age=0");
+    }
     assert.equal((await realFetch(`${base}/app.js`, { method: "POST" })).status, 405);
   } finally {
     await new Promise((resolve) => server.close(resolve));

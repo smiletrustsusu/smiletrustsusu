@@ -68,6 +68,12 @@ export function createServer() {
     const headers = { "Cache-Control": "no-store, max-age=0", "Pragma": "no-cache", "X-Content-Type-Options": "nosniff" };
     let requested;
     try {
+      // Reject parent segments before URL normalization, using either platform's separator.
+      const rawPath = decodeURIComponent(req.url.split(/[?#]/, 1)[0]);
+      if (/(^|[\\/])\.\.([\\/]|$)/.test(rawPath)) {
+        res.writeHead(403, headers).end("Forbidden");
+        return;
+      }
       requested = decodeURIComponent(new URL(req.url, "http://127.0.0.1").pathname);
     } catch {
       res.writeHead(400, headers).end("Bad request");
