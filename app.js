@@ -38,6 +38,7 @@ import {
   replaceFromCloud as replaceFromCloudRemote,
   restoreCloudBackupFromCloud as restoreRemoteBackup,
   startAutoCloudSync as startRemoteAutoSync,
+  cloudUploadsPaused,
   CLOUD_BOOTSTRAP_REQUIRED
 } from "./src/sync/cloud.js";
 import {
@@ -2650,6 +2651,7 @@ function setCloudKey(value) {
 
 function queueCloudBackup() {
   clearTimeout(syncTimer);
+  if (cloudUploadsPaused()) return;
   syncTimer = setTimeout(() => pushCloudBackup(true), 3500);
 }
 
@@ -17859,6 +17861,10 @@ let cloudPushInFlight = false;
 let cloudPushQueued = false;
 
 async function pushCloudBackup(silent = false) {
+  if (cloudUploadsPaused()) {
+    if (!silent) toast("Cloud uploads are paused on this device after the initial cloud snapshot. Close and reopen the app before syncing.");
+    return false;
+  }
   if (cloudPushInFlight || syncBusy) {
     cloudPushQueued = true;
     if (!cloudPushInFlight) queueCloudBackup();
@@ -17964,9 +17970,11 @@ async function createInitialCloudSnapshotFlow() {
     applyUnifiedCloudDefaults(state, getAppConfig());
     state.settings.lastSyncedAt = result.savedAt;
     logAudit("Initial cloud snapshot created", `${summary.businessCode}: ${summary.members} members, ${summary.staff} staff`, { skipSave: true });
-    syncToApp();
+    clearTimeout(syncTimer);
     saveState();
-    toast("Initial cloud snapshot created");
+    localSavePending = false;
+    syncToApp();
+    toast("Initial cloud snapshot created. Cloud uploads stay paused on this device until the app is reopened.");
     render();
   } catch (error) {
     toast(`Initial cloud snapshot not created: ${error.message}`);

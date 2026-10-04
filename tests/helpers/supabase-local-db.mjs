@@ -135,5 +135,5 @@ export async function startLocalSupabase({ upTo = "999", onlyThrough, withRlsSql
     }
   }
 
-  return { query: (sql, params) => client.query(sql, params), asRole, stop, applied };
+  return { query: (sql, params) => client.query(sql, params), asRole, stop, applied, connection: { host: "127.0.0.1", port, password } };
 }

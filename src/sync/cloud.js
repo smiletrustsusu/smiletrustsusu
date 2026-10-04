@@ -211,6 +211,36 @@ export async function latestCloudSnapshot() {
 
 export const CLOUD_READ_FAILED = "cloud-read-failed";
 export const CLOUD_BOOTSTRAP_REQUIRED = "cloud-bootstrap-required";
+export const CLOUD_UPLOADS_PAUSED = "cloud-uploads-paused";
+
+let uploadsInFlight = 0;
+
+/**
+ * Stops every snapshot upload from this page until it is reloaded. Set while the initial cloud
+ * snapshot is created so the device-normalized copy (default products, system accounts, device
+ * fields) is never written over the database-built copy by a queued or in-flight push.
+ */
+export function pauseCloudUploads() {
+  App.cloudUploadsPaused = true;
+  clearTimeout(App.syncTimer);
+}
+
+export function resumeCloudUploads() {
+  App.cloudUploadsPaused = false;
+}
+
+export function cloudUploadsPaused() {
+  return App.cloudUploadsPaused === true;
+}
+
+export async function waitForCloudUploadsIdle(timeoutMs = 30000) {
+  const deadline = Date.now() + timeoutMs;
+  while (uploadsInFlight > 0) {
+    if (Date.now() > deadline) return false;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  return true;
+}
 
 function syncError(code, message) {
   const error = new Error(message);
@@ -251,6 +281,10 @@ export function queueCloudBackup(callback) {
 }
 
 export async function pushCloudBackup(silent = false) {
+  if (cloudUploadsPaused()) {
+    if (!silent) throw syncError(CLOUD_UPLOADS_PAUSED, "Cloud uploads are paused on this device after the initial cloud snapshot. Close and reopen the app before syncing.");
+    return;
+  }
   if (App.syncBusy) {
     clearTimeout(App.syncTimer);
     App.syncTimer = setTimeout(() => pushCloudBackup(silent), 2000);
@@ -261,6 +295,7 @@ export async function pushCloudBackup(silent = false) {
     return;
   }
   App.syncBusy = true;
+  uploadsInFlight += 1;
   try {
     const cloud = await readCloudSnapshotState();
     const snapshot = cloud.snapshot;
@@ -295,6 +330,7 @@ export async function pushCloudBackup(silent = false) {
     App.localSavePending = false;
     return savedAt;
   } finally {
+    uploadsInFlight -= 1;
     App.syncBusy = false;
   }
 }

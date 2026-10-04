@@ -21,7 +21,7 @@ globalThis.localStorage = {
 globalThis.sessionStorage = globalThis.localStorage;
 
 const { App } = await import("../src/context.js");
-const { pushCloudBackup, CLOUD_READ_FAILED, CLOUD_BOOTSTRAP_REQUIRED } = await import("../src/sync/cloud.js");
+const { pushCloudBackup, cloudUploadsPaused, resumeCloudUploads, CLOUD_READ_FAILED, CLOUD_BOOTSTRAP_REQUIRED } = await import("../src/sync/cloud.js");
 const { loadVerifiedBootstrap, createInitialCloudSnapshot, deviceStateAfterBootstrap, BOOTSTRAP_REFUSED } = await import("../src/sync/snapshot-bootstrap.js");
 const { SESSION_KEY } = await import("../src/sync/supabase-auth.js");
 
@@ -326,6 +326,7 @@ test("explicit bootstrap after a verified load creates exactly one snapshot from
   const result = await createInitialCloudSnapshot({ confirmation: LIVE }, App.state);
   const writes = restCalls.filter((call) => call.method !== "GET" && call.path.endsWith("/smile_trust_cloud_snapshots"));
   assert.deepEqual(writes.map((call) => [call.method, call.search]), [["POST", ""]], "one plain insert, no upsert or update");
+  assert.equal(cloudUploadsPaused(), true, "the bootstrapping page uploads nothing more until reopened");
 
   const rows = await snapshotRows();
   assert.equal(rows.length, 1);
@@ -365,6 +366,11 @@ test("with a snapshot: a successful read merges into the cloud copy; a failed re
   signIn("john");
   const cloud = (await snapshotRows())[0].payload;
   useDevice({ ...structuredClone(cloud), settings: settings(), customers: [{ id: "new-local-member", name: "New Member", accountNo: "ST-2001", phone: "0241111111", active: true }] });
+  restCalls.length = 0;
+  await pushCloudBackup(true);
+  assert.deepEqual(restCalls, [], "still the bootstrapping page: nothing is sent");
+  assert.deepEqual((await snapshotRows())[0].payload, cloud);
+  resumeCloudUploads();
   await pushCloudBackup(true);
   const merged = (await snapshotRows())[0].payload;
   assert.ok(merged.customers.some((c) => c.id === "new-local-member"));

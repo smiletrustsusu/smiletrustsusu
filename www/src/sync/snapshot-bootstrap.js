@@ -15,7 +15,7 @@ import { App } from "../context.js";
 import { CLOUD_SNAPSHOT_TABLE, defaultStateTemplate } from "../constants.js";
 import { getAppConfig, getSyncMode, jwtPayload, resolveBusinessId } from "../config.js";
 import { canWriteSnapshot } from "./collection-submit.js";
-import { readCloudSnapshotState } from "./cloud.js";
+import { pauseCloudUploads, readCloudSnapshotState, resumeCloudUploads, waitForCloudUploadsIdle } from "./cloud.js";
 import { restoreUsersFromCloud, sanitizeStateForCloud } from "./snapshot-security.js";
 import { ensureFreshAccessToken, getAccessToken, getStoredAuthSession } from "./supabase-auth.js";
 import { restFetch } from "./supabase-rest.js";
@@ -167,7 +167,16 @@ export async function createInitialCloudSnapshot({ confirmation } = {}, state = 
     throw refused("The database load is too old; load it again");
   }
   if (confirmation !== identity.businessCode) throw refused(`Type ${identity.businessCode} exactly to confirm`);
-  await requireNoCloudCopy();
+  // Paused before the final check and never resumed once the insert is sent: a push that reads
+  // the cloud after the insert would overwrite the new copy with this device's normalized state.
+  pauseCloudUploads();
+  try {
+    if (!(await waitForCloudUploadsIdle())) throw refused("A cloud upload is still running; reload the app and try again");
+    await requireNoCloudCopy();
+  } catch (error) {
+    resumeCloudUploads();
+    throw error;
+  }
   verifiedLoad = null;
   const savedAt = new Date().toISOString();
   await restFetch(state, CLOUD_SNAPSHOT_TABLE, {
