@@ -307,11 +307,14 @@ export function decideReleaseCandidate({
   securityPassed = false,
   drPassed = false,
   a11yOk = true,
-  testPassRate = 0
+  testPassRate = 0,
+  unexpectedSkipCount = 0,
+  skipsClassified = true
 } = {}) {
   const blockers = [];
   if (!crossWaveOk) blockers.push("cross_wave_smoke_failed");
   if (testPassRate < 100) blockers.push("npm_test_not_green");
+  if (unexpectedSkipCount > 0 || !skipsClassified) blockers.push("npm_test_unexpected_skips");
   if (!gateEval.mandatoryPassed) blockers.push("mandatory_quality_gates_failed");
   if ((defects.openCritical || 0) > 0) blockers.push("open_critical_defects");
   if (!securityPassed) blockers.push("security_smoke_failed");
@@ -409,7 +412,9 @@ export function buildRcEvidencePackage({
     securityPassed: security.securityPassed,
     drPassed: dr.disasterRecoveryPassed,
     a11yOk: a11y.ok,
-    testPassRate: testSummary.passRate
+    testPassRate: testSummary.passRate,
+    unexpectedSkipCount: testSummary.unexpectedSkipCount || 0,
+    skipsClassified: !(testSummary.skipped > 0) || testSummary.skipsClassified === true
   });
 
   const rqi = computeReleaseQualityIndex({
@@ -452,8 +457,62 @@ export function buildRcEvidencePackage({
   };
 }
 
-export function summarizeNodeTestOutput(stdout = "") {
-  const text = String(stdout || "");
+/**
+ * Reviewed tests that legitimately cannot run on some CI platforms. A skip is expected only when
+ * the reporter shows this exact test name with this exact skip reason on a platform other than
+ * `runsOnPlatform`; every other skip is unexpected and blocks the release.
+ */
+export const WAVE8_EXPECTED_PLATFORM_SKIPS = Object.freeze([
+  Object.freeze({
+    name: "step B: the export writes the exact stored payload to a private STALE-DO-NOT-RESTORE file and prints only its fingerprint",
+    file: "tests/stale-snapshot-recovery.test.js",
+    skipReason: "PostgreSQL 16 psql on Windows is not available",
+    runsOnPlatform: "win32",
+    reason: "Windows-only rehearsal of Export-StaleSnapshotEvidence.ps1 requiring Windows PowerShell/operator tooling and PostgreSQL 16 psql.exe"
+  })
+]);
+
+const ANSI = /\x1b\[[0-9;]*m/g;
+// Default reporter: "﹣ <name> (<duration>ms) # <reason>"; TAP: "ok N - <name> # SKIP <reason>" with "#" escaped as "\#".
+const SPEC_SKIP = /^\s*\u{FE63} (.*) \(\d+(?:\.\d+)?ms\)(?: # (.*))?$/u;
+const TAP_SKIP = /^\s*ok \d+ - ((?:[^#\\]|\\.)*?) # SKIP(?:\s+(.*))?$/i;
+
+function summaryCount(text, label) {
+  const match = text.match(new RegExp(`(?:#|ℹ)\\s*${label}\\s+(\\d+)`, "i"));
+  return match ? Number(match[1]) : null;
+}
+
+function parseSkippedTests(lines) {
+  const skipped = [];
+  for (const line of lines) {
+    const spec = line.match(SPEC_SKIP);
+    if (spec) {
+      skipped.push({ name: spec[1], skipReason: spec[2] === "SKIP" ? "" : (spec[2] || "") });
+      continue;
+    }
+    const tap = line.match(TAP_SKIP);
+    if (tap) skipped.push({ name: tap[1].replace(/\\(.)/g, "$1"), skipReason: tap[2] || "" });
+  }
+  return skipped;
+}
+
+function currentPlatform() {
+  return typeof process !== "undefined" && process?.platform ? process.platform : "unknown";
+}
+
+export function classifySkippedTests(skippedTests = [], { platform = currentPlatform(), policy = WAVE8_EXPECTED_PLATFORM_SKIPS } = {}) {
+  const expected = [];
+  const unexpected = [];
+  for (const item of skippedTests) {
+    const rule = policy.find((entry) => entry.name === item.name && entry.skipReason === item.skipReason && platform !== entry.runsOnPlatform);
+    if (rule) expected.push({ name: rule.name, file: rule.file, skipReason: rule.skipReason, reason: rule.reason, platform });
+    else unexpected.push({ name: item.name, skipReason: item.skipReason });
+  }
+  return { expected, unexpected };
+}
+
+export function summarizeNodeTestOutput(stdout = "", { platform = currentPlatform(), policy = WAVE8_EXPECTED_PLATFORM_SKIPS } = {}) {
+  const text = String(stdout || "").replace(ANSI, "");
   // Support both TAP (`# pass N`) and Node default reporter (`ℹ pass N`).
   const passMatch = text.match(/(?:#|ℹ)\s*pass\s+(\d+)/i) || text.match(/\bpass\s+(\d+)/i);
   const failMatch = text.match(/(?:#|ℹ)\s*fail\s+(\d+)/i) || text.match(/\bfail\s+(\d+)/i);
@@ -461,9 +520,20 @@ export function summarizeNodeTestOutput(stdout = "") {
   const passed = passMatch ? Number(passMatch[1]) : 0;
   const failed = failMatch ? Number(failMatch[1]) : 0;
   const total = testsMatch ? Number(testsMatch[1]) : passed + failed;
+  const todo = summaryCount(text, "todo") ?? 0;
+  const reportedSkipped = summaryCount(text, "skipped");
+  const skippedReported = reportedSkipped !== null;
+  // Without an explicit count, any test that neither passed, failed nor was todo is an unaccounted skip.
+  const skipped = skippedReported ? reportedSkipped : Math.max(0, total - passed - failed - todo);
+  const skippedTests = parseSkippedTests(text.split(/\r?\n/));
+  const { expected, unexpected } = classifySkippedTests(skippedTests, { platform, policy });
+  const unidentifiedSkips = Math.max(0, skipped - skippedTests.length);
+  const skipsClassified = skippedTests.length === skipped && unexpected.length === 0;
+  const expectedPlatformSkips = skipsClassified ? expected.length : 0;
+  const requiredTotal = total - expectedPlatformSkips;
   const passRate =
-    total > 0
-      ? Math.round((passed / total) * 10000) / 100
+    requiredTotal > 0
+      ? Math.round((passed / requiredTotal) * 10000) / 100
       : failed === 0 && passed > 0
         ? 100
         : 0;
@@ -471,8 +541,21 @@ export function summarizeNodeTestOutput(stdout = "") {
     passed,
     failed,
     total,
+    skipped,
+    skippedReported,
+    todo,
+    skippedTests,
+    expectedSkips: expected,
+    unexpectedSkips: unexpected,
+    unidentifiedSkips,
+    expectedPlatformSkips,
+    unexpectedSkipCount: unexpected.length + unidentifiedSkips,
+    skipsClassified,
+    requiredTotal,
     passRate,
-    computed: computeTestPassRate({ passed, total })
+    rawPassRate: total > 0 ? Math.round((passed / total) * 10000) / 100 : passRate,
+    platform,
+    computed: computeTestPassRate({ passed, total: requiredTotal })
   };
 }
 

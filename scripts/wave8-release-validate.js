@@ -74,11 +74,18 @@ async function main() {
   }
   if (testRun.status !== 0 && testSummary.failed === 0) {
     testSummary.failed = Math.max(1, testSummary.failed);
-    testSummary.passRate = testSummary.total
-      ? Math.round((testSummary.passed / testSummary.total) * 10000) / 100
+    testSummary.passRate = testSummary.requiredTotal
+      ? Math.min(99.99, Math.round((testSummary.passed / testSummary.requiredTotal) * 10000) / 100)
       : 0;
   }
-  console.log(`[wave8] npm test pass=${testSummary.passed} fail=${testSummary.failed} total=${testSummary.total} rate=${testSummary.passRate}%`);
+  console.log(`[wave8] npm test pass=${testSummary.passed} fail=${testSummary.failed} skipped=${testSummary.skipped} total=${testSummary.total} required=${testSummary.requiredTotal} rate=${testSummary.passRate}%`);
+  console.log(`[wave8] expected platform skips=${testSummary.expectedPlatformSkips} unexpected skips=${testSummary.unexpectedSkipCount}${testSummary.skipsClassified ? "" : " (not every skip could be identified and approved)"}`);
+  for (const item of testSummary.expectedSkips || []) {
+    console.log(`[wave8]   expected skip on ${item.platform}: ${item.name} (${item.file}) — ${item.reason}`);
+  }
+  for (const item of testSummary.unexpectedSkips || []) {
+    console.log(`[wave8]   UNEXPECTED skip: ${item.name}${item.skipReason ? ` — ${item.skipReason}` : ""}`);
+  }
   if (testSummary.total === 0) {
     console.error("[wave8] npm test output (tail):");
     console.error(testRun.stdout.slice(-3000));
