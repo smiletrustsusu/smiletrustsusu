@@ -727,6 +727,97 @@ test("steps G–I: JOHN's bootstrap from a fresh profile shows 1/3/1/0/1 and the
   assert.equal(forensic[0].status, "EXISTING_SNAPSHOT_APPEARS_VALID", forensic[0].detail);
 });
 
+test("step I: saved_by written as JOHN's linked app user id resolves to JOHN; every other identity fails closed and the id is never shown", async (t) => {
+  if (skip()) return t.skip("local database unavailable");
+  const [snapshot] = await snapshotRows();
+  const john = (await db.query("select client_id, active, role from public.app_users where username = 'john'")).rows[0];
+  assert.equal(john.client_id, ids.john, "the link and the app user carry the same id");
+  const BY_JOHN = "saved_by is JOHN (staff, SystemOwner, active)";
+  const saverRow = (rows) => row(rows, "04 initial snapshot", BY_JOHN);
+  // Test-only edits of the local database, made without the 047 guard so no history is registered.
+  const raw = async (sql, values) => {
+    await db.query("set session_replication_role = replica");
+    try { await db.query(sql, values); } finally { await db.query("set session_replication_role = origin"); }
+  };
+  const savedBy = (value) => raw("update public.smile_trust_cloud_snapshots set saved_by = $1 where id = $2", [value, snapshot.id]);
+  const expectFail = async (label, detail) => {
+    const rows = await checkpoint();
+    assert.equal(saverRow(rows).status, "FAIL", label);
+    assert.equal(rows[0].status, "INITIAL_SNAPSHOT_NOT_VERIFIED_STOP", label);
+    assert.deepEqual(fails(rows), [`04 initial snapshot / ${BY_JOHN}`], `${label}: only the saver check fails`);
+    if (detail) assert.match(saverRow(rows).detail, detail, label);
+    assert.equal(JSON.stringify(rows).includes(ids.john), false, `${label}: the id is not shown`);
+    assertNoLeak(rows);
+  };
+
+  try {
+    await savedBy(ids.john);
+    let rows = await checkpoint();
+    assert.equal(rows[0].status, "INITIAL_SNAPSHOT_VERIFIED", rows[0].detail);
+    assert.deepEqual(fails(rows), []);
+    assert.equal(saverRow(rows).status, "PASS");
+    assert.equal(saverRow(rows).detail, "john (staff, SystemOwner, active) through the linked staff id (id not shown)");
+    assert.equal(row(rows, "02 row", "saved_by (written by the client)").detail, saverRow(rows).detail);
+    assert.equal(coreOf(rows), coreFingerprint);
+    assert.equal(JSON.stringify(rows).includes(ids.john), false, "the raw saved_by value is never shown");
+    assertNoLeak(rows);
+
+    await savedBy(ids.ama);
+    await expectFail("AMA's linked id", /^ama \(staff, \w+, active\) through the linked staff id \(id not shown\)$/);
+    await savedBy(ids.john.toUpperCase());
+    await expectFail("a case variant of the id", /^unrecognised value \(14 chars, not shown\)$/);
+    await savedBy(`${ids.john} `);
+    await expectFail("the id with trailing space", /^unrecognised value/);
+    await savedBy("demo-user-xxxx");
+    await expectFail("an unknown 14-character value", /^unrecognised value \(14 chars, not shown\)$/);
+
+    await savedBy(ids.john);
+    await raw("update public.st_staff_auth_links set app_user_id = $1 where app_user_id = $2", [`${ids.john}-moved`, ids.john]);
+    try {
+      await expectFail("no auth link for the id", /^unresolved staff identity: 0 username match\(es\), 1 app user id match\(es\), 0 auth link\(s\)/);
+    } finally {
+      await raw("update public.st_staff_auth_links set app_user_id = $1 where app_user_id = $2", [ids.john, `${ids.john}-moved`]);
+    }
+    await raw("insert into public.st_staff_auth_links (business_code, app_user_id, auth_user_id) values ('OTHER-BIZ', $1, $2)", [ids.john, crypto.randomUUID()]);
+    try {
+      await expectFail("a second auth link for the id in another business", /2 auth link\(s\)/);
+    } finally {
+      await raw("delete from public.st_staff_auth_links where business_code = 'OTHER-BIZ' and app_user_id = $1", [ids.john]);
+    }
+    await raw("update public.st_staff_auth_links set business_code = 'OTHER-BIZ' where business_code = $1 and app_user_id = $2", [LIVE, ids.john]);
+    try {
+      await expectFail("the only auth link belongs to another business", /^unresolved staff identity/);
+    } finally {
+      await raw("update public.st_staff_auth_links set business_code = $1 where business_code = 'OTHER-BIZ' and app_user_id = $2", [LIVE, ids.john]);
+    }
+
+    const userCheck = async (label, sql, restore, detail) => {
+      await raw(sql);
+      try {
+        const rows = await checkpoint();
+        assert.equal(saverRow(rows).status, "FAIL", label);
+        assert.equal(rows[0].status, "INITIAL_SNAPSHOT_NOT_VERIFIED_STOP", label);
+        assert.match(saverRow(rows).detail, detail, label);
+        assert.equal(JSON.stringify(rows).includes(ids.john), false, `${label}: the id is not shown`);
+      } finally {
+        await raw(restore);
+      }
+    };
+    await userCheck("JOHN inactive", "update public.app_users set active = false where username = 'john'",
+      "update public.app_users set active = true where username = 'john'", /^john \(staff, SystemOwner, inactive\) through the linked staff id/);
+    await userCheck("JOHN not SystemOwner", "update public.app_users set role = 'Admin' where username = 'john'",
+      `update public.app_users set role = '${john.role}' where username = 'john'`, /^john \(staff, Admin, active\) through the linked staff id/);
+    await userCheck("the id is also a username", `update public.app_users set username = '${ids.john}' where username = 'kwame'`,
+      `update public.app_users set username = 'kwame' where username = '${ids.john}'`, /^unresolved staff identity: 1 username match\(es\), 1 app user id match\(es\)/);
+  } finally {
+    await savedBy(snapshot.saved_by);
+  }
+  const rows = await checkpoint();
+  assert.equal(rows[0].status, "INITIAL_SNAPSHOT_VERIFIED", rows[0].detail);
+  assert.equal(coreOf(rows), coreFingerprint, "every test edit was undone");
+  assert.deepEqual((await snapshotRows()).map((item) => [item.id, item.saved_by, item.fp]), [[snapshot.id, snapshot.saved_by, snapshot.fp]]);
+});
+
 // ------------------------------------------------------------------------------------------
 // After the bootstrap: the device-normalised copy (default products, KBA account) must not be uploaded
 
@@ -791,15 +882,24 @@ test("after the bootstrap the device uploads nothing until reopened: the queued 
   assert.equal(coreOf(rows), coreFingerprint);
 });
 
-test("once the app is reopened, ordinary manager sync resumes and writes the device format, so step I must run before reopening", async (t) => {
+test("once the app is reopened, ordinary manager sync rebuilds from the database: the device-normalised copy never uploads and the snapshot stays verified", async (t) => {
   if (skip()) return t.skip("local database unavailable");
+  assert.equal(App.state.savingsProducts.length, 15, "the device still holds the normaliser's default products");
+  assert.equal(App.state.users.length, 4, "and the KBA bootstrap account");
+  const before = await snapshotRows();
   resumeCloudUploads();
   App.syncBusy = false;
   await pushCloudBackup(true);
   const rows = await checkpoint();
-  assert.notEqual(rows[0].status, "INITIAL_SNAPSHOT_VERIFIED");
+  assert.equal(rows[0].status, "INITIAL_SNAPSHOT_VERIFIED", rows[0].detail);
+  assert.deepEqual(fails(rows), []);
   assert.equal(row(rows, "02 row", "contents: members, staff, groups, collections, savings products").detail,
-    "members 1, staff 4, groups 1, collections 0, savings products 15");
-  assert.equal(await snapshotCount(), 1, "an update of the same row, never a second row");
+    "members 1, staff 3, groups 1, collections 0, savings products 1");
+  assert.equal(row(rows, "02 row", "format").detail, "database-bootstrap format of commit 11be35b");
+  assert.deepEqual((await snapshotRows()).map((item) => [item.id, item.fp]), before.map((item) => [item.id, item.fp]),
+    "the database is unchanged, so the authoritative row is not rewritten at all");
+  assert.deepEqual(App.lastCloudSyncReport.heldOnDevice, { users: 1, savingsProducts: 14 }, "what the device holds beyond the database is reported, not uploaded");
+  assert.equal(await snapshotCount(), 1, "never a second row");
   assert.equal(coreOf(rows), coreFingerprint, "relational tables are still untouched");
+  assertNoLeak(rows);
 });

@@ -10,6 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { canonicalPayload, relationalLoad, staffSession, tableRows } from "./helpers/sync-fixtures.mjs";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
@@ -240,20 +241,39 @@ function storeSession(appUser = { id: "u-col", username: "ama", role: "Collector
 test("snapshot sync sends the user's session token and no shared access key", async () => {
   App.state = cloudState();
   App.syncBusy = false;
-  storeSession({ id: "u-acc", username: "esi", role: "Accountant" });
+  const staff = staffSession({ business: "biz-1", role: "Accountant", appUserId: "u-acc", username: "esi" });
+  localStorage.setItem(SESSION_KEY, JSON.stringify(staff));
+  const load = relationalLoad();
+  load.users.push({ id: "u-acc", username: "esi", name: "Esi", role: "Accountant", groupId: "demo-branch-accra", active: true, authEmail: null });
+  const cloudRow = { id: 1, business_id: "biz-1", payload: canonicalPayload(relationalLoad(), "biz-1"), saved_at: "2026-09-28T00:00:00Z" };
   const calls = mockFetch((url, options) => {
+    if (url.includes("/rpc/fetch_business_snapshot")) return { body: load };
+    if (url.includes("/rest/v1/customers?")) return { body: tableRows(load).customers };
+    if (url.includes("/rest/v1/collections?")) return { body: tableRows(load).collections };
     if ((options.method || "GET") === "PATCH") return { body: [{ id: 1 }] };
-    return { body: [{ business_id: "biz-1", payload: { customers: [] }, saved_at: "2026-09-28T00:00:00Z" }] };
+    return { body: [cloudRow] };
   });
   await latestCloudSnapshot();
   await pushCloudBackup(true);
   assert.ok(calls.some((call) => call.method === "PATCH"), "a manager-level session writes the snapshot");
   for (const call of calls) {
-    assert.equal(call.headers.Authorization, "Bearer user-access-token");
+    assert.equal(call.headers.Authorization, `Bearer ${staff.access_token}`);
     assert.doesNotMatch(call.url, /access_key/);
     assert.doesNotMatch(String(call.body || ""), /access_key/);
   }
   assert.doesNotMatch(calls[0].url, /select=[^&]*access_key/);
+});
+
+test("a stored session without server-issued claims never writes the snapshot, whatever role it records locally", async () => {
+  App.state = cloudState();
+  App.syncBusy = false;
+  storeSession({ id: "u-acc", username: "esi", role: "Accountant" });
+  const calls = mockFetch((url, options) => {
+    if ((options.method || "GET") === "PATCH") return { body: [{ id: 1 }] };
+    return { body: [{ id: 1, business_id: "biz-1", payload: canonicalPayload(relationalLoad(), "biz-1"), saved_at: "2026-09-28T00:00:00Z" }] };
+  });
+  await assert.rejects(pushCloudBackup(false), /Sign in online as a manager/);
+  assert.equal(calls.some((call) => call.method !== "GET"), false);
 });
 
 test("collector sessions never write the snapshot; their offline collections upload through st_submit_collections", async () => {

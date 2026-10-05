@@ -361,7 +361,7 @@ test("the bootstrap is single use and refused once a snapshot exists", async (t)
   assert.equal((await snapshotRows()).length, 1);
 });
 
-test("with a snapshot: a successful read merges into the cloud copy; a failed read never overwrites it", async (t) => {
+test("with a snapshot: a member held only on this device is never uploaded; a failed read never overwrites the copy", async (t) => {
   if (skip()) return t.skip("local database unavailable");
   signIn("john");
   const cloud = (await snapshotRows())[0].payload;
@@ -373,8 +373,9 @@ test("with a snapshot: a successful read merges into the cloud copy; a failed re
   resumeCloudUploads();
   await pushCloudBackup(true);
   const merged = (await snapshotRows())[0].payload;
-  assert.ok(merged.customers.some((c) => c.id === "new-local-member"));
-  assert.ok(merged.customers.some((c) => c.id === "demo-customer-001"), "the cloud copy's members survive the merge");
+  assert.equal(merged.customers.some((c) => c.id === "new-local-member"), false, "a member that is not in the database stays on the device");
+  assert.deepEqual(merged.customers.map((c) => c.id).sort(), await relationalCustomerIds(), "the cloud copy holds exactly the database's members");
+  assert.equal(App.lastCloudSyncReport.heldOnDevice.customers, 1, "the device is told what it holds that was not uploaded");
 
   useDevice({ settings: settings(), users: [], customers: [{ id: "lonely-stale-member", name: "Stale", accountNo: "X-1", phone: "0242222222" }] });
   failSnapshotReads = true;

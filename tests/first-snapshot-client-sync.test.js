@@ -4,6 +4,7 @@
  */
 import test, { beforeEach } from "node:test";
 import assert from "node:assert/strict";
+import { canonicalPayload, relationalLoad, tableRows } from "./helpers/sync-fixtures.mjs";
 
 const memory = new Map();
 globalThis.document ??= { querySelector: () => null };
@@ -89,6 +90,7 @@ function mockNetwork(routes = {}) {
 
 const writes = (calls) => calls.filter((c) => c.method !== "GET" && c.url.includes("/smile_trust_cloud_snapshots"));
 const existing = (payload) => ({ body: [{ business_id: BIZ, payload, saved_at: "2026-10-01T00:00:00Z" }] });
+const canonicalRow = () => ({ body: [{ id: 2, business_id: BIZ, payload: canonicalPayload(relationalLoad(), BIZ), saved_at: "2026-10-05T10:44:18.728+00:00" }] });
 const refused = (pattern) => (error) => {
   assert.equal(error.code, bootstrap.BOOTSTRAP_REFUSED, error.message);
   if (pattern) assert.match(error.message, pattern);
@@ -147,17 +149,32 @@ test("no cloud row: autosave never creates the first snapshot, from an empty, a 
   }
 });
 
-test("with a cloud row, a manager merges into the cloud copy and updates it in place", async () => {
+test("with a canonical cloud row, a manager updates it in place from the database, never from this device", async () => {
   signIn();
-  const calls = mockNetwork({ snapshotGet: existing({ customers: [{ id: "cloud-member", name: "Cloud", accountNo: "C-1", phone: "0241234568" }] }) });
+  const load = relationalLoad();
+  load.customers.push({ ...load.customers[0], id: "db-member-002", accountNo: "ST-1002" });
+  const calls = mockNetwork({ rpc: { body: load }, customers: { body: tableRows(load).customers }, snapshotGet: canonicalRow() });
   await pushCloudBackup(true);
   assert.deepEqual(writes(calls).map((c) => c.method), ["PATCH"]);
-  assert.deepEqual(writes(calls)[0].body.payload.customers.map((c) => c.id).sort(), ["cloud-member", "old-test-member"]);
+  const { payload } = writes(calls)[0].body;
+  assert.deepEqual(payload.customers.map((c) => c.id), ["demo-customer-001", "db-member-002"], "the stale device member is not uploaded");
+  assert.doesNotMatch(JSON.stringify(payload), /old-test-|u-owner|midnight|pbkdf2/);
+});
+
+test("a non-canonical (older device-format) cloud row is never merged into or overwritten by ordinary sync", async () => {
+  signIn();
+  const olderFormat = existing({ customers: [{ id: "cloud-member", name: "Cloud", accountNo: "C-1", phone: "0241234568" }] });
+  olderFormat.body[0].id = 1;
+  const calls = mockNetwork({ snapshotGet: olderFormat });
+  await assert.rejects(pushCloudBackup(false), /not in the canonical database format/);
+  assert.deepEqual(writes(calls), []);
 });
 
 test("an update that matches no row fails instead of falling back to an insert", async () => {
   signIn();
-  const calls = mockNetwork({ snapshotGet: existing({ customers: [] }), patch: { body: [] } });
+  const load = relationalLoad();
+  load.customers.push({ ...load.customers[0], id: "db-member-002", accountNo: "ST-1002" });
+  const calls = mockNetwork({ rpc: { body: load }, customers: { body: tableRows(load).customers }, snapshotGet: canonicalRow(), patch: { body: [] } });
   await assert.rejects(pushCloudBackup(false), /matched no snapshot row/);
   assert.deepEqual(writes(calls).map((c) => c.method), ["PATCH"]);
 });

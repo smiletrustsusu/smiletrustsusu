@@ -39,7 +39,9 @@ import {
   restoreCloudBackupFromCloud as restoreRemoteBackup,
   startAutoCloudSync as startRemoteAutoSync,
   cloudUploadsPaused,
-  CLOUD_BOOTSTRAP_REQUIRED
+  CLOUD_BOOTSTRAP_REQUIRED,
+  CLOUD_UPDATE_REFUSED,
+  CLOUD_UPDATE_CONFLICT
 } from "./src/sync/cloud.js";
 import {
   createInitialCloudSnapshot,
@@ -17859,6 +17861,7 @@ function restoreBackup(event) {
 
 let cloudPushInFlight = false;
 let cloudPushQueued = false;
+let lastBackgroundSyncNotice = "";
 
 async function pushCloudBackup(silent = false) {
   if (cloudUploadsPaused()) {
@@ -17880,6 +17883,7 @@ async function pushCloudBackup(silent = false) {
   try {
     pushed = Boolean(await pushRemoteBackup(silent));
     syncFromApp();
+    lastBackgroundSyncNotice = "";
     if (!silent) {
       logAudit("Cloud backup pushed", businessId());
       toast("Cloud backup saved");
@@ -17887,6 +17891,10 @@ async function pushCloudBackup(silent = false) {
   } catch (error) {
     syncFromApp();
     if (!silent) toast(error.code === CLOUD_BOOTSTRAP_REQUIRED ? error.message : `Cloud backup failed: ${error.message}`);
+    else if ((error.code === CLOUD_UPDATE_REFUSED || error.code === CLOUD_UPDATE_CONFLICT) && error.message !== lastBackgroundSyncNotice) {
+      lastBackgroundSyncNotice = error.message;
+      toast(`Cloud sync stopped: ${error.message}`);
+    }
   } finally {
     cloudPushInFlight = false;
     const editedDuringPush = localState !== state && localState.updatedAt !== localStamp;

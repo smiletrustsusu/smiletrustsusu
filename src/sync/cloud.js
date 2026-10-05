@@ -1,5 +1,6 @@
 import { App } from "../context.js";
 import {
+  getAppConfig,
   getSyncMode,
   resolvedLocalBackupUrl,
   resolvedSupabaseKey,
@@ -17,6 +18,18 @@ import { ensureFreshAccessToken, getStoredAuthSession } from "./supabase-auth.js
 import { applySubmissionResult, canWriteSnapshot, pendingCollectionSubmissions, submissionBatches } from "./collection-submit.js";
 import { supabaseKeyHeaders } from "./supabase-headers.js";
 import { backendSyncHeld } from "../core/backend-guard.js";
+import {
+  buildCanonicalUpdate,
+  canonicalSnapshotProblems,
+  cloudFormatProblems,
+  currentSessionIdentity,
+  fetchDatabaseLoad,
+  recordsHeldOnDevice,
+  relationalIntegrityProblems,
+  sameSnapshotContent,
+  sessionStaffProblem,
+  usableDatabaseLoad
+} from "./canonical-snapshot.js";
 
 function storageOrNull() {
   return typeof localStorage !== "undefined" ? localStorage : null;
@@ -141,7 +154,7 @@ async function saveLocalSnapshot(savedAt) {
 
 async function latestSupabaseSnapshot() {
   const { url, bearer, legacyKey } = await snapshotAuth();
-  const query = `${snapshotFilter(legacyKey)}&select=business_id,payload,saved_at,saved_by&order=saved_at.desc&limit=1`;
+  const query = `${snapshotFilter(legacyKey)}&select=id,business_id,payload,saved_at,saved_by&order=saved_at.desc&limit=1`;
   const response = await fetchWithTimeout(`${url}/rest/v1/${CLOUD_SNAPSHOT_TABLE}?${query}`, {
     cache: "no-store",
     headers: cloudHeaders(bearer, { "Cache-Control": "no-cache", Pragma: "no-cache" })
@@ -151,29 +164,79 @@ async function latestSupabaseSnapshot() {
   return rows?.[0] || null;
 }
 
+function refuseUpdate(message) {
+  const error = syncError(CLOUD_UPDATE_REFUSED, `${message}; nothing was uploaded and this device's data stays here`);
+  App.lastCloudSyncError = { code: error.code, message: error.message, at: new Date().toISOString() };
+  console.warn(`[cloud] ${error.message}`);
+  return error;
+}
+
 /**
- * Updates the existing cloud copy only. The first copy is never created here: it is made once,
- * deliberately, by a manager through snapshot-bootstrap.js.
+ * Updates the existing cloud copy only, never from this device's state: the database modules come
+ * from a fresh database load, everything else is carried from the cloud copy just read
+ * (canonical-snapshot.js). The first copy is never created here: it is made once, deliberately,
+ * by a manager through snapshot-bootstrap.js. The update applies only if the row still has the id
+ * and saved_at it was read with, so a copy that changed meanwhile is never overwritten.
  */
-async function saveSupabaseSnapshot(savedAt) {
-  const { url, bearer, legacyKey } = await snapshotAuth();
-  const update = {
-    payload: sanitizeStateForCloud(App.state),
-    saved_by: currentUser()?.username || "system",
-    saved_at: savedAt
-  };
-  const updateUrl = `${url}/rest/v1/${CLOUD_SNAPSHOT_TABLE}?${snapshotFilter(legacyKey)}&select=id`;
-  const updateResponse = await fetchWithTimeout(updateUrl, {
+async function saveSupabaseSnapshot(savedAt, cloudRow) {
+  const identity = await currentSessionIdentity(App.state);
+  if (!identity) throw refuseUpdate("Sign in online as a manager to update the cloud copy");
+  if (!canWriteSnapshot(identity.role)) throw refuseUpdate("Only a manager session may update the cloud copy");
+  const configured = getAppConfig().businessId;
+  if (identity.businessCode !== businessId() || (configured && configured !== identity.businessCode) || cloudRow?.business_id !== identity.businessCode) {
+    throw refuseUpdate("This device, the signed-in account and the cloud copy are not all for the same business");
+  }
+  if (cloudRow.id === undefined || cloudRow.id === null || !cloudRow.saved_at) {
+    throw refuseUpdate("The cloud copy was read without its row id or save time, so a concurrent change could not be detected");
+  }
+  const formatProblems = cloudFormatProblems(cloudRow.payload);
+  if (formatProblems.length) {
+    throw refuseUpdate(`The cloud copy is not in the canonical database format (${formatProblems.join("; ")}); run the read-only snapshot checkpoint before syncing`);
+  }
+  let load;
+  try {
+    load = await fetchDatabaseLoad(App.state, identity.businessCode);
+  } catch (error) {
+    throw refuseUpdate(`The database load failed (${error.message})`);
+  }
+  if (!usableDatabaseLoad(load)) throw refuseUpdate("The database load returned no usable data");
+  const integrity = relationalIntegrityProblems(load.snapshot, load.rows);
+  if (integrity.length) throw refuseUpdate(`Database integrity check failed: ${integrity.join("; ")}`);
+  const staffProblem = sessionStaffProblem(load.snapshot, identity);
+  if (staffProblem) throw refuseUpdate(`Cannot update the cloud copy: ${staffProblem}`);
+
+  const context = { database: load.snapshot, cloudPayload: cloudRow.payload, businessCode: identity.businessCode };
+  const payload = buildCanonicalUpdate({ ...context, now: savedAt });
+  const problems = canonicalSnapshotProblems(payload, context);
+  if (problems.length) throw refuseUpdate(`The update failed validation: ${problems.join("; ")}`);
+  const held = recordsHeldOnDevice(App.state, payload);
+  App.lastCloudSyncReport = { heldOnDevice: held, at: savedAt };
+  if (Object.keys(held).length) {
+    console.warn(`[cloud] Records on this device that are not in the database or the cloud copy were not uploaded: ${Object.entries(held).map(([key, n]) => `${key} ${n}`).join(", ")}`);
+  }
+  if (sameSnapshotContent(payload, cloudRow.payload)) return;
+
+  const { url, bearer } = await snapshotAuth();
+  if (!bearer) throw refuseUpdate("Sign in online as a manager to update the cloud copy");
+  const saver = load.snapshot.users.find((user) => user.id === identity.appUserId);
+  const filter = [
+    `id=eq.${encodeURIComponent(cloudRow.id)}`,
+    `business_id=eq.${encodeURIComponent(identity.businessCode)}`,
+    `saved_at=eq.${encodeURIComponent(cloudRow.saved_at)}`
+  ].join("&");
+  const updateResponse = await fetchWithTimeout(`${url}/rest/v1/${CLOUD_SNAPSHOT_TABLE}?${filter}&select=id`, {
     method: "PATCH",
     cache: "no-store",
     headers: cloudHeaders(bearer, { Prefer: "return=representation", "Cache-Control": "no-cache", Pragma: "no-cache" }),
-    body: JSON.stringify(update)
+    body: JSON.stringify({ payload, saved_by: saver.username, saved_at: savedAt })
   }, 60000);
   if (!updateResponse.ok) throw await responseError(updateResponse, "Cloud update failed");
   // PostgREST answers 200 even when no row matched.
   const updatedRows = await updateResponse.json().catch(() => []);
-  if (!Array.isArray(updatedRows) || !updatedRows.length) {
-    throw new Error("Cloud update matched no snapshot row; nothing was uploaded");
+  if (!Array.isArray(updatedRows) || updatedRows.length !== 1) {
+    const error = syncError(CLOUD_UPDATE_CONFLICT, "Cloud update matched no snapshot row: the cloud copy changed after it was read, or this session may no longer write it. Nothing was overwritten; sync again to use the latest copy");
+    App.lastCloudSyncError = { code: error.code, message: error.message, at: new Date().toISOString() };
+    throw error;
   }
 }
 
@@ -212,6 +275,8 @@ export async function latestCloudSnapshot() {
 export const CLOUD_READ_FAILED = "cloud-read-failed";
 export const CLOUD_BOOTSTRAP_REQUIRED = "cloud-bootstrap-required";
 export const CLOUD_UPLOADS_PAUSED = "cloud-uploads-paused";
+export const CLOUD_UPDATE_REFUSED = "cloud-update-refused";
+export const CLOUD_UPDATE_CONFLICT = "cloud-update-conflict";
 
 let uploadsInFlight = 0;
 
@@ -262,14 +327,14 @@ export async function readCloudSnapshotState() {
   return snapshot ? { status: "exists", snapshot } : { status: "missing", snapshot: null };
 }
 
-async function saveCloudSnapshot(savedAt) {
+async function saveCloudSnapshot(savedAt, cloudRow) {
   const mode = getSyncMode(App.state);
   if (mode === "local") {
     await saveLocalSnapshot(savedAt);
     return;
   }
   if (mode === "supabase") {
-    await saveSupabaseSnapshot(savedAt);
+    await saveSupabaseSnapshot(savedAt, cloudRow);
     return;
   }
   throw new Error("Cloud sync is not configured");
@@ -317,7 +382,7 @@ export async function pushCloudBackup(silent = false) {
     if (collectorSession) {
       await submitOwnCollections(serverCollectionIds);
     } else {
-      await saveCloudSnapshot(savedAt);
+      await saveCloudSnapshot(savedAt, snapshot);
     }
     App.state.settings.lastSyncedAt = savedAt;
     App.state.settings.lastBackupAt = savedAt;

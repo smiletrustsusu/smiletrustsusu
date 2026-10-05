@@ -13,16 +13,28 @@
  */
 import { App } from "../context.js";
 import { CLOUD_SNAPSHOT_TABLE, defaultStateTemplate } from "../constants.js";
-import { getAppConfig, getSyncMode, jwtPayload, resolveBusinessId } from "../config.js";
+import { getAppConfig, getSyncMode, resolveBusinessId } from "../config.js";
+import {
+  RELATIONAL_KEYS,
+  canonicalSettings,
+  canonicalSnapshotProblems,
+  currentSessionIdentity as sessionIdentity,
+  databaseModules,
+  fetchDatabaseLoad,
+  relationalIntegrityProblems,
+  usableDatabaseLoad
+} from "./canonical-snapshot.js";
 import { canWriteSnapshot } from "./collection-submit.js";
 import { pauseCloudUploads, readCloudSnapshotState, resumeCloudUploads, waitForCloudUploadsIdle } from "./cloud.js";
 import { restoreUsersFromCloud, sanitizeStateForCloud } from "./snapshot-security.js";
-import { ensureFreshAccessToken, getAccessToken, getStoredAuthSession } from "./supabase-auth.js";
+import { getStoredAuthSession } from "./supabase-auth.js";
 import { restFetch } from "./supabase-rest.js";
+
+export { relationalIntegrityProblems };
 
 export const BOOTSTRAP_REFUSED = "cloud-bootstrap-refused";
 export const BOOTSTRAP_MAX_AGE_MS = 10 * 60 * 1000;
-export const BOOTSTRAP_RELATIONAL_KEYS = Object.freeze(["groups", "customers", "collections", "users", "savingsProducts"]);
+export const BOOTSTRAP_RELATIONAL_KEYS = RELATIONAL_KEYS;
 /** Display preferences of this device; never business data. */
 const DEVICE_LOCAL_SETTINGS = Object.freeze(["theme", "colorMode"]);
 const IDENTITY_FIELDS = ["authUserId", "sessionId", "appUserId", "role", "businessCode"];
@@ -36,18 +48,8 @@ function refused(message) {
 }
 
 /** The server-issued claims the database authorizes this session by. */
-export async function currentSessionIdentity(state = App.state) {
-  await ensureFreshAccessToken(state).catch(() => "");
-  const claims = jwtPayload(getAccessToken());
-  const meta = claims?.app_metadata || {};
-  if (!claims?.sub || !meta.business_code || !meta.app_user_id) return null;
-  return {
-    authUserId: String(claims.sub),
-    sessionId: String(claims.session_id || ""),
-    appUserId: String(meta.app_user_id),
-    role: String(meta.app_role || ""),
-    businessCode: String(meta.business_code)
-  };
+export function currentSessionIdentity(state = App.state) {
+  return sessionIdentity(state);
 }
 
 const sameIdentity = (a, b) => Boolean(a && b) && IDENTITY_FIELDS.every((field) => a[field] === b[field]);
@@ -69,42 +71,14 @@ async function requireNoCloudCopy() {
   if (cloud.status !== "missing") throw refused("A cloud copy already exists for this business; use normal sync instead");
 }
 
-const blank = (value) => value === null || value === undefined || value === "";
-
-/**
- * fetch_business_snapshot inner-joins members and collections to their branch and collector, so a
- * row missing either is silently left out of the load, and it identifies every record by its
- * nullable client_id. Compare against the tables themselves and refuse rather than drop or
- * blank anything.
- */
-export function relationalIntegrityProblems(snapshot, rows) {
-  const missingKeys = BOOTSTRAP_RELATIONAL_KEYS.filter((key) => !Array.isArray(snapshot?.[key]));
-  if (missingKeys.length) return [`the database load did not return ${missingKeys.join(", ")}`];
-  const problems = [];
-  const incomplete = (list, fields) => list.filter((row) => fields.some((field) => blank(row?.[field]))).length;
-  const members = incomplete(rows.customers, ["client_id", "branch_id", "collector_id"]);
-  if (members) problems.push(`${members} member(s) have no app id, branch or collector`);
-  if (rows.customers.length !== snapshot.customers.length) {
-    problems.push(`the database has ${rows.customers.length} member(s) but the load returned ${snapshot.customers.length}`);
-  }
-  const collections = incomplete(rows.collections, ["client_id", "customer_id", "branch_id", "collector_id"]);
-  if (collections) problems.push(`${collections} collection(s) have no app id, member, branch or collector`);
-  if (rows.collections.length !== snapshot.collections.length) {
-    problems.push(`the database has ${rows.collections.length} collection(s) but the load returned ${snapshot.collections.length}`);
-  }
-  const loadedRecords = ["customers", "collections", "users", "groups"].reduce((n, key) => n + snapshot[key].filter((item) => blank(item?.id)).length, 0);
-  if (loadedRecords) problems.push(`${loadedRecords} loaded record(s) have no app id`);
-  const unlinked = snapshot.customers.filter((item) => blank(item?.groupId) || blank(item?.collectorId)).length;
-  if (unlinked) problems.push(`${unlinked} member(s) load without a branch or collector id`);
-  return problems;
-}
-
+/** The canonical format: database records with their database fields only, default business settings. */
 export function buildBootstrapState(snapshot, businessCode, now) {
   const state = structuredClone(defaultStateTemplate);
+  const modules = databaseModules(snapshot);
   BOOTSTRAP_RELATIONAL_KEYS.forEach((key) => {
-    state[key] = structuredClone(snapshot[key]);
+    state[key] = modules[key];
   });
-  state.settings = { ...state.settings, businessId: businessCode };
+  state.settings = canonicalSettings(state.settings, businessCode);
   state.updatedAt = now;
   return state;
 }
@@ -127,26 +101,26 @@ export async function loadVerifiedBootstrap(state = App.state) {
   verifiedLoad = null;
   const identity = await authorizedIdentity(state);
   await requireNoCloudCopy();
-  let snapshot;
-  let rows;
+  let load;
   try {
-    snapshot = await restFetch(state, "rpc/fetch_business_snapshot", { method: "POST", body: { business_code: identity.businessCode } });
-    rows = {
-      customers: await restFetch(state, "customers?select=client_id,branch_id,collector_id"),
-      collections: await restFetch(state, "collections?select=client_id,customer_id,branch_id,collector_id")
-    };
+    load = await fetchDatabaseLoad(state, identity.businessCode);
   } catch (error) {
     throw refused(`The database load failed (${error.message}); nothing was created`);
   }
-  if (!snapshot || typeof snapshot !== "object" || !Array.isArray(rows.customers) || !Array.isArray(rows.collections)) {
+  if (!usableDatabaseLoad(load)) {
     throw refused("The database load returned no usable data; nothing was created");
   }
+  const { snapshot, rows } = load;
   const problems = relationalIntegrityProblems(snapshot, rows);
   if (problems.length) {
     throw refused(`Database integrity check failed: ${problems.join("; ")}. Correct these records before creating the initial cloud snapshot.`);
   }
   const loadedAt = Date.now();
   const bootstrapState = buildBootstrapState(snapshot, identity.businessCode, new Date(loadedAt).toISOString());
+  const formatProblems = canonicalSnapshotProblems(bootstrapState, { database: snapshot, businessCode: identity.businessCode });
+  if (formatProblems.length) {
+    throw refused(`The database load does not form a canonical snapshot: ${formatProblems.join("; ")}; nothing was created`);
+  }
   verifiedLoad = { identity, loadedAt, state: bootstrapState };
   return { businessCode: identity.businessCode, ...bootstrapSummary(bootstrapState) };
 }

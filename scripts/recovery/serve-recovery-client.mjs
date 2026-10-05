@@ -22,7 +22,7 @@ const www = path.join(root, "www");
 const REQUIRED_COMMIT = "11be35b";
 const PROJECT_REF = "qouokiqoepjpoksupskb";
 const FORBIDDEN_REF = "angoswtgcklnorhlosnf";
-const MIRRORED = ["app.js", "index.html", "src/sync/snapshot-bootstrap.js", "src/sync/cloud.js", "src/sync/snapshot-security.js", "src/config.js"];
+const MIRRORED = ["app.js", "index.html", "src/sync/snapshot-bootstrap.js", "src/sync/cloud.js", "src/sync/canonical-snapshot.js", "src/sync/snapshot-security.js", "src/config.js"];
 const TYPES = {
   ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8",
   ".mjs": "text/javascript; charset=utf-8", ".json": "application/json; charset=utf-8", ".svg": "image/svg+xml",

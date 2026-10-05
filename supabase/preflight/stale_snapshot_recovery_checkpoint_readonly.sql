@@ -68,16 +68,46 @@ table_activity as (
   from pg_stat_user_tables st
   where st.schemaname = 'public' and st.relname = 'smile_trust_cloud_snapshots'
 ),
+-- saved_by holds either the saver's username or, when the client session carried no username, the
+-- saver's app user id (app_users.client_id, the id st_staff_auth_links.app_user_id links to the Auth
+-- user). It resolves to a staff member only through exactly one of the two, never both:
+--   username   exactly one SMILE-TRUST staff username matches, and no app user anywhere has that id;
+--   linked id  no username matches, exactly one app user anywhere has that client_id and it is
+--              SMILE-TRUST staff, and exactly one auth link anywhere carries that id, for SMILE-TRUST.
+-- Anything else (no match, several matches, both kinds, a missing or extra link) resolves to nobody.
+saver_match as (
+  select (select count(*) from staff st where st.uname = lower(btrim(s.saved_by)))::int as by_name,
+         (select count(*) from staff st where st.client_id = s.saved_by)::int as by_id,
+         (select count(*) from public.app_users u where u.client_id = s.saved_by)::int as by_id_anywhere,
+         (select count(*) from public.st_staff_auth_links l where l.app_user_id = s.saved_by)::int as links_anywhere,
+         (select count(*) from public.st_staff_auth_links l
+           where l.app_user_id = s.saved_by and l.business_code = 'SMILE-TRUST')::int as links_here
+  from snap s
+),
+saver_user as (
+  select st.uname, st.role, st.active, m.by_name = 1 as via_name
+  from snap s
+  cross join saver_match m
+  join staff st
+    on (m.by_name = 1 and m.by_id_anywhere = 0 and st.uname = lower(btrim(s.saved_by)))
+    or (m.by_name = 0 and m.by_id = 1 and m.by_id_anywhere = 1 and m.links_anywhere = 1 and m.links_here = 1
+        and st.client_id = s.saved_by)
+),
 saver as (
   select case when s.id is null then null
               when lower(btrim(s.saved_by)) = 'system' then 'system'
-              when exists (select 1 from staff st where st.uname = lower(btrim(s.saved_by)))
-                then (select st.uname || ' (staff, ' || st.role || ', ' || case when st.active then 'active' else 'inactive' end || ')'
-                      from staff st where st.uname = lower(btrim(s.saved_by)) limit 1)
+              when (select count(*) from saver_user) = 1
+                then (select u.uname || ' (staff, ' || u.role || ', ' || case when u.active then 'active' else 'inactive' end || ')'
+                             || case when u.via_name then '' else ' through the linked staff id (id not shown)' end
+                      from saver_user u)
+              when m.by_name + m.by_id_anywhere + m.links_anywhere > 0
+                then 'unresolved staff identity: ' || m.by_name || ' username match(es), ' || m.by_id_anywhere
+                     || ' app user id match(es), ' || m.links_anywhere || ' auth link(s) (' || length(coalesce(s.saved_by, '')) || ' chars, not shown)'
               else 'unrecognised value (' || length(coalesce(s.saved_by, '')) || ' chars, not shown)' end as label,
-         exists (select 1 from staff st where st.uname = lower(btrim(s.saved_by)) and st.uname = 'john'
-                   and st.role = 'SystemOwner' and st.active) as is_john
+         (select count(*) from saver_user) = 1
+           and exists (select 1 from saver_user u where u.uname = 'john' and u.role = 'SystemOwner' and u.active) as is_john
   from snap s
+  cross join saver_match m
 ),
 
 -- contents --------------------------------------------------------------------------------------

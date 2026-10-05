@@ -85,7 +85,7 @@ That is the same shape as the stale row: 4 staff, 1 id not in the database, and 
 - `www/`: an identical mirror of all three files.
 - `scripts/recovery/serve-recovery-client.mjs`: refuses to serve a client without the pause.
 
-**What the fix does not change.** After the recovery window, ordinary manager sync works by design. The first ordinary manager upload after the app is reopened writes the device format into the same row (staff 4 including the KBA placeholder, savings products 15). It never adds a second row. The rehearsal shows this explicitly. Step I must therefore pass before any manager client is reopened. Whether ordinary sync should stop uploading device-only defaults is a separate product decision, outside this recovery.
+**After the recovery window (post-bootstrap sync hardening).** In 11be35b the first ordinary manager upload after the app was reopened wrote the device format into the same row (staff 4 including the KBA placeholder, savings products 15). Ordinary manager sync now never uploads device state: it rebuilds the canonical snapshot from a fresh database load plus the cloud copy it just read (`src/sync/canonical-snapshot.js`), validates it, writes nothing when the content is unchanged, and otherwise updates the row only if its `id` and `saved_at` are still the ones it read. It never adds a second row. The rehearsal shows that a reopened client leaves the verified row byte-for-byte unchanged. Clients older than this change still upload device state, so step I must still pass before any older manager client is reopened.
 
 **Old clients are UNSAFE FOR THIS RECOVERY:**
 
@@ -352,6 +352,6 @@ The restored row gets a new id, and it passes through the 047 guard.
 - the insert waiting for an in-flight upload;
 - G to I through the real client modules, with the checkpoint and forensics verifying the new row;
 - after the bootstrap: the queued timer, autosave, manual backup and busy reschedule write nothing, and the row stays byte-for-byte unchanged;
-- after reopening: ordinary sync updates the same row in the device format.
+- after reopening: ordinary sync rebuilds from the database, uploads nothing from the device, and leaves the verified row unchanged.
 
 It never connects to a remote database.
