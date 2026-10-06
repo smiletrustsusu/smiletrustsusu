@@ -3,7 +3,7 @@
  * Snapshot sync remains for migration period; relational is authoritative when productionMode is on.
  */
 import { restFetch, supabaseConfigured, tenantHeaders } from "./supabase-rest.js";
-import { toPesewas } from "../core/money.js";
+import { collectionRpcPayload } from "./authoritative-writes.js";
 
 export function relationalSyncEnabled(state) {
   return state.settings?.relationalSync === true && supabaseConfigured(state);
@@ -11,31 +11,7 @@ export function relationalSyncEnabled(state) {
 
 export async function pushCollectionToRelational(state, collection) {
   if (!relationalSyncEnabled(state)) return { ok: true, skipped: true };
-  const { businessId } = tenantHeaders(state);
-  const customer = (state.customers || []).find((item) => item.id === collection.customerId);
-  const row = {
-    business_code: businessId,
-    client_id: collection.id,
-    receipt_no: collection.receiptNo || collection.paymentNo,
-    idempotency_key: collection.idempotencyKey,
-    amount: Number(collection.amount || 0),
-    amount_pesewas: Number(collection.amountPesewas ?? toPesewas(collection.amount)),
-    payment_method: collection.paymentMethod || "Cash",
-    payment_reference: collection.paymentReference || "",
-    verification_status: collection.verificationStatus || "Verified",
-    collection_date: collection.date,
-    client_created_at: collection.createdAt,
-    customer_client_id: collection.customerId,
-    customer_name: customer?.name || "",
-    customer_phone: customer?.phone || "",
-    account_no: customer?.accountNo || collection.accountNo || "",
-    collector_client_id: collection.collectorId || collection.userId,
-    branch_client_id: collection.groupId,
-    susu_group_client_id: collection.susuGroupId || null,
-    note: collection.note || "",
-    reversed: Boolean(collection.reversed),
-    device_fingerprint: collection.deviceFingerprint || ""
-  };
+  const row = collectionRpcPayload(state, collection, tenantHeaders(state).businessId);
   try {
     const result = await restFetch(state, "rpc/record_collection_from_client", {
       method: "POST",

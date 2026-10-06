@@ -184,6 +184,17 @@ import { buildExceptionReport, recordException } from "./src/core/exceptions.js"
 import { pendingQueueItems } from "./src/sync/offline-queue.js";
 import { encryptOfflinePayload, decryptOfflinePayload, wrapQueueEntryForStorage } from "./src/sync/offline-crypto.js";
 import { pushCollectionToRelational, pushDeviceToRelational, relationalSyncEnabled, flushRelationalOfflineQueue } from "./src/sync/relational-sync.js";
+import {
+  WRITE_UNCONFIRMED,
+  authoritativeWritesEnabled,
+  registerCustomerAuthoritatively,
+  updateCustomerAuthoritatively,
+  submitCollectionAuthoritatively,
+  collectionsAwaitingConfirmation,
+  holdCollectionForConfirmation,
+  releaseCollectionConfirmation,
+  collectionAwaitingConfirmationFor
+} from "./src/sync/authoritative-writes.js";
 import { backendTransitionNotice, enforceBackendIdentity, takeQuarantineNotice } from "./src/core/backend-guard.js";
 import { adoptCloudVerifiedUser } from "./src/core/cloud-user-adoption.js";
 import {
@@ -1050,6 +1061,7 @@ let autoSyncTimer = null;
 let localSavePending = false;
 let lastAndroidRefreshAt = 0;
 let collectionWriteOptions = {};
+let unconfirmedRegistration = null;
 
 const defaultState = {
   settings: {
@@ -2825,6 +2837,11 @@ async function flushOfflineQueueNow() {
       if (entry.kind === "meeting") return applyQueuedMeeting(entry);
       if (entry.kind === "withdrawal") return applyQueuedWithdrawal(state, entry, uid);
       if (entry.kind === "customer") return true;
+      if (authoritativeWritesEnabled(state)) {
+        if (entry.payload?.id) holdCollectionForConfirmation(state, entry.payload, "queued offline; awaiting server confirmation");
+        entry.lastError = "Awaiting server confirmation on the Collections screen";
+        return false;
+      }
       return applyQueuedCollection(entry);
     }
   });
@@ -2839,6 +2856,7 @@ async function flushOfflineQueueNow() {
     });
   }
   saveState();
+  if (authoritativeWritesEnabled(state)) return results;
   for (const entry of (state.offlineQueue || []).filter((item) => item.status === "applied" && item.kind === "collection")) {
     if (entry.payload?.receiptNo) await pushCollectionToRelational(state, entry.payload);
   }
@@ -6558,6 +6576,34 @@ function collectionCardForCustomer(customer) {
   });
 }
 
+function renderCollectionsAwaitingConfirmation() {
+  const held = collectionsAwaitingConfirmation(state).filter((item) => visibleGroupIds().includes(item.collection?.groupId));
+  if (!held.length) return "";
+  return `
+    <div class="panel">
+      <div class="section-title"><h2>Collections awaiting server confirmation</h2></div>
+      <div class="notice warn">These were NOT confirmed by the server. They are not counted in any balance. Do not record them again: confirm them, and the server returns the original if it already holds it.</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Receipt</th><th>Customer</th><th>Amount</th><th>Held since</th><th>Last result</th><th></th></tr></thead>
+          <tbody>
+            ${held.map((item) => `
+              <tr>
+                <td>${escapeHtml(item.receiptNo)}</td>
+                <td>${escapeHtml(customerName(item.customerId))}</td>
+                <td>${money(item.amount)}</td>
+                <td>${escapeHtml(String(item.heldAt || "").slice(0, 16).replace("T", " "))}</td>
+                <td>${escapeHtml(item.lastError || "")}</td>
+                <td><button class="btn" type="button" data-confirm-held-collection="${escapeAttr(item.id)}">Confirm with server</button></td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
 function renderCollections() {
   if (!canManageCollections() && !isAuditor()) return `<div class="notice">You do not have permission to record collections.</div>`;
   if (!primaryGroup() && !isKBA() && !isAuditor()) return `<div class="notice">No susu location has been assigned to this admin yet.</div>`;
@@ -6601,6 +6647,7 @@ function renderCollections() {
   const pendingAdjustments = (state.collectionAdjustments || []).filter((item) => item.status === "Pending");
   return `
     ${renderMobileCollectionSuccess()}
+    ${renderCollectionsAwaitingConfirmation()}
     ${renderCollectionDesk(desk)}
     ${!isCollector() && fraudAlerts(visibleCollections()).length ? `<div class="notice warn">${fraudAlerts(visibleCollections()).length} collection alert(s): large deposits or same-day duplicates.</div>` : ""}
     ${readOnly ? "" : `
@@ -12270,6 +12317,9 @@ function attachHandlers() {
     render();
   });
 
+  document.querySelectorAll("[data-confirm-held-collection]").forEach((button) => {
+    button.addEventListener("click", () => { void confirmHeldCollection(button.dataset.confirmHeldCollection); });
+  });
   const collectionForm = document.querySelector("#collectionForm");
   if (collectionForm) {
     collectionForm.addEventListener("submit", handleCollection);
@@ -13217,9 +13267,10 @@ function fillCollectionDefaultAmount(force = false) {
   if (cardHost) cardHost.innerHTML = renderCollectionCustomerCard(collectionCardForCustomer(customer));
 }
 
-function handleBulkCollection(event) {
+async function handleBulkCollection(event) {
   event.preventDefault();
   const form = event.target;
+  if (form.dataset.submitting === "1") return;
   const ids = [...form.querySelectorAll('input[name="bulkId"]:checked')].map((input) => input.value);
   if (!ids.length) {
     toast("Select at least one customer");
@@ -13242,8 +13293,9 @@ function handleBulkCollection(event) {
   }
   let saved = 0;
   collectionWriteOptions = { silent: true, skipDuplicateConfirm: true };
+  form.dataset.submitting = "1";
   try {
-    ids.forEach((id) => {
+    for (const id of ids) {
       const fakeForm = document.createElement("form");
       fakeForm.innerHTML = `
         <input name="customerId" value="${id}" />
@@ -13256,11 +13308,12 @@ function handleBulkCollection(event) {
       const submitEvent = new Event("submit", { cancelable: true, bubbles: true });
       Object.defineProperty(submitEvent, "target", { value: fakeForm });
       const before = state.collections.length;
-      handleCollection(submitEvent);
+      await handleCollection(submitEvent);
       if (state.collections.length > before) saved += 1;
-    });
+    }
   } finally {
     collectionWriteOptions = {};
+    delete form.dataset.submitting;
   }
   sessionStorage.removeItem("collection_bulk");
   toast(saved ? `${saved} collections saved` : "No collections saved");
@@ -14188,6 +14241,25 @@ function handleCustomer(event) {
         }
         const previousStatus = customer.memberStatus || (customer.active === false ? "Closed" : "Active");
         if (!canChangeCustomerStatus(currentUser())) payload.memberStatus = previousStatus;
+        const authoritativeEdit = authoritativeWritesEnabled(state);
+        if (authoritativeEdit) {
+          if (payload.memberStatus !== previousStatus) {
+            toast("Member NOT saved: a member's status cannot be changed while the database is authoritative, because the database has no protected operation for status changes yet. Nothing was changed.");
+            return;
+          }
+          if (typeof navigator !== "undefined" && navigator.onLine === false) {
+            toast("Member NOT saved: editing a member needs a connection to the database. Nothing was changed.");
+            return;
+          }
+          try {
+            await updateCustomerAuthoritatively(state, customer.id, { name: payload.name, phone: payload.phone, groupId: payload.groupId, accountNo: customer.accountNo });
+          } catch (error) {
+            toast(error?.code === WRITE_UNCONFIRMED
+              ? `Member edit NOT confirmed: ${error.message}. Nothing was changed on this device. Press Save again to retry; it updates the same member and cannot create another.`
+              : `Member edit NOT saved: ${error?.message || "the server refused it"}. Nothing was changed.`);
+            return;
+          }
+        }
         applyCustomerCrm(payload, {
           ...data,
           notes: customer.notes,
@@ -14208,7 +14280,9 @@ function handleCustomer(event) {
         prepareNextMemberRegistration({ keepOpen: false });
         saveState({ keepCustomerId: customer.id });
         logAudit("Member edited", data.name);
-        toast("Member saved");
+        toast(authoritativeEdit
+          ? "Member saved. Name, phone and location are confirmed by the database; other details (ID, photos, next of kin, account type) are kept on this device only."
+          : "Member saved");
         render();
         queueMicrotask(() => document.querySelector(".members-list-panel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
         return;
@@ -14239,8 +14313,14 @@ function handleCustomer(event) {
         toast("This location has no collector code yet. Set one on Staff & Collectors first.");
         return;
       }
+      const authoritative = authoritativeWritesEnabled(state);
+      if (authoritative && !online) {
+        toast("Member NOT registered: registering a member needs a connection to the database. Nothing was saved.");
+        return;
+      }
+      const registrationKey = [data.groupId, accountNo.toLowerCase(), payload.name.toLowerCase(), payload.phone].join("|");
       const created = {
-        id: uid("cust"),
+        id: authoritative && unconfirmedRegistration?.key === registrationKey ? unconfirmedRegistration.id : uid("cust"),
         accountNo,
         collectorId,
         createdAt: new Date().toISOString(),
@@ -14254,6 +14334,20 @@ function handleCustomer(event) {
       created.beneficiaries = [];
       ensureDefaultPortalCredentials(created);
       appendCustomerActivity(created, { action: "Customer Registered", detail: created.name, userId: currentUser()?.id || "", uid });
+      if (authoritative) {
+        try {
+          await registerCustomerAuthoritatively(state, created);
+          unconfirmedRegistration = null;
+        } catch (error) {
+          if (error?.code === WRITE_UNCONFIRMED) {
+            unconfirmedRegistration = { key: registrationKey, id: created.id };
+            toast(`Member NOT confirmed: ${error.message}. Nothing was saved on this device. Press Save again to retry; the same registration is reused, so it cannot be created twice.`);
+          } else {
+            toast(`Member NOT registered: ${error?.message || "the server refused it"}. Nothing was saved.`);
+          }
+          return;
+        }
+      }
       if (created.savingsProductId) ensureSavingsAccount(state, created, created.savingsProductId, uid);
       state.customers.push(created);
       // Always return to the member list after save so Customers stays usable for N registrations.
@@ -14305,8 +14399,12 @@ function handleCustomer(event) {
   });
 }
 
-function handleCollection(event) {
+async function handleCollection(event) {
   event.preventDefault();
+  if (event.target?.dataset?.submitting === "1") {
+    toast("This collection is still being recorded");
+    return;
+  }
   const data = formData(event.target);
   const guard = blockFinancialWriteIfUnsafe(state, getAppConfig());
   if (!guard.ok) {
@@ -14331,6 +14429,12 @@ function handleCollection(event) {
   const customer = state.customers.find((item) => item.id === data.customerId);
   if (!customer || !canAccessCustomer(customer, currentUser(), { groupIds: visibleGroupIds() })) {
     toast("This customer is not assigned to you");
+    return;
+  }
+  const authoritative = authoritativeWritesEnabled(state);
+  const awaiting = authoritative ? collectionAwaitingConfirmationFor(state, customer.id) : null;
+  if (awaiting) {
+    toast(`A collection for ${customer.name} (receipt ${awaiting.receiptNo}) is still awaiting server confirmation. Confirm it on the Collections screen before recording another.`);
     return;
   }
   const paymentMethod = data.paymentMethod || "Cash";
@@ -14510,6 +14614,10 @@ function handleCollection(event) {
     createdAt: new Date().toISOString(),
     serverCreatedAt: new Date().toISOString()
   };
+  if (authoritative) {
+    await recordCollectionAuthoritatively(collection, customer, event.target);
+    return;
+  }
   const classASnap = beginClassASnapshot();
   const collectionAudit = (action, details) => {
     try {
@@ -14648,6 +14756,172 @@ function handleCollection(event) {
     toast(`Collection recorded. Receipt ${receiptNo}.`);
     render();
   }
+}
+
+/**
+ * Authoritative mode: the collection is posted on this device (collection, ledger credit, audit,
+ * receipt messages) only after record_collection_from_client confirms the server holds it. An
+ * unanswered request is held, unposted, for a retry with the same idempotency key.
+ */
+async function recordCollectionAuthoritatively(collection, customer, form) {
+  const silent = Boolean(collectionWriteOptions.silent);
+  const hold = (reason) => {
+    holdCollectionForConfirmation(state, collection, reason);
+    failIdempotentRequest(state, collection.idempotencyKey, { recoverable: true, error: "Awaiting server confirmation" });
+    saveState();
+  };
+  if (!navigator.onLine) {
+    hold("recorded while offline");
+    toast(`Collection NOT recorded yet: this device is offline. Receipt ${collection.receiptNo} is held on this device, awaiting server confirmation, and is not counted in any balance. Do not record it again.`);
+    if (!silent) render();
+    return false;
+  }
+  if (form?.dataset) form.dataset.submitting = "1";
+  try {
+    const result = await submitCollectionAuthoritatively(state, collection);
+    finalizeConfirmedCollection(collection, customer, result, { silent });
+    return true;
+  } catch (error) {
+    if (error?.code === WRITE_UNCONFIRMED) {
+      hold(error.message);
+      toast(`Collection NOT confirmed: ${error.message}. Receipt ${collection.receiptNo} is held, awaiting server confirmation, and is not counted in any balance. Do not record it again; use "Confirm with server" on the Collections screen.`);
+    } else {
+      failIdempotentRequest(state, collection.idempotencyKey, { recoverable: false, error: error?.message || "Refused" });
+      saveState();
+      toast(`Collection NOT recorded: ${error?.message || "the server refused it"}. Nothing was posted.`);
+    }
+    if (!silent) render();
+    return false;
+  } finally {
+    if (form?.dataset) delete form.dataset.submitting;
+  }
+}
+
+function finalizeConfirmedCollection(collection, customer, result, { silent = false } = {}) {
+  releaseCollectionConfirmation(state, collection.id);
+  (state.offlineQueue || []).forEach((entry) => {
+    if (entry.kind === "collection" && entry.idempotencyKey === collection.idempotencyKey && entry.status === "pending") {
+      entry.status = "applied";
+      entry.appliedAt = new Date().toISOString();
+    }
+  });
+  if (state.collections.some((item) => item.id === collection.id)) {
+    saveState();
+    return;
+  }
+  const amount = Number(collection.amount || 0);
+  collection.syncStatus = "Synced";
+  collection.offline = false;
+  collection.serverConfirmedAt = new Date().toISOString();
+  state.collections.push(collection);
+  if (amount > 0) {
+    postDoubleEntry(state, {
+      id: uid("led"),
+      entryType: "Susu Deposit",
+      customerId: collection.customerId,
+      groupId: collection.groupId,
+      collectorId: collection.collectorId,
+      amount,
+      direction: "credit",
+      referenceId: collection.id,
+      referenceType: "collection",
+      receiptNo: collection.receiptNo,
+      paymentMethod: collection.paymentMethod,
+      paymentReference: collection.paymentReference,
+      createdBy: collection.userId,
+      clientCreatedAt: collection.createdAt
+    }, uid);
+  }
+  let auditNote = "";
+  try {
+    const audit = logAudit("Collection recorded", `${customer.name} · ${customer.accountNo} · ${money(amount)} · ${collection.paymentMethod} · ${collection.receiptNo}`, {
+      skipSave: true,
+      required: true,
+      transactionId: collection.id,
+      correlationId: collection.id,
+      entityType: "collection",
+      entityId: collection.id,
+      entityName: customer.name,
+      module: "6",
+      guarantee: "G1",
+      deliveryClass: "A"
+    });
+    if (!audit?.ok && !audit?.duplicate) auditNote = " Warning: the local audit entry could not be saved.";
+  } catch {
+    auditNote = " Warning: the local audit entry could not be saved.";
+  }
+  completeIdempotentRequest(state, collection.idempotencyKey, {
+    transactionId: collection.id,
+    receiptNumber: collection.receiptNo,
+    responsePayload: { id: collection.id, receiptNo: collection.receiptNo, serverStatus: result?.status || "" }
+  });
+  const smsResult = amount > 0 ? deliverCustomerMessage(buildPaymentMessage(collection.customerId, amount, collection.date, collection.id)) : "";
+  saveState();
+  rememberCollectionSuccess(collection, customer);
+  afterCollectionSaved(collection, customer);
+  if (amount > 0) {
+    queueNotification(state, {
+      event: "contribution_received",
+      channel: "SMS",
+      customerId: customer.id,
+      vars: { name: customer.name, amount: amount.toFixed(2), receiptNo: collection.receiptNo, balance: customerBalance(customer.id).toFixed(2) },
+      uid,
+      idempotencyKey: `${collection.id}:contribution_received:SMS`
+    });
+  }
+  if (!silent) {
+    const verifyNote = collection.verificationStatus === "Pending Verification" ? " Payment is pending verification." : "";
+    const smsNote = amount > 0 ? transactionMessageNotice(smsResult) : "";
+    toast(`Collection recorded. Receipt ${collection.receiptNo}.${verifyNote}${smsNote}${auditNote}`);
+    render();
+  } else if (auditNote) {
+    toast(`Receipt ${collection.receiptNo} recorded.${auditNote}`);
+  }
+}
+
+async function confirmHeldCollection(id, { quiet = false } = {}) {
+  const entry = collectionsAwaitingConfirmation(state).find((item) => item.id === id);
+  if (!entry) return;
+  const collection = entry.collection;
+  const customer = state.customers.find((item) => item.id === collection?.customerId);
+  if (!customer) {
+    if (!quiet) toast("This member is not on this device yet. Refresh from the server, then confirm again.");
+    return;
+  }
+  if (!navigator.onLine) {
+    if (!quiet) toast("Still offline: the collection stays held until it can be confirmed.");
+    return;
+  }
+  try {
+    const result = await submitCollectionAuthoritatively(state, collection);
+    finalizeConfirmedCollection(collection, customer, result, { silent: quiet });
+  } catch (error) {
+    if (error?.code === WRITE_UNCONFIRMED || !(error?.status >= 400)) {
+      holdCollectionForConfirmation(state, collection, error?.message || "not confirmed");
+      saveState();
+      if (!quiet) toast(`Receipt ${entry.receiptNo} is still not confirmed: ${error?.message || "no answer"}. It stays held; nothing was posted.`);
+    } else {
+      releaseCollectionConfirmation(state, id);
+      failIdempotentRequest(state, collection.idempotencyKey, { recoverable: false, error: error.message });
+      (state.offlineQueue || []).forEach((queued) => {
+        if (queued.kind === "collection" && queued.idempotencyKey === collection.idempotencyKey && queued.status === "pending") {
+          queued.status = "failed";
+          queued.lastError = error.message;
+        }
+      });
+      saveState();
+      toast(`Receipt ${entry.receiptNo} was NOT recorded: ${error.message}. It was removed from the awaiting list; nothing was posted.`);
+    }
+  }
+  if (!quiet) render();
+}
+
+async function confirmHeldCollections() {
+  if (!authoritativeWritesEnabled(state) || !navigator.onLine || !collectionsAwaitingConfirmation(state).length) return;
+  for (const entry of [...collectionsAwaitingConfirmation(state)]) {
+    await confirmHeldCollection(entry.id, { quiet: true });
+  }
+  render();
 }
 
 function verifyPayment(collectionId) {
@@ -15107,6 +15381,10 @@ async function handleImport(event) {
   const data = formData(event.target);
   const file = event.target.elements.file.files[0];
   const groupId = data.groupId;
+  if (authoritativeWritesEnabled(state)) {
+    toast("Import is unavailable while the database is authoritative: imported members and payments would exist on this device only. Register members and record collections one at a time.");
+    return;
+  }
   if (!file || !visibleGroupIds().includes(groupId)) {
     toast("Choose a file and assigned location");
     return;
@@ -17145,6 +17423,10 @@ function handleCustomerImport(event) {
   const file = event.target.files?.[0];
   event.target.value = "";
   if (!file) return;
+  if (authoritativeWritesEnabled(state)) {
+    toast("Customer import is unavailable while the database is authoritative: imported members would exist on this device only. Register members one at a time.");
+    return;
+  }
   const reader = new FileReader();
   reader.onload = () => {
     const text = String(reader.result || "");
@@ -18275,8 +18557,9 @@ async function finishStartupTasks() {
       pushCloudBackup(true);
     }
     await flushOfflineQueueNow();
+    await confirmHeldCollections();
     if (typeof window !== "undefined") {
-      window.addEventListener("online", () => { void flushOfflineQueueNow(); });
+      window.addEventListener("online", () => { void flushOfflineQueueNow().then(() => confirmHeldCollections()); });
     }
     render();
   } catch (error) {
