@@ -17,6 +17,10 @@
  * names already exists in the database: the server's ensure_branch / ensure_app_user /
  * ensure_customer helpers would otherwise create a branch, an active staff row or a member from
  * whatever a device sent.
+ *
+ * Collection receipt numbers are allocated by the server (migration 048). Until it answers, a
+ * collection carries only a PENDING-<id> reference, which is not a receipt and must never be
+ * printed, sent to the member or written to the ledger.
  */
 import { resolveBusinessId, resolvedSupabaseUrl } from "../config.js";
 import { toPesewas } from "../core/money.js";
@@ -42,6 +46,36 @@ const list = (value) => (Array.isArray(value) ? value : []);
 const lower = (value) => String(value ?? "").trim().toLowerCase();
 const rejected = (message, extra) => new AuthoritativeWriteError(WRITE_REJECTED, message, extra);
 const unconfirmed = (message, extra) => new AuthoritativeWriteError(WRITE_UNCONFIRMED, message, extra);
+
+export const PENDING_REFERENCE_LABEL = "Pending reference — not a receipt";
+
+export function pendingCollectionReference(collectionId) {
+  const short = String(collectionId || "").replace(/[^A-Za-z0-9]/g, "").slice(-8).toUpperCase();
+  return `PENDING-${short || "UNKNOWN"}`;
+}
+
+export function isPendingReference(value) {
+  return /^PENDING-/i.test(String(value ?? "").trim());
+}
+
+const serverReceipt = (value) => {
+  const receipt = String(value ?? "").trim();
+  return receipt && !isPendingReference(receipt) ? receipt : "";
+};
+
+/**
+ * Gives a server-confirmed collection the server's receipt number before anything posts, prints or
+ * announces it. Throws (unconfirmed) when the confirmation carries no usable receipt.
+ */
+export function adoptServerReceipt(collection, result) {
+  const receipt = serverReceipt(result?.receiptNo);
+  if (!receipt) throw unconfirmed("the server's answer did not include the receipt number");
+  collection.receiptNo = receipt;
+  collection.paymentNo = receipt;
+  collection.temporaryReceiptNo = "";
+  delete collection.pendingReference;
+  return receipt;
+}
 
 /** Same condition as relationalSyncEnabled (relational-sync.js imports this module). */
 export function authoritativeWritesEnabled(state) {
@@ -227,12 +261,14 @@ export async function updateCustomerAuthoritatively(state, customerId, changes, 
   return { status: "updated", customerId, serverCustomerId: String(result.customer_id) };
 }
 
+/** receipt_no is sent only when the collection already has a real one; signed-in callers' values are ignored by the server (048). */
 export function collectionRpcPayload(state, collection, businessCode) {
   const customer = list(state.customers).find((item) => item.id === collection.customerId);
+  const receipt = serverReceipt(collection.receiptNo || collection.paymentNo);
   return {
     business_code: businessCode,
     client_id: collection.id,
-    receipt_no: collection.receiptNo || collection.paymentNo,
+    ...(receipt ? { receipt_no: receipt } : {}),
     idempotency_key: collection.idempotencyKey,
     amount: Number(collection.amount || 0),
     amount_pesewas: Number(collection.amountPesewas ?? toPesewas(collection.amount)),
@@ -256,18 +292,23 @@ export function collectionRpcPayload(state, collection, businessCode) {
 
 /**
  * Records a collection (and, server-side, its ledger credit) in the database. Resolves with the
- * server's collection id once it holds it; throws AuthoritativeWriteError otherwise. Retrying the
- * same collection object (same idempotency key) never records it twice.
+ * server's collection id and receipt number once it holds it; throws AuthoritativeWriteError
+ * otherwise. Retrying the same collection object (same idempotency key) never records it twice and
+ * returns the original receipt number.
  */
 export async function submitCollectionAuthoritatively(state, collection, { timeoutMs } = {}) {
-  if (!collection?.id || !String(collection.idempotencyKey || "").trim() || !(collection.receiptNo || collection.paymentNo)) {
-    throw rejected("the collection is missing its id, idempotency key or receipt number");
+  if (!collection?.id || !String(collection.idempotencyKey || "").trim()) {
+    throw rejected("the collection is missing its id or idempotency key");
   }
   if (!Number.isFinite(Number(collection.amount)) || Number(collection.amount) < 0) throw rejected("the amount is not valid");
   const { businessCode } = await signedInBusiness(state);
   const load = await freshDatabaseLoad(state, businessCode);
   const recorded = list(load.collections).find((item) => item?.id === collection.id || (item?.idempotencyKey && item.idempotencyKey === collection.idempotencyKey));
-  if (recorded) return { status: "duplicate", collectionId: collection.id };
+  if (recorded) {
+    const receiptNo = serverReceipt(recorded.receiptNo);
+    if (!receiptNo) throw unconfirmed("the database holds this collection but did not return its receipt number");
+    return { status: "duplicate", collectionId: collection.id, receiptNo };
+  }
   const payload = collectionRpcPayload(state, collection, businessCode);
   if (!list(load.customers).some((item) => item?.id === payload.customer_client_id)) {
     throw rejected("this member is not in the database yet; register or refresh the member first");
@@ -280,12 +321,14 @@ export async function submitCollectionAuthoritatively(state, collection, { timeo
   }
   const result = await callProtectedRpc(state, "record_collection_from_client", { payload }, {
     timeoutMs,
-    describeConflict: () => `the database already holds a collection with receipt ${payload.receipt_no}`
+    describeConflict: () => "the database refused a conflicting record (nothing was recorded); refresh from the server and try again"
   });
   if (!["recorded", "duplicate"].includes(result?.status) || !result?.collection_id) {
     throw unconfirmed("the server's answer did not confirm the collection");
   }
-  return { status: result.status, collectionId: collection.id, serverCollectionId: String(result.collection_id) };
+  const receiptNo = serverReceipt(result.receipt_no);
+  if (!receiptNo) throw unconfirmed("the server's answer did not include the receipt number");
+  return { status: result.status, collectionId: collection.id, serverCollectionId: String(result.collection_id), receiptNo };
 }
 
 /* Collections whose server outcome is not yet known: never posted locally, kept for a same-identity retry. */
@@ -307,7 +350,8 @@ export function holdCollectionForConfirmation(state, collection, reason, { now =
     idempotencyKey: collection.idempotencyKey,
     customerId: collection.customerId,
     amount: Number(collection.amount || 0),
-    receiptNo: collection.receiptNo || collection.paymentNo || "",
+    receiptNo: serverReceipt(collection.receiptNo || collection.paymentNo),
+    pendingReference: collection.pendingReference || pendingCollectionReference(collection.id),
     heldAt: now,
     lastAttemptAt: now,
     lastError: reason,

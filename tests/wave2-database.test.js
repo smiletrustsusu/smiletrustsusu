@@ -78,7 +78,8 @@ test("migration files are strictly sequenced without gaps in numbering", () => {
   assert.ok(files.includes("045_app_users_role_rbac_align.sql"));
   assert.ok(files.includes("046_server_side_authorization.sql"));
   assert.ok(files.includes("047_security_hardening.sql"));
-  assert.equal(orders[orders.length - 1], 47);
+  assert.ok(files.includes("048_server_receipt_allocation.sql"));
+  assert.equal(orders[orders.length - 1], 48);
 });
 
 test("registry migrations match disk and validateDatabaseRegistry ok", () => {

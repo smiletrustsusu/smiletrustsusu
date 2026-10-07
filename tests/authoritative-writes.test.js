@@ -5,8 +5,9 @@
  * same-identity retry, and retries never duplicate a member, collection or ledger credit.
  *
  * The server is an in-memory stand-in with the semantics of the deployed RPCs:
- * upsert_customer_from_client (044 + 047 wrapper), record_collection_from_client (005 internal +
- * 047 wrapper), customers_account_no_uq, and collections unique on idempotency_key / receipt_no.
+ * upsert_customer_from_client (044 + 047 wrapper), record_collection_from_client (048 internal +
+ * 047 wrapper: the server allocates the receipt number and ignores the device's),
+ * customers_account_no_uq, and collections unique on idempotency_key / receipt_no.
  */
 import test, { beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -89,18 +90,31 @@ function fakeServer() {
     return { status: 200, body: { ok: true, customer_id: `uuid-${p.customer_client_id}`, business_id: "biz-uuid" } };
   }
 
+  // 048 st_allocate_receipt_no: prefix from the member's location in the database, business-wide counter.
+  function allocateReceipt(customerId) {
+    const member = server.load.customers.find((c) => c.id === customerId);
+    const code = server.load.groups.find((g) => g.id === member?.groupId)?.collectorCode || "";
+    const prefix = String(code).toUpperCase().replace(/[^A-Z0-9]/g, "") || "RCP";
+    let receipt;
+    do {
+      server.seq += 1;
+      receipt = `${prefix}-${String(server.seq).padStart(8, "0")}`;
+    } while (server.load.collections.some((c) => c.receiptNo === receipt));
+    return receipt;
+  }
+
   function recordCollection(p) {
     if (p.business_code !== BIZ) return refuse(403, "42501", "not a staff member of this business");
     if (Number(p.amount) < 0) return refuse(400, "22023", "amounts cannot be negative");
     const duplicate = server.load.collections.find((c) => c.idempotencyKey === p.idempotency_key);
-    if (duplicate) return { status: 200, body: { status: "duplicate", collection_id: `uuid-${duplicate.id}` } };
-    if (server.load.collections.some((c) => c.receiptNo === p.receipt_no)) return refuse(409, "23505", 'duplicate key value violates unique constraint "collections_business_id_receipt_no_key"');
+    if (duplicate) return { status: 200, body: { status: "duplicate", collection_id: `uuid-${duplicate.id}`, receipt_no: duplicate.receiptNo, business_id: "biz-uuid" } };
+    const receiptNo = allocateReceipt(p.customer_client_id);
     const collection = { id: p.client_id, customerId: p.customer_client_id, groupId: p.branch_client_id, userId: p.collector_client_id, collectorId: p.collector_client_id,
-      amount: Number(p.amount), amountPesewas: Number(p.amount_pesewas), date: p.collection_date, receiptNo: p.receipt_no, idempotencyKey: p.idempotency_key,
+      amount: Number(p.amount), amountPesewas: Number(p.amount_pesewas), date: p.collection_date, receiptNo, idempotencyKey: p.idempotency_key,
       paymentMethod: p.payment_method, paymentReference: p.payment_reference, verificationStatus: p.verification_status, reversed: false, createdAt: p.client_created_at };
     server.load.collections.push(collection);
-    if (collection.amount > 0) server.ledger.push({ collectionId: collection.id, customerId: collection.customerId, amount: collection.amount, direction: "credit" });
-    return { status: 200, body: { status: "recorded", collection_id: `uuid-${collection.id}`, business_id: "biz-uuid" } };
+    if (collection.amount > 0) server.ledger.push({ collectionId: collection.id, customerId: collection.customerId, amount: collection.amount, direction: "credit", receiptNo });
+    return { status: 200, body: { status: "recorded", collection_id: `uuid-${collection.id}`, receipt_no: receiptNo, business_id: "biz-uuid" } };
   }
 
   globalThis.fetch = async (input, options = {}) => {
@@ -153,8 +167,9 @@ function uatCustomer(n, extra = {}) {
   return { id: `cust-uat-${no}`, accountNo: `acc000${no}`, name: `UAT CUSTOMER ${no}`, phone: "", groupId: "demo-branch-accra", collectorId: "demo-user-kwame", ...extra };
 }
 
+/** A collection as handleCollection builds it in authoritative mode: no receipt number, only a pending reference. */
 function collectionFor(customerId, amount, n = 1, extra = {}) {
-  return { id: `col-uat-${n}`, idempotencyKey: `device-1:col-uat-${n}:2026-10-06T10:00:0${n}.000Z`, receiptNo: `ACC-0000000${n}`, paymentNo: `ACC-0000000${n}`,
+  return { id: `col-uat-${n}`, idempotencyKey: `device-1:col-uat-${n}:2026-10-06T10:00:0${n}.000Z`, receiptNo: "", paymentNo: "", pendingReference: `PENDING-COLUAT${n}`, temporaryReceiptNo: "",
     customerId, groupId: "demo-branch-accra", collectorId: "demo-user-kwame", userId: "demo-user-john", amount, amountPesewas: Math.round(amount * 100),
     date: "2026-10-06", paymentMethod: "Cash", paymentReference: "", verificationStatus: "Verified", reversed: false, createdAt: "2026-10-06T10:00:00.000Z", ...extra };
 }
@@ -268,8 +283,10 @@ test("7: relational success records one collection and exactly one ledger credit
   const result = await submitCollectionAuthoritatively(state, collectionFor(customer.id, 10));
   assert.equal(result.status, "recorded");
   assert.equal(server.load.collections.length, 1);
-  assert.deepEqual(server.ledger, [{ collectionId: "col-uat-1", customerId: customer.id, amount: 10, direction: "credit" }]);
+  assert.deepEqual(server.ledger, [{ collectionId: "col-uat-1", customerId: customer.id, amount: 10, direction: "credit", receiptNo: "ACC-00000001" }]);
+  assert.equal(result.receiptNo, "ACC-00000001", "the server's receipt number is returned");
   const [call] = rpcCalls(server, "record_collection_from_client");
+  assert.equal("receipt_no" in call.body.payload, false, "no receipt number is sent for a new collection");
   assert.equal(call.body.payload.idempotency_key, collectionFor(customer.id, 10).idempotencyKey);
   assert.equal(call.body.payload.account_no, "acc000001");
   assert.equal(call.body.payload.amount_pesewas, 1000);
@@ -300,7 +317,7 @@ test("10: a member, location or collector the database does not hold is refused 
   await assert.rejects(submitCollectionAuthoritatively(state, collectionFor(customer.id, 10, 3, { collectorId: "old-collector" })), fails(WRITE_REJECTED, /collector is not in the database/));
   assert.equal(rpcCalls(server, "record_collection_from_client").length, 0);
   server.next.record_collection_from_client = [{ status: 409, body: { code: "23505", message: "duplicate key" } }];
-  await assert.rejects(submitCollectionAuthoritatively(state, collectionFor(customer.id, 10, 4)), fails(WRITE_REJECTED, /already holds a collection with receipt ACC-00000004/));
+  await assert.rejects(submitCollectionAuthoritatively(state, collectionFor(customer.id, 10, 4)), fails(WRITE_REJECTED, /refused a conflicting record \(nothing was recorded\)/));
   assert.deepEqual([server.load.collections.length, server.ledger.length], [0, 0]);
 });
 
@@ -358,7 +375,10 @@ test("13: an unconfirmed collection is held unposted with its original identity,
   await submitCollectionAuthoritatively(state, held);
   const sent = rpcCalls(server, "record_collection_from_client").map((c) => c.body.payload);
   assert.equal(sent.length, 2);
-  assert.deepEqual([sent[1].idempotency_key, sent[1].client_id, sent[1].receipt_no], [sent[0].idempotency_key, sent[0].client_id, sent[0].receipt_no]);
+  assert.deepEqual([sent[1].idempotency_key, sent[1].client_id], [sent[0].idempotency_key, sent[0].client_id]);
+  assert.ok(sent.every((p) => !("receipt_no" in p)), "neither attempt sends a receipt number");
+  assert.equal(writes.collectionsAwaitingConfirmation(state)[0].pendingReference, "PENDING-COLUAT1");
+  assert.equal(writes.collectionsAwaitingConfirmation(state)[0].receiptNo, "");
   writes.releaseCollectionConfirmation(state, collection.id);
   assert.deepEqual(writes.collectionsAwaitingConfirmation(state), []);
   assert.equal(server.ledger.length, 1);
@@ -691,6 +711,156 @@ test("B (blocker, documented): electronic payment verification has no server-aut
   assert.match(m047, /foreach t in array array\['collections', 'ledger_entries',[\s\S]{0,1200}?revoke insert, update, delete, truncate on public\.%I from anon, authenticated/, "clients cannot update collections");
   const all = fs.readdirSync(new URL("../supabase/migrations/", import.meta.url)).filter((f) => f.endsWith(".sql")).map(read).join("\n");
   assert.doesNotMatch(all, /create or replace function public\.verify_[a-z_]*collection|create or replace function public\.[a-z_]*verify_payment/, "no verification RPC exists yet");
+});
+
+// ------------------------------------------------------------------------------------------ server receipt numbers (048)
+
+test("R1: a pending reference is clearly not a receipt and is never sent as one", () => {
+  assert.equal(writes.pendingCollectionReference("col-1a2b3c4d5e6f"), "PENDING-3C4D5E6F");
+  assert.match(writes.pendingCollectionReference("col-uat-1"), /^PENDING-[A-Z0-9]{1,8}$/);
+  assert.equal(writes.PENDING_REFERENCE_LABEL, "Pending reference — not a receipt");
+  assert.equal(writes.isPendingReference("PENDING-ABC"), true);
+  assert.equal(writes.isPendingReference("ACC-00000001"), false);
+  const pending = collectionFor(REAL_CUSTOMER.id, 5);
+  assert.equal("receipt_no" in writes.collectionRpcPayload(state, pending, BIZ), false);
+  assert.equal("receipt_no" in writes.collectionRpcPayload(state, { ...pending, receiptNo: "PENDING-COLUAT1", paymentNo: "PENDING-COLUAT1" }, BIZ), false,
+    "a pending reference is never sent as a receipt number");
+});
+
+test("R2: a confirmed collection adopts the server's receipt; collection, ledger credit and reply carry the same number", async () => {
+  const customer = await registered();
+  const collection = collectionFor(customer.id, 15);
+  const result = await submitCollectionAuthoritatively(state, collection);
+  assert.deepEqual([result.status, result.receiptNo], ["recorded", "ACC-00000001"]);
+  assert.equal(writes.adoptServerReceipt(collection, result), "ACC-00000001");
+  assert.deepEqual([collection.receiptNo, collection.paymentNo, collection.temporaryReceiptNo, "pendingReference" in collection], ["ACC-00000001", "ACC-00000001", "", false]);
+  assert.equal(server.load.collections[0].receiptNo, collection.receiptNo);
+  assert.equal(server.ledger[0].receiptNo, collection.receiptNo);
+});
+
+test("R3: two devices recording at the same time receive different server receipts", async () => {
+  const customer = await registered();
+  const deviceB = structuredClone(state);
+  const [a, b] = await Promise.all([
+    submitCollectionAuthoritatively(state, collectionFor(customer.id, 10, 1)),
+    submitCollectionAuthoritatively(deviceB, { ...collectionFor(customer.id, 10, 2), idempotencyKey: "device-2:col-uat-2" })
+  ]);
+  assert.notEqual(a.receiptNo, b.receiptNo);
+  assert.deepEqual(server.load.collections.map((c) => c.receiptNo).sort(), [a.receiptNo, b.receiptNo].sort());
+});
+
+test("R4: commit, lost reply, retry: the retry adopts the original receipt (database check or server duplicate); one collection, one credit", async () => {
+  const customer = await registered();
+  const collection = collectionFor(customer.id, 40);
+  server.next.record_collection_from_client = ["commit-then-drop"];
+  await assert.rejects(submitCollectionAuthoritatively(state, collection), fails(WRITE_UNCONFIRMED));
+  writes.holdCollectionForConfirmation(state, collection, "no answer");
+  assert.equal(collection.receiptNo, "", "nothing was adopted while unconfirmed");
+  const original = server.load.collections[0].receiptNo;
+
+  const viaCheck = await submitCollectionAuthoritatively(state, collection);
+  assert.deepEqual([viaCheck.status, viaCheck.receiptNo], ["duplicate", original]);
+  server.next.fetch_business_snapshot = [{ status: 200, body: { ...structuredClone(server.load), collections: [] } }];
+  const viaServer = await submitCollectionAuthoritatively(state, collection);
+  assert.deepEqual([viaServer.status, viaServer.receiptNo], ["duplicate", original]);
+  writes.adoptServerReceipt(collection, viaServer);
+  assert.equal(collection.receiptNo, original);
+  assert.deepEqual([server.load.collections.length, server.ledger.length, server.seq], [1, 1, 1], "one collection, one ledger credit, one receipt allocated");
+});
+
+test("R5: a reply without a usable receipt (e.g. a server before 048) is unconfirmed and nothing is adopted or posted", async () => {
+  const customer = await registered();
+  const collection = collectionFor(customer.id, 10);
+  server.next.record_collection_from_client = [{ status: 200, body: { status: "recorded", collection_id: "uuid-x" } }];
+  await assert.rejects(submitCollectionAuthoritatively(state, collection), fails(WRITE_UNCONFIRMED, /did not include the receipt number/));
+  server.next.record_collection_from_client = [{ status: 200, body: { status: "recorded", collection_id: "uuid-x", receipt_no: "PENDING-X" } }];
+  await assert.rejects(submitCollectionAuthoritatively(state, collection), fails(WRITE_UNCONFIRMED, /did not include the receipt number/));
+  for (const bad of [{}, { receiptNo: "" }, { receiptNo: "PENDING-COLUAT1" }]) {
+    assert.throws(() => writes.adoptServerReceipt(collection, bad), fails(WRITE_UNCONFIRMED));
+  }
+  assert.deepEqual([collection.receiptNo, collection.pendingReference], ["", "PENDING-COLUAT1"], "a failed adoption changes nothing");
+  assert.deepEqual(state.collections, []);
+  assert.deepEqual(state.ledgerEntries, []);
+});
+
+test("R6: an old client's device receipt is not authoritative: the server answers with its own number", async () => {
+  const customer = await registered();
+  const old = collectionFor(customer.id, 10, 1, { receiptNo: "ACC-00000099", paymentNo: "ACC-00000099", pendingReference: undefined });
+  const result = await submitCollectionAuthoritatively(state, old);
+  assert.equal(rpcCalls(server, "record_collection_from_client")[0].body.payload.receipt_no, "ACC-00000099", "an old device still sends its number");
+  assert.equal(result.receiptNo, "ACC-00000001", "the server ignores it");
+  writes.adoptServerReceipt(old, result);
+  assert.equal(old.receiptNo, "ACC-00000001");
+});
+
+test("R7: offline: held unposted under its pending reference; on reconnect the same identity gets the server receipt", async () => {
+  const customer = await registered();
+  const collection = collectionFor(customer.id, 12);
+  writes.holdCollectionForConfirmation(state, collection, "recorded while offline");
+  const [held] = writes.collectionsAwaitingConfirmation(state);
+  assert.deepEqual([held.pendingReference, held.receiptNo], ["PENDING-COLUAT1", ""]);
+  assert.equal(rpcCalls(server, "record_collection_from_client").length, 0);
+  assert.deepEqual(state.ledgerEntries, []);
+  const result = await submitCollectionAuthoritatively(state, held.collection);
+  assert.equal(rpcCalls(server, "record_collection_from_client")[0].body.payload.idempotency_key, collection.idempotencyKey);
+  assert.equal(result.receiptNo, "ACC-00000001");
+});
+
+test("R8: the app posts, audits, prints, messages and announces only with the adopted server receipt", () => {
+  const collection = fn("handleCollection");
+  assert.match(collection, /const receiptNo = authoritative \? "" : buildReceiptNo\(/, "no device receipt number in authoritative mode");
+  assert.match(collection, /authoritative \? \{ pendingReference: pendingCollectionReference\(collectionId\) \}/);
+  assert.match(collection, /temporaryReceiptNo: navigator\.onLine \|\| authoritative \? "" : receiptNo/);
+  assert.doesNotMatch(collection.slice(0, collection.indexOf("await recordCollectionAuthoritatively")), /awaiting\.receiptNo/);
+
+  const finalize = fn("finalizeConfirmedCollection");
+  const adopt = finalize.indexOf("adoptServerReceipt(collection, result)");
+  assert.ok(adopt > 0);
+  for (const consumer of ["state.collections.push(collection)", "postDoubleEntry(", "logAudit(", "completeIdempotentRequest(", "deliverCustomerMessage(",
+    "rememberCollectionSuccess(", "afterCollectionSaved(", "queueNotification(", "Collection recorded. Receipt"]) {
+    assert.ok(finalize.indexOf(consumer) > adopt, `${consumer} comes after the server receipt is adopted`);
+  }
+  const failure = finalize.slice(adopt, finalize.indexOf("releaseCollectionConfirmation"));
+  assert.match(failure, /catch \(error\)[\s\S]*holdCollectionForConfirmation[\s\S]*return;/, "no usable receipt: held, nothing posted");
+  assert.doesNotMatch(failure, /postDoubleEntry|state\.collections\.push/);
+
+  for (const name of ["recordCollectionAuthoritatively", "confirmHeldCollection", "renderCollectionsAwaitingConfirmation"]) {
+    assert.doesNotMatch(fn(name), /Receipt \$\{|\.receiptNo\)/, `${name} never shows a pending collection as a receipt`);
+  }
+  assert.match(fn("renderCollectionsAwaitingConfirmation"), /PENDING_REFERENCE_LABEL[\s\S]*heldReference\(item\)/);
+  assert.match(fn("printCollectionReceipt"), /receiptNo: collection\.receiptNo \|\| collection\.paymentNo/, "print reads the (server) receipt of a posted collection");
+});
+
+test("R9: reports, search and the canonical snapshot show server receipts only, never a pending reference", async () => {
+  const { runReport } = await import("../src/core/report-ops.js");
+  const customer = await registered();
+  const collection = collectionFor(customer.id, 20);
+  const result = await submitCollectionAuthoritatively(state, collection);
+  writes.adoptServerReceipt(collection, result);
+  const posted = { ...state, collections: [collection], transactions: [{ id: collection.id, customerId: customer.id, receiptNo: collection.receiptNo, type: "Susu Deposit", amount: 20 }] };
+  const report = runReport(posted, "collections_daily", { user: { id: "demo-user-john", role: "SystemOwner", systemOwner: true } });
+  assert.ok(!report.error, report.error);
+  assert.deepEqual(report.rows.map((r) => r.receiptNo), ["ACC-00000001"]);
+  const { searchRecords } = await import("../src/core/report-ops.js");
+  assert.deepEqual(searchRecords(posted, "ACC-00000001", { id: "demo-user-john", role: "SystemOwner", systemOwner: true }).transactions.map((t) => t.id), [collection.id]);
+  assert.deepEqual(searchRecords(posted, "PENDING", { id: "demo-user-john", role: "SystemOwner", systemOwner: true }).transactions, []);
+
+  server.snapshot = cloudRow(relationalLoad());
+  App.state = structuredClone(state);
+  App.syncBusy = false;
+  await cloud.pushCloudBackup(false);
+  const snap = server.snapshot.payload.collections;
+  assert.deepEqual(snap.map((c) => c.receiptNo), ["ACC-00000001"], "the snapshot carries the database's receipt");
+  assert.doesNotMatch(JSON.stringify(server.snapshot.payload), /PENDING-/);
+});
+
+test("R10: existing behaviour intact: retries never duplicate, refusals post nothing, the idempotency key is unchanged by receipts", async () => {
+  const customer = await registered();
+  const collection = collectionFor(customer.id, 30);
+  const first = await submitCollectionAuthoritatively(state, collection);
+  const second = await submitCollectionAuthoritatively(state, { ...collection, receiptNo: "ACC-00000077", paymentNo: "ACC-00000077" });
+  assert.deepEqual([first.status, second.status, second.receiptNo], ["recorded", "duplicate", first.receiptNo], "a different device receipt cannot bypass idempotency");
+  assert.deepEqual([server.load.collections.length, server.ledger.length], [1, 1]);
 });
 
 test("T: the www mirror of the module is the source (checked when present)", () => {

@@ -193,7 +193,10 @@ import {
   collectionsAwaitingConfirmation,
   holdCollectionForConfirmation,
   releaseCollectionConfirmation,
-  collectionAwaitingConfirmationFor
+  collectionAwaitingConfirmationFor,
+  adoptServerReceipt,
+  pendingCollectionReference,
+  PENDING_REFERENCE_LABEL
 } from "./src/sync/authoritative-writes.js";
 import { backendTransitionNotice, enforceBackendIdentity, takeQuarantineNotice } from "./src/core/backend-guard.js";
 import { adoptCloudVerifiedUser } from "./src/core/cloud-user-adoption.js";
@@ -6576,20 +6579,25 @@ function collectionCardForCustomer(customer) {
   });
 }
 
+/** Held collections are identified only by their pending reference, never by a device receipt number. */
+function heldReference(entry) {
+  return entry?.pendingReference || entry?.collection?.pendingReference || pendingCollectionReference(entry?.id || entry?.collection?.id);
+}
+
 function renderCollectionsAwaitingConfirmation() {
   const held = collectionsAwaitingConfirmation(state).filter((item) => visibleGroupIds().includes(item.collection?.groupId));
   if (!held.length) return "";
   return `
     <div class="panel">
       <div class="section-title"><h2>Collections awaiting server confirmation</h2></div>
-      <div class="notice warn">These were NOT confirmed by the server. They are not counted in any balance. Do not record them again: confirm them, and the server returns the original if it already holds it.</div>
+      <div class="notice warn">These were NOT confirmed by the server. They are not counted in any balance and have no receipt number yet: do not print or quote the pending reference as a receipt. Do not record them again: confirm them, and the server returns the original (with its receipt number) if it already holds it.</div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Receipt</th><th>Customer</th><th>Amount</th><th>Held since</th><th>Last result</th><th></th></tr></thead>
+          <thead><tr><th>${escapeHtml(PENDING_REFERENCE_LABEL)}</th><th>Customer</th><th>Amount</th><th>Held since</th><th>Last result</th><th></th></tr></thead>
           <tbody>
             ${held.map((item) => `
               <tr>
-                <td>${escapeHtml(item.receiptNo)}</td>
+                <td>${escapeHtml(heldReference(item))}</td>
                 <td>${escapeHtml(customerName(item.customerId))}</td>
                 <td>${money(item.amount)}</td>
                 <td>${escapeHtml(String(item.heldAt || "").slice(0, 16).replace("T", " "))}</td>
@@ -14434,7 +14442,7 @@ async function handleCollection(event) {
   const authoritative = authoritativeWritesEnabled(state);
   const awaiting = authoritative ? collectionAwaitingConfirmationFor(state, customer.id) : null;
   if (awaiting) {
-    toast(`A collection for ${customer.name} (receipt ${awaiting.receiptNo}) is still awaiting server confirmation. Confirm it on the Collections screen before recording another.`);
+    toast(`A collection for ${customer.name} (pending reference ${heldReference(awaiting)}, not a receipt) is still awaiting server confirmation. Confirm it on the Collections screen before recording another.`);
     return;
   }
   const paymentMethod = data.paymentMethod || "Cash";
@@ -14574,10 +14582,13 @@ async function handleCollection(event) {
       return;
     }
   }
-  const receiptNo = buildReceiptNo(state, group?.collectorCode || collectorCodeForGroup(customer.groupId));
+  const collectionId = uid("col");
+  // Authoritative mode: the database allocates the receipt number (migration 048).
+  const receiptNo = authoritative ? "" : buildReceiptNo(state, group?.collectorCode || collectorCodeForGroup(customer.groupId));
   const paymentNo = receiptNo;
   const collection = {
-    id: uid("col"),
+    id: collectionId,
+    ...(authoritative ? { pendingReference: pendingCollectionReference(collectionId) } : {}),
     paymentNo,
     receiptNo,
     idempotencyKey,
@@ -14610,7 +14621,7 @@ async function handleCollection(event) {
     signature: String(data.signature || "").trim(),
     syncStatus: navigator.onLine ? "Synced" : "Pending",
     offline: !navigator.onLine,
-    temporaryReceiptNo: navigator.onLine ? "" : receiptNo,
+    temporaryReceiptNo: navigator.onLine || authoritative ? "" : receiptNo,
     createdAt: new Date().toISOString(),
     serverCreatedAt: new Date().toISOString()
   };
@@ -14772,7 +14783,7 @@ async function recordCollectionAuthoritatively(collection, customer, form) {
   };
   if (!navigator.onLine) {
     hold("recorded while offline");
-    toast(`Collection NOT recorded yet: this device is offline. Receipt ${collection.receiptNo} is held on this device, awaiting server confirmation, and is not counted in any balance. Do not record it again.`);
+    toast(`Collection NOT recorded yet: this device is offline. It is held on this device as pending reference ${heldReference(collection)} (not a receipt; the receipt number comes from the server), awaiting server confirmation, and is not counted in any balance. Do not record it again.`);
     if (!silent) render();
     return false;
   }
@@ -14784,7 +14795,7 @@ async function recordCollectionAuthoritatively(collection, customer, form) {
   } catch (error) {
     if (error?.code === WRITE_UNCONFIRMED) {
       hold(error.message);
-      toast(`Collection NOT confirmed: ${error.message}. Receipt ${collection.receiptNo} is held, awaiting server confirmation, and is not counted in any balance. Do not record it again; use "Confirm with server" on the Collections screen.`);
+      toast(`Collection NOT confirmed: ${error.message}. Pending reference ${heldReference(collection)} (not a receipt) is held, awaiting server confirmation, and is not counted in any balance. Do not record it again; use "Confirm with server" on the Collections screen.`);
     } else {
       failIdempotentRequest(state, collection.idempotencyKey, { recoverable: false, error: error?.message || "Refused" });
       saveState();
@@ -14798,6 +14809,15 @@ async function recordCollectionAuthoritatively(collection, customer, form) {
 }
 
 function finalizeConfirmedCollection(collection, customer, result, { silent = false } = {}) {
+  try {
+    adoptServerReceipt(collection, result);
+  } catch (error) {
+    holdCollectionForConfirmation(state, collection, error.message);
+    saveState();
+    toast(`Collection NOT confirmed: ${error.message}. Pending reference ${heldReference(collection)} (not a receipt) stays held; nothing was posted.`);
+    if (!silent) render();
+    return;
+  }
   releaseCollectionConfirmation(state, collection.id);
   (state.offlineQueue || []).forEach((entry) => {
     if (entry.kind === "collection" && entry.idempotencyKey === collection.idempotencyKey && entry.status === "pending") {
@@ -14899,7 +14919,7 @@ async function confirmHeldCollection(id, { quiet = false } = {}) {
     if (error?.code === WRITE_UNCONFIRMED || !(error?.status >= 400)) {
       holdCollectionForConfirmation(state, collection, error?.message || "not confirmed");
       saveState();
-      if (!quiet) toast(`Receipt ${entry.receiptNo} is still not confirmed: ${error?.message || "no answer"}. It stays held; nothing was posted.`);
+      if (!quiet) toast(`Pending reference ${heldReference(entry)} (not a receipt) is still not confirmed: ${error?.message || "no answer"}. It stays held; nothing was posted.`);
     } else {
       releaseCollectionConfirmation(state, id);
       failIdempotentRequest(state, collection.idempotencyKey, { recoverable: false, error: error.message });
@@ -14910,7 +14930,7 @@ async function confirmHeldCollection(id, { quiet = false } = {}) {
         }
       });
       saveState();
-      toast(`Receipt ${entry.receiptNo} was NOT recorded: ${error.message}. It was removed from the awaiting list; nothing was posted.`);
+      toast(`Pending reference ${heldReference(entry)} was NOT recorded: ${error.message}. It was removed from the awaiting list; nothing was posted.`);
     }
   }
   if (!quiet) render();
