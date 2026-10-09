@@ -330,7 +330,7 @@ test("dry run and write are the same statement except for the mode; the removal 
 
 test("the evidence export is read-only, prompts for the password itself, and never prints the payload", () => {
   assert.match(EXPORT_PS1, /begin transaction read only;/);
-  assert.match(EXPORT_PS1, /\nrollback;\n/);
+  assert.match(EXPORT_PS1, /\r?\nrollback;\r?\n/);
   assert.doesNotMatch(EXPORT_PS1.replace(/^#.*$/gm, ""), /\b(insert|update|delete|truncate|drop|alter|create|grant)\s/i);
   assert.match(EXPORT_PS1, /Remove-Item Env:PGPASSWORD/);
   assert.doesNotMatch(EXPORT_PS1, /\$env:PGPASSWORD\s*=/);

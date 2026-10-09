@@ -26,7 +26,8 @@ async function callStaffLogin(state, body, { fetchImpl = globalThis.fetch, timeo
   try {
     response = await fetchImpl(url, {
       method: "POST",
-      headers: supabaseKeyHeaders(key),
+      // The function's CORS allow-list has no write-protocol header; it writes with its own service key.
+      headers: supabaseKeyHeaders(key, { protocol: false }),
       body: JSON.stringify({ business_code: resolveBusinessId(state), ...body }),
       signal: controller?.signal
     });

@@ -1,4 +1,4 @@
-const CACHE_NAME = "smile-trust-susu-offline-v2";
+const CACHE_NAME = "smile-trust-susu-offline-048-v1";
 const ASSETS = [
   "./",
   "./index.html",

@@ -54,7 +54,11 @@ async function expectDenied(promise, label) {
 
 function run(claims, sql, params) {
   const role = claims?.role === "anon" ? "anon" : "authenticated";
-  return db.asRole(role, claims, (client) => client.query(sql, params));
+  return db.asRole(role, claims, async (client) => {
+    // Current clients declare compatibility; separate tests exercise stale requests.
+    await client.query("select set_config('request.headers', $1, true)", [JSON.stringify({"x-smile-write-protocol": "048-v1"})]);
+    return client.query(sql, params);
+  });
 }
 
 before(async () => {
@@ -305,4 +309,15 @@ test("a staff PIN reset in the app overrides an older portal PIN", async (t) => 
   await db.query("update public.smile_trust_cloud_snapshots set payload = $2, saved_at = now() where business_id = $1", [BIZ_A, JSON.stringify(payload)]);
   const reset = await run(anonClaims, "select public.portal_login($1, 'c13000001', '8642') as r", [BIZ_A]);
   assert.equal(reset.rows[0].r.ok, true);
+});
+
+
+test("048 refuses an unmarked portal login before issuing a session", async t => {
+  if (skip()) return t.skip("local database unavailable");
+  const before = (await db.query("select count(*)::int as n from public.st_portal_sessions")).rows[0].n;
+  await assert.rejects(db.asRole("anon", anonClaims, async client => {
+    await client.query("select set_config('request.headers', '{}', true)");
+    await client.query("select public.portal_login($1, 'c13000001', '8642')", [BIZ_A]);
+  }), /unsupported write protocol/);
+  assert.equal((await db.query("select count(*)::int as n from public.st_portal_sessions")).rows[0].n, before);
 });

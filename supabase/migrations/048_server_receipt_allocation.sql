@@ -257,4 +257,34 @@ end $$;
 comment on function public.st_internal_allocate_receipt_no(uuid, text) is
   'Migration 048: allocates the next collection receipt number for a business (server-internal; not client-callable).';
 
+
+-- 048 write protocol fence. Headers are compatibility declarations, never authorization.
+-- Statement triggers cover RPC SECURITY DEFINER writes, direct REST DML, snapshot writes,
+-- deletes and zero-row statements. Missing/unknown headers fail before any mutation.
+create or replace function public.st_guard_client_write_protocol()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_headers jsonb;
+begin
+  if public.st_is_trusted_session() then return null; end if;
+  begin
+    v_headers := coalesce(nullif(current_setting('request.headers', true), ''), '{}')::jsonb;
+  exception when others then
+    raise exception 'Update Smile Trust before syncing: unsupported write protocol' using errcode = '42501';
+  end;
+  if coalesce(v_headers->>'x-smile-write-protocol', '') <> '048-v1' then
+    raise exception 'Update Smile Trust before syncing: unsupported write protocol (requires 048-v1)' using errcode = '42501';
+  end if;
+  return null;
+end;
+$$;
+revoke all on function public.st_guard_client_write_protocol() from public, anon, authenticated;
+do $$
+declare t record;
+begin
+  for t in select tablename from pg_tables where schemaname = 'public' loop
+    execute format('drop trigger if exists st_client_write_protocol on public.%I', t.tablename);
+    execute format('create trigger st_client_write_protocol before insert or update or delete or truncate on public.%I for each statement execute function public.st_guard_client_write_protocol()', t.tablename);
+  end loop;
+end $$;
+
 notify pgrst, 'reload schema';

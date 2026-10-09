@@ -74,7 +74,7 @@ test("a loaded server record is updated in place, duplicates dropped, real local
 });
 
 test("publishable keys go only in apikey; legacy anon keys and user tokens keep the bearer header", () => {
-  assert.deepEqual(supabaseKeyHeaders("sb_publishable_x"), { apikey: "sb_publishable_x", "Content-Type": "application/json" });
+  assert.deepEqual(supabaseKeyHeaders("sb_publishable_x"), { apikey: "sb_publishable_x", "x-smile-write-protocol": "048-v1", "Content-Type": "application/json" });
   assert.equal(supabaseKeyHeaders("sb_publishable_x", { bearer: "user-jwt" }).Authorization, "Bearer user-jwt");
   const legacy = fakeJwt({ role: "anon", ref: REF_A });
   assert.equal(supabaseKeyHeaders(legacy).Authorization, `Bearer ${legacy}`);

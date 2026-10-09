@@ -308,6 +308,19 @@ test("9: an authorization rejection posts nothing", async () => {
   assert.deepEqual([server.load.collections.length, server.ledger.length], [0, 0]);
 });
 
+test("9b: a write-protocol refusal keeps the item held on the device instead of dropping it", async () => {
+  const customer = await registered();
+  const refusal = { status: 403, body: { code: "42501", message: "Update Smile Trust before syncing: unsupported write protocol (requires 048-v1)" } };
+  server.next.record_collection_from_client = [refusal];
+  const error = await submitCollectionAuthoritatively(state, collectionFor(customer.id, 10)).catch((e) => e);
+  assert.equal(error.code, WRITE_UNCONFIRMED, "not a definitive refusal: app.js holds unconfirmed items");
+  assert.ok(!(error.status >= 400), "no HTTP refusal status, so confirmHeldCollection keeps the held item");
+  assert.match(error.message, /update Smile Trust before syncing; this item stays on the device/);
+  server.next.upsert_customer_from_client = [refusal];
+  await assert.rejects(registerCustomerAuthoritatively(state, uatCustomer(8)), fails(WRITE_UNCONFIRMED, /update Smile Trust/));
+  assert.deepEqual([server.load.collections.length, server.ledger.length], [0, 0]);
+});
+
 test("10: a member, location or collector the database does not hold is refused before sending (no server-side invention)", async () => {
   const deviceOnly = uatCustomer(9);
   state.customers.push(deviceOnly);

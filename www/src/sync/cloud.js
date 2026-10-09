@@ -60,7 +60,7 @@ function syncToken() {
 }
 
 function localHeaders(extra = {}) {
-  const headers = { "Content-Type": "application/json", ...extra };
+  const headers = { "Content-Type": "application/json", "x-smile-write-protocol": "048-v1", ...extra };
   const token = syncToken();
   if (token) headers.Authorization = `Bearer ${token}`;
   return headers;

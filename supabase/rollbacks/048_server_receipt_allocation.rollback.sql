@@ -1,3 +1,5 @@
+-- The 048 write-protocol fence intentionally remains installed during receipt rollback.
+-- Roll back clients only to a build that still sends 048-v1; removing the fence requires separate review.
 -- Rollback for 048_server_receipt_allocation.sql
 -- Restores the 047-era internal collection write (device-supplied receipt numbers) and the 047
 -- import wrapper, then drops the 048 allocator and helpers.

@@ -131,6 +131,11 @@ async function callProtectedRpc(state, name, body, { timeoutMs = DEFAULT_WRITE_T
   if (serverCode === "23505") {
     throw rejected(describeConflict ? describeConflict(message) : "the database already holds a conflicting record", { status: response.status, serverCode });
   }
+  // The server's write-protocol fence refuses before saving anything; the device must keep the item
+  // (held, retried after an update) instead of treating it as a definitive refusal and dropping it.
+  if (/unsupported write protocol/i.test(message)) {
+    throw unconfirmed(`update Smile Trust before syncing; this item stays on the device (${message})`, { serverCode, protocol: true });
+  }
   if (response.status === 401 || response.status === 403 || serverCode === "42501") {
     throw rejected(`the server refused this account${message ? `: ${message}` : ""}`, { status: response.status, serverCode });
   }

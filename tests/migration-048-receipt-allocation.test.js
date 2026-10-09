@@ -23,6 +23,7 @@ const YAW_CUSTOMER = "c-yaw-1";
 const LEGACY_RECEIPTS = ["ACC-00000041", "KW1-7", "SRV-12", "legacy receipt #9", "RCP-1700000000000"];
 const migration = (prefix) => migrationFiles().find((item) => item.name.startsWith(`${prefix}_`));
 const ROLLBACK = fs.readFileSync(path.join(root, "supabase", "rollbacks", "048_server_receipt_allocation.rollback.sql"), "utf8");
+const FENCE_REMOVAL = fs.readFileSync(path.join(root, "supabase", "rollbacks", "048_write_protocol_fence.emergency-removal.sql"), "utf8");
 const nowSec = () => Math.floor(Date.now() / 1000);
 
 let db;
@@ -42,7 +43,10 @@ const serviceClaims = { role: "service_role" };
 
 function run(claims, sql, params) {
   const role = claims?.role === "anon" ? "anon" : claims?.role === "service_role" ? "service_role" : "authenticated";
-  return db.asRole(role, claims, (client) => client.query(sql, params));
+  return db.asRole(role, claims, async (client) => {
+    await client.query("select set_config('request.headers', $1, true)", [JSON.stringify({"x-smile-write-protocol": "048-v1"})]);
+    return client.query(sql, params);
+  });
 }
 const record = async (claims, payload) => (await run(claims, "select public.record_collection_from_client($1) as r", [payload])).rows[0].r;
 
@@ -70,6 +74,7 @@ async function device(claims) {
   await client.connect();
   devices.push(client);
   await client.query("begin");
+  await client.query("select set_config('request.headers', $1, true)", [JSON.stringify({"x-smile-write-protocol": "048-v1"})]);
   await client.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify(claims)]);
   await client.query(`set local role ${claims.role === "service_role" ? "service_role" : "authenticated"}`);
   return {
@@ -182,7 +187,7 @@ test("allocator: not callable by clients, and the counter cannot be moved by the
   assert.equal(await counter(), 50);
 });
 
-test("a signed-in collector gets a server receipt; the device's receipt (old client) is ignored; collection and ledger match", async (t) => {
+test("a signed-in collector gets a server receipt; a compatibility-declared device's receipt is ignored; collection and ledger match", async (t) => {
   if (skip()) return t.skip("local database unavailable");
   const r = await record(session("kwame"), payload("k-1", { receipt_no: "ACC-00000001", payment_no: "EVIL-99999999", collector_code: "ZZZ" }));
   assert.deepEqual([r.status, r.receipt_no], ["recorded", "ACC-00000051"]);
@@ -200,7 +205,7 @@ test("the prefix comes from the member's branch in the database, never from the 
   assert.match(r.receipt_no, /^ACC-\d{8}$/, "the member's branch (ACC), not the branch the device named (KSI)");
 });
 
-test("old client: a device receipt that belongs to another collection cannot collide, overwrite it or bypass idempotency", async (t) => {
+test("compatible protocol: a device receipt that belongs to another collection cannot collide, overwrite it or bypass idempotency", async (t) => {
   if (skip()) return t.skip("local database unavailable");
   const [original] = await collectionsFor("k-1");
   const originalCredits = await creditsFor(original.id);
@@ -412,4 +417,67 @@ test("rollback restores 047 behaviour without renumbering or lowering anything; 
   const r = await record(session("kwame"), payload("reapplied"));
   assert.equal(r.receipt_no, "ACC-00005001");
   assert.deepEqual((await allReceipts()).filter((x) => before.some((b) => b.id === x.id)), before);
+});
+
+
+test("048 protocol fence denies stale clients atomically across all public tables", async (t) => {
+  if (skip()) return t.skip();
+  const before = await allReceipts();
+  const start = await counter();
+  for (const headers of ["", "{}", "not-json", '{"x-smile-write-protocol":"047"}', '{"x-smile-write-protocol":"999"}']) {
+    await expectDenied(db.asRole("authenticated", session("kwame"), async client => {
+      await client.query("select set_config('request.headers', $1, true)", [headers]);
+      await client.query("select public.record_collection_from_client($1)", [payload("stale-protocol")]);
+    }), "stale collection");
+  }
+  assert.deepEqual(await allReceipts(), before);
+  assert.equal(await counter(), start);
+  const tables = (await db.query("select tablename from pg_tables where schemaname = 'public'")).rows;
+  for (const {tablename} of tables) {
+    const trigger = (await db.query("select 1 from pg_trigger where tgrelid = $1::regclass and tgname = 'st_client_write_protocol' and tgenabled = 'O'", ['public.'+tablename])).rows;
+    assert.equal(trigger.length, 1, tablename + " has enabled fence");
+  }
+  await expectDenied(db.asRole("authenticated", session("john"), async client => {
+    await client.query("select set_config('request.headers', '{}', true)");
+    await client.query("delete from public.customers where false");
+  }), "zero-row direct DELETE");
+  await assert.rejects(db.asRole("authenticated", session("john"), async client => {
+    await client.query("select set_config('request.headers', '{}', true)");
+    await client.query("update public.smile_trust_cloud_snapshots set payload = payload where false");
+  }), /unsupported write protocol/);
+  // Reads need no protocol declaration.
+  const read = await db.asRole("authenticated", session("john"), async client => {
+    await client.query("select set_config('request.headers', '{}', true)");
+    return client.query("select count(*) from public.customers");
+  });
+  assert.ok(Number(read.rows[0].count) > 0);
+  // A declared compatible protocol still cannot bypass existing authorization.
+  await expectDenied(record(session("kwame", {business: OTHER}), payload("protocol-no-auth")), "wrong business");
+});
+
+test("emergency fence removal drops only the fence; re-applying 048 reinstalls it", async (t) => {
+  if (skip()) return t.skip("local database unavailable");
+  const fenced = async () => Number((await db.query(`select count(*) from pg_trigger g join pg_class c on c.oid = g.tgrelid
+    where c.relnamespace = 'public'::regnamespace and g.tgname = 'st_client_write_protocol' and g.tgenabled = 'O'`)).rows[0].count);
+  const unmarked = (claims, key) => db.asRole("authenticated", claims, async (client) => {
+    await client.query("select set_config('request.headers', '{}', true)");
+    return (await client.query("select public.record_collection_from_client($1) as r", [payload(key)])).rows[0].r;
+  });
+  const tables = Number((await db.query("select count(*) from pg_tables where schemaname = 'public'")).rows[0].count);
+  const before = await allReceipts();
+  const counted = await counter();
+
+  await db.query(FENCE_REMOVAL);
+  assert.equal(await fenced(), 0);
+  assert.equal((await db.query("select to_regprocedure('public.st_guard_client_write_protocol()') as f")).rows[0].f, null);
+  assert.notEqual((await db.query("select to_regprocedure('public.st_internal_allocate_receipt_no(uuid, text)') as f")).rows[0].f, null, "receipt allocation kept");
+  assert.equal(await counter(), counted);
+  assert.deepEqual(await allReceipts(), before, "no receipt changed");
+  const r = await unmarked(session("kwame"), "unmarked-after-removal");
+  assert.match(r.receipt_no, /^ACC-\d{8}$/, "unmarked writes are accepted again and still get a server receipt");
+  await expectDenied(unmarked(session("kwame", { business: OTHER }), "unmarked-wrong-business"), "047 authorization still applies");
+
+  await db.query(migration("048").sql);
+  assert.equal(await fenced(), tables, "re-applying 048 fences every public table again");
+  await expectDenied(unmarked(session("kwame"), "unmarked-after-reapply"), "fence restored");
 });

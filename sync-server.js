@@ -13,7 +13,7 @@ function send(res, status, body) {
   res.writeHead(status, {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Sync-Token",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Sync-Token, X-Smile-Write-Protocol",
     "Content-Type": "application/json"
   });
   res.end(JSON.stringify(body));
@@ -107,6 +107,10 @@ function createBackupServer(backupFile = defaultBackupFile, port = defaultPort, 
   }
 
   if (req.url === "/backup" && req.method === "POST") {
+    if (req.headers["x-smile-write-protocol"] !== "048-v1") {
+      send(res, 409, { error: "Update Smile Trust before syncing: unsupported write protocol (requires 048-v1)" });
+      return;
+    }
     let body = "";
     req.on("data", (chunk) => {
       body += chunk;
@@ -129,7 +133,7 @@ function createBackupServer(backupFile = defaultBackupFile, port = defaultPort, 
 }
 
 function startBackupServer(options = {}) {
-  const port = Number(options.port || defaultPort);
+  const port = Number(options.port ?? defaultPort);
   const backupFile = options.backupFile || defaultBackupFile;
   const host = options.host || defaultHost;
   const server = createBackupServer(backupFile, port, host);
